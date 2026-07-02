@@ -3,7 +3,9 @@ import { aiRegistry } from './registry';
 import { initAiModules } from './modules';
 import { rankTools, inferToolParams } from './localRouter';
 import { formatToolResult, getGreeting, getHelpMessage } from './responseFormatter';
-import { askOpenAi } from './llm/openaiProvider';
+import { askOpenAi, synthesizeToolResult } from './llm/openaiProvider';
+import { resolveHealthReadQuery } from './helpers/healthReadQuery';
+import { resolveNutritionProfileQuery } from './helpers/nutritionProfileQuery';
 import { resolveContextualTool, trimHistory } from './conversationContext';
 import {
   assistantAskedForStock,
@@ -22,6 +24,8 @@ import {
   tryAutoSaveFactFromMessage,
 } from './helpers/petBuddyMemory';
 import { inferPetNameParam } from './helpers/inferPetParam';
+import { toolRequiresLlmSynthesis } from './helpers/toolResponsePolicy';
+import { attachProductRecommendations } from './helpers/petBuddyProductRecommendations';
 import { extractCartAction } from './helpers/cartActions';
 import {
   inferExerciseParamsFromConversation,
@@ -67,12 +71,108 @@ async function executeTool(
   const result = await tool.execute(params, ctx);
   const module = aiRegistry.getAllModules().find((m) => m.tools.some((t) => t.name === tool.name));
   const formatted = formatToolResult(tool.name, result, module);
-  return {
+  const response: PetBuddyResponse = {
     message: formatted.message,
     toolsUsed: [tool.name],
     actionLink: formatted.actionLink,
     cartAction: extractCartAction(result),
   };
+  attachProductRecommendations(response, tool.name, result);
+  return response;
+}
+
+async function tryHandleNutritionProfileQuery(
+  message: string,
+  history: ConversationTurn[],
+  ctx: AiExecutionContext,
+): Promise<PetBuddyResponse | null> {
+  const resolved = resolveNutritionProfileQuery(message, history, ctx);
+  if (!resolved) return null;
+
+  const tool = aiRegistry.getTool(resolved.toolName);
+  if (!tool) return null;
+
+  const params = resolved.params;
+  const incomplete = getRegisterIncompletePrompt(tool.name, params, ctx);
+  if (incomplete) return { message: incomplete, toolsUsed: [] };
+
+  try {
+    const result = await tool.execute(params, ctx);
+    const data = result as Record<string, unknown>;
+    if (data?.error && data?.message) {
+      return { message: String(data.message), toolsUsed: [tool.name] };
+    }
+    return await synthesizeToolResult(message, history, ctx, tool.name, result);
+  } catch (err) {
+    console.warn('[PetBuddy] nutrition profile query failed:', err);
+    return null;
+  }
+}
+
+async function tryHandleHealthReadQuery(
+  message: string,
+  history: ConversationTurn[],
+  ctx: AiExecutionContext,
+): Promise<PetBuddyResponse | null> {
+  const healthRead = resolveHealthReadQuery(message, history, ctx);
+  if (!healthRead) return null;
+
+  const tool = aiRegistry.getTool(healthRead.toolName);
+  if (!tool) return null;
+
+  const params = {
+    ...inferToolParams(tool.name, message, history, ctx.userPetNames),
+    ...healthRead.params,
+  };
+  const incomplete = getRegisterIncompletePrompt(tool.name, params, ctx);
+  if (incomplete) {
+    return { message: incomplete, toolsUsed: [] };
+  }
+
+  try {
+    const result = await tool.execute(params, ctx);
+    const data = result as Record<string, unknown>;
+    if (data?.error && data?.message) {
+      return { message: String(data.message), toolsUsed: [tool.name] };
+    }
+    return await synthesizeToolResult(message, history, ctx, tool.name, result);
+  } catch (err) {
+    console.warn('[PetBuddy] health read failed:', err);
+    return null;
+  }
+}
+
+async function tryHandleContextualSynthesis(
+  message: string,
+  history: ConversationTurn[],
+  ctx: AiExecutionContext,
+): Promise<PetBuddyResponse | null> {
+  const contextual = resolveContextualTool(message, history, ctx);
+  if (!contextual || !toolRequiresLlmSynthesis(contextual.toolName)) return null;
+
+  const tool = aiRegistry.getTool(contextual.toolName);
+  if (!tool) return null;
+
+  const params = {
+    ...inferToolParams(tool.name, message, history, ctx.userPetNames),
+    ...contextual.params,
+  };
+  const incomplete = getRegisterIncompletePrompt(tool.name, params, ctx);
+  if (incomplete) {
+    return { message: incomplete, toolsUsed: [] };
+  }
+
+  try {
+    const result = await tool.execute(params, ctx);
+    const data = result as Record<string, unknown>;
+    if (data?.error && data?.message) {
+      return { message: String(data.message), toolsUsed: [tool.name] };
+    }
+    return await synthesizeToolResult(message, history, ctx, tool.name, result);
+  } catch (err) {
+    console.warn('[PetBuddy] contextual synthesis failed:', err);
+    return null;
+  }
 }
 
 async function routeLocally(
@@ -99,17 +199,23 @@ async function routeLocally(
   const exerciseFlow = await tryHandleExerciseRegisterFlow(trimmed, recentHistory, ctx);
   if (exerciseFlow) return exerciseFlow;
 
+  const healthRead = await tryHandleHealthReadQuery(trimmed, recentHistory, ctx);
+  if (healthRead) return healthRead;
+
+  const nutritionProfile = await tryHandleNutritionProfileQuery(trimmed, recentHistory, ctx);
+  if (nutritionProfile) return nutritionProfile;
+
   const contextual = resolveContextualTool(trimmed, recentHistory, ctx);
-  if (contextual) {
+  if (contextual && !toolRequiresLlmSynthesis(contextual.toolName)) {
     const tool = aiRegistry.getTool(contextual.toolName);
     if (tool) {
-      const params = { ...inferToolParams(tool.name, trimmed, recentHistory), ...contextual.params };
+      const params = { ...inferToolParams(tool.name, trimmed, recentHistory, ctx.userPetNames), ...contextual.params };
       return executeTool(tool, params, ctx);
     }
   }
 
   const tools = aiRegistry.getToolsForContext(ctx);
-  const ranked = rankTools(trimmed, tools, recentHistory);
+  const ranked = rankTools(trimmed, tools, recentHistory, ctx.userPetNames);
 
   if (ranked.length === 0) {
     return {
@@ -120,7 +226,23 @@ async function routeLocally(
   }
 
   const { tool } = ranked[0];
-  const params = inferToolParams(tool.name, trimmed, recentHistory);
+  const params = inferToolParams(tool.name, trimmed, recentHistory, ctx.userPetNames);
+  if (toolRequiresLlmSynthesis(tool.name)) {
+    const incomplete = getRegisterIncompletePrompt(tool.name, params, ctx);
+    if (incomplete) {
+      return { message: incomplete, toolsUsed: [] };
+    }
+    try {
+      const result = await tool.execute(params, ctx);
+      const data = result as Record<string, unknown>;
+      if (data?.error && data?.message) {
+        return { message: String(data.message), toolsUsed: [tool.name] };
+      }
+      return await synthesizeToolResult(trimmed, recentHistory, ctx, tool.name, result);
+    } catch {
+      return executeTool(tool, params, ctx);
+    }
+  }
   return executeTool(tool, params, ctx);
 }
 
@@ -165,6 +287,12 @@ export async function askPetBuddy(
 
   const exerciseFlow = await tryHandleExerciseRegisterFlow(trimmed, recentHistory, enrichedCtx);
   if (exerciseFlow) return exerciseFlow;
+
+  const healthRead = await tryHandleHealthReadQuery(trimmed, recentHistory, enrichedCtx);
+  if (healthRead) return healthRead;
+
+  const nutritionProfile = await tryHandleNutritionProfileQuery(trimmed, recentHistory, enrichedCtx);
+  if (nutritionProfile) return nutritionProfile;
 
   // User answered with stock after URL import preview
   if (assistantAskedForStock(recentHistory)) {
@@ -239,12 +367,15 @@ export async function askPetBuddy(
   }
 
   if (trimmed.length >= SUBSTANTIVE_MIN_LENGTH) {
+    const contextualSynthesis = await tryHandleContextualSynthesis(trimmed, recentHistory, enrichedCtx);
+    if (contextualSynthesis) return contextualSynthesis;
+
     const contextual = resolveContextualTool(trimmed, recentHistory, enrichedCtx);
-    if (contextual) {
+    if (contextual && !toolRequiresLlmSynthesis(contextual.toolName)) {
       const tool = aiRegistry.getTool(contextual.toolName);
       if (tool) {
         const params = {
-          ...inferToolParams(tool.name, trimmed, recentHistory),
+          ...inferToolParams(tool.name, trimmed, recentHistory, enrichedCtx.userPetNames),
           ...contextual.params,
         };
         return executeTool(tool, params, enrichedCtx);
@@ -318,7 +449,7 @@ async function tryHandleVeterinaryRegisterFlow(
   if (!isActiveVeterinaryRegisterFlow(history, trimmed)) return null;
 
   const params = inferVeterinaryVisitParamsFromConversation(history, trimmed);
-  const petName = inferPetNameParam(trimmed, history);
+  const petName = inferPetNameParam(trimmed, history, ctx.userPetNames);
   if (petName) params.pet_name = petName;
   else if (wantsAllPets(lower) && (ctx.userPetNames?.length ?? 0) <= 1) {
     params.pet_name = 'todos';

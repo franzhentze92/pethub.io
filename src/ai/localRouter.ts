@@ -1,7 +1,7 @@
 import type { AiToolDefinition, ConversationTurn } from './types';
 import { extractMentionedNames, getRecentTools } from './conversationContext';
 import { extractDateFromText, extractTimesFromText } from './helpers/nutritionSchedule';
-import { inferPetNameParam } from './helpers/inferPetParam';
+import { inferPetNameParam, inferUserPetNameFromMessage } from './helpers/inferPetParam';
 import { inferMarketplaceListParams } from './helpers/marketplaceSearch';
 import { inferAppointmentTypeFromText } from '@/lib/veterinaryTypes';
 import { matchVaccineSlugFromText } from '@/lib/vaccinationCatalog';
@@ -28,7 +28,8 @@ export function extractSearchQuery(message: string): string | undefined {
 export function rankTools(
   message: string,
   tools: AiToolDefinition[],
-  history: ConversationTurn[] = []
+  history: ConversationTurn[] = [],
+  userPetNames?: string[],
 ): { tool: AiToolDefinition; score: number }[] {
   const normalized = message.toLowerCase();
   const contextText = history
@@ -57,10 +58,32 @@ export function rankTools(
         score += 4;
       }
       if (
+        tool.name === 'pet_health_summary' &&
+        inferPetNameParam(message, history, userPetNames) &&
+        /\b(salud|bienestar|c[oó]mo est[aá]|como esta|estado de salud|resumen de salud|c[oó]mo va)\b/i.test(
+          contextText,
+        )
+      ) {
+        score += 32;
+      }
+      if (
         (normalized.includes('mis mascotas') || normalized.includes('mi mascota')) &&
         tool.name === 'pets_list_mine'
       ) {
         score += 12;
+      }
+      if (
+        tool.name === 'pets_list_mine' &&
+        (/\b(salud|bienestar|c[oó]mo est[aá]|como esta)\b/i.test(normalized) ||
+          /\b(salud|bienestar|c[oó]mo est[aá]|como esta)\b/i.test(contextText))
+      ) {
+        score -= 40;
+      }
+      if (
+        tool.name === 'pets_list_mine' &&
+        /^(sasha|shaggy|atis|max|luna|rocky|bella|coco|toby)$/i.test(normalized.trim())
+      ) {
+        score -= 35;
       }
       if (
         (/\b(registrar|registra|anota|guarda|guardar)\b/.test(normalized) &&
@@ -203,8 +226,19 @@ export function rankTools(
           normalized,
         )
       ) {
-        if (tool.name === 'pets_compare') score += 36;
-        if (tool.name === 'pet_health_summary') score -= 5;
+        const singlePetNutrient =
+          /\b(prote[ií]na|grasa|grasas|dieta|macro|vitamina|vitaminas|mineral|minerales|fibra|calcio|zinc|omega|calor[ií]a)\b/i.test(
+            normalized,
+          ) &&
+          (/\b(ideal|objetivo|suficiente|recomendad[oa]|comparaci[oó]n)\b/i.test(normalized) ||
+            Boolean(inferUserPetNameFromMessage(message, userPetNames)));
+        if (singlePetNutrient) {
+          if (tool.name === 'nutrition_analyze_diet') score += 42;
+          if (tool.name === 'pets_compare') score -= 28;
+        } else {
+          if (tool.name === 'pets_compare') score += 36;
+          if (tool.name === 'pet_health_summary') score -= 5;
+        }
       }
       if (
         (/\b(registrar|registra|anota|guarda|fui al|llev[eé] al)\b/i.test(normalized) &&
@@ -282,7 +316,8 @@ export function rankTools(
 export function inferToolParams(
   toolName: string,
   message: string,
-  history: ConversationTurn[] = []
+  history: ConversationTurn[] = [],
+  userPetNames?: string[],
 ): Record<string, unknown> {
   const q = extractSearchQuery(message);
   const normalized = message.toLowerCase();
@@ -337,7 +372,7 @@ export function inferToolParams(
       else if (/\b(juego|play)\b/i.test(message)) params.exercise_type = 'play';
       else if (/\b(nataci[oó]n|swim)\b/i.test(message)) params.exercise_type = 'swimming';
       else if (/\b(fetch|pelota)\b/i.test(message)) params.exercise_type = 'fetch';
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
@@ -351,7 +386,7 @@ export function inferToolParams(
       else if (/\b(almuerzo|lunch)\b/i.test(message)) params.meal_type = 'lunch';
       else if (/\b(cena|dinner)\b/i.test(message)) params.meal_type = 'dinner';
       else if (/\b(merienda|snack)\b/i.test(message)) params.meal_type = 'snack';
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
@@ -362,7 +397,7 @@ export function inferToolParams(
       if (times.length) params.times = times;
       const gramsMatch = message.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|gramos?)/i);
       if (gramsMatch) params.quantity_grams = Number(gramsMatch[1].replace(',', '.'));
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
@@ -391,7 +426,7 @@ export function inferToolParams(
       const daysMatch = message.match(/(\d+)\s*d[ií]as?\b/i);
       if (daysMatch) params.days = Number(daysMatch[1]);
       else if (/\btodas?\b/i.test(message) && !extractedDate) params.days = 7;
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
@@ -410,7 +445,7 @@ export function inferToolParams(
     }
     case 'veterinary_list_sessions': {
       const params: Record<string, unknown> = { limit: 10 };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       if (/\b(vacuna|vacunaci[oó]n)\b/i.test(message)) params.appointment_type = 'vacunacion';
       else if (/\b(emergencia)\b/i.test(message)) params.appointment_type = 'emergencia';
@@ -426,25 +461,25 @@ export function inferToolParams(
     }
     case 'veterinary_get_session': {
       const params: Record<string, unknown> = { most_recent: true };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
     case 'veterinary_vaccination_status': {
       const params: Record<string, unknown> = {};
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
     case 'veterinary_vaccination_schedule': {
       const params: Record<string, unknown> = {};
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
     case 'veterinary_spending_summary': {
       const params: Record<string, unknown> = { months: 12 };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       const monthsMatch = message.match(/(\d+)\s*mes(?:es)?\b/i);
       if (monthsMatch) params.months = Number(monthsMatch[1]);
@@ -456,7 +491,7 @@ export function inferToolParams(
       };
       if (/\bayer\b/i.test(message)) params.date = 'ayer';
       else if (/\bhoy\b/i.test(message)) params.date = 'hoy';
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       const costMatch = message.match(/(?:q\.?|quetzales?)\s*(\d+(?:[.,]\d+)?)/i) ?? message.match(/(\d+(?:[.,]\d+)?)\s*(?:q\.?|quetzales?)/i);
       if (costMatch) params.cost = Number(costMatch[1].replace(',', '.'));
@@ -473,7 +508,7 @@ export function inferToolParams(
       const params: Record<string, unknown> = {};
       if (/\bayer\b/i.test(message)) params.date = 'ayer';
       else if (/\bhoy\b/i.test(message)) params.date = 'hoy';
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       params.vaccine_slug = matchVaccineSlugFromText(message);
       const vetMatch = message.match(/(?:dr\.?|doctora?|veterinari[oa])\s+([a-záéíóúñ\s]+)/i);
@@ -486,7 +521,7 @@ export function inferToolParams(
     }
     case 'veterinary_set_follow_up': {
       const params: Record<string, unknown> = { use_latest_visit: true };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       const dateMatch = message.match(/(\d{4}-\d{2}-\d{2})/);
       if (dateMatch) params.follow_up_date = dateMatch[1];
@@ -494,7 +529,7 @@ export function inferToolParams(
     }
     case 'veterinary_analyze_document': {
       const params: Record<string, unknown> = { document_type: 'lab_results' };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       if (/\bfactura\b/i.test(message)) params.document_type = 'invoice';
       if (/\b(reanaliza|vuelve a analizar|reintentar)\b/i.test(message)) params.reparse = true;
@@ -502,7 +537,7 @@ export function inferToolParams(
     }
     case 'pet_health_summary': {
       const params: Record<string, unknown> = { days_back: 7 };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       const daysMatch = message.match(/(\d+)\s*d[ií]as?\b/i);
       if (daysMatch) params.days_back = Number(daysMatch[1]);
@@ -510,7 +545,7 @@ export function inferToolParams(
     }
     case 'pet_timeline': {
       const params: Record<string, unknown> = { days_back: 30 };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       const daysMatch = message.match(/(\d+)\s*d[ií]as?\b/i);
       if (daysMatch) params.days_back = Number(daysMatch[1]);
@@ -520,7 +555,7 @@ export function inferToolParams(
     }
     case 'pet_insights': {
       const params: Record<string, unknown> = { days_back: 30 };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       const daysMatch = message.match(/(\d+)\s*d[ií]as?\b/i);
       if (daysMatch) params.days_back = Number(daysMatch[1]);
@@ -528,13 +563,13 @@ export function inferToolParams(
     }
     case 'pets_compare': {
       const params: Record<string, unknown> = { pet_name: 'todos' };
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
     case 'memory_list_facts': {
       const params: Record<string, unknown> = {};
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       return params;
     }
@@ -544,7 +579,7 @@ export function inferToolParams(
         /\b(recuerda|recuerdas|no olvides|guarda que|anota que|memoriza)\b[:\s]+(.+)/i,
       );
       if (rememberMatch?.[2]) params.fact_text = rememberMatch[2].trim().replace(/[.!?]+$/, '');
-      const petName = inferPetNameParam(message, history);
+      const petName = inferPetNameParam(message, history, userPetNames);
       if (petName) params.pet_name = petName;
       if (/\b(al[eé]rgi|alergia)\b/i.test(message)) params.category = 'allergy';
       return params;

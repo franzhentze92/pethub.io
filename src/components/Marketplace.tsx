@@ -46,6 +46,10 @@ import { PetPhotoCarousel, PetPhotoThumbnails } from '@/components/mobile/PetPho
 import { getCatalogImageUrls } from '@/utils/catalogImages';
 import type { CarouselApi } from '@/components/ui/carousel';
 import {
+  categoryRequiresNutritionProfile,
+  formatGuaranteedAnalysis,
+} from '@/config/productNutrition';
+import {
   SUBSCRIPTION_INTERVALS,
   isProductSubscriptionEligible,
   type SubscriptionInterval,
@@ -151,6 +155,13 @@ interface ProviderProduct {
   average_rating?: number;
   review_count?: number;
   subscription_enabled?: boolean;
+  ingredients?: string | null;
+  nutrition_protein_pct?: number | null;
+  nutrition_fat_pct?: number | null;
+  nutrition_fiber_pct?: number | null;
+  nutrition_moisture_pct?: number | null;
+  nutrition_ash_pct?: number | null;
+  nutrition_calories_per_100g?: number | null;
   providers: MarketplaceProviderInfo;
 }
 
@@ -2051,6 +2062,31 @@ const Marketplace: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {'product_category' in selectedItem &&
+                  categoryRequiresNutritionProfile(selectedItem.product_category) &&
+                  (selectedItem.ingredients ||
+                    formatGuaranteedAnalysis(selectedItem as ProviderProduct)) && (
+                  <div className={detailsModalSectionClass}>
+                    <h4 className="font-semibold text-landing-aqua-dark mb-1.5 text-sm flex items-center gap-1.5">
+                      <Tag className="w-4 h-4" />
+                      Nutrición
+                    </h4>
+                    {formatGuaranteedAnalysis(selectedItem as ProviderProduct) && (
+                      <p className="text-sm text-gray-700 mb-2">
+                        {formatGuaranteedAnalysis(selectedItem as ProviderProduct)}
+                      </p>
+                    )}
+                    {selectedItem.ingredients && (
+                      <div>
+                        <p className="text-xs font-medium text-landing-aqua-dark mb-1">Ingredientes</p>
+                        <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">
+                          {selectedItem.ingredients}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Provider Information */}
                 <div>

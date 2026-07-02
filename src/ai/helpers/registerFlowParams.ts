@@ -2,6 +2,7 @@ import type { ConversationTurn } from '../types';
 import { extractTimesFromText } from './nutritionSchedule';
 import { inferPetNameParam } from './inferPetParam';
 import { wantsAllPets } from './petResolver';
+import { isNutritionQueryMessage } from './nutritionQuery';
 import { inferAppointmentTypeFromText } from '@/lib/veterinaryTypes';
 
 function conversationText(history: ConversationTurn[], message: string): string {
@@ -11,8 +12,9 @@ function conversationText(history: ConversationTurn[], message: string): string 
 export function assistantAskedWhichPet(history: ConversationTurn[]): boolean {
   return history.slice(-3).some((t) =>
     /¿Para cuál mascota/i.test(t.content) ||
+    /¿De cuál mascota/i.test(t.content) ||
     /Di "todos" para registrar/i.test(t.content) ||
-    /Tienes:/i.test(t.content) && /mascota/i.test(t.content),
+    (/Tienes:/i.test(t.content) && /mascota/i.test(t.content)),
   );
 }
 
@@ -299,6 +301,7 @@ function nutritionFlowCompletedAfter(history: ConversationTurn[], afterIndex: nu
 
 export function isActiveNutritionRegisterFlow(history: ConversationTurn[], message: string): boolean {
   const trimmed = message.trim();
+  if (isNutritionQueryMessage(trimmed)) return false;
   if (isExerciseRegisterMessage(trimmed) || isVeterinaryRegisterMessage(trimmed)) {
     return false;
   }

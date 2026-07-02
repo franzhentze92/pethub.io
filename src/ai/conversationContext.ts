@@ -3,6 +3,9 @@ import { extractDateFromText, extractTimesFromText } from './helpers/nutritionSc
 import { resolveMarketplaceIntent, wantsMarketplaceProducts, wantsMarketplaceServices } from './helpers/marketplaceSearch';
 import { inferPetNameParam } from './helpers/inferPetParam';
 import { wantsAllPets } from './helpers/petResolver';
+import { isNutritionReadIntent, mentionsNutritionTopic } from './helpers/nutritionIntent';
+import { isSinglePetNutrientIdealQuery } from './helpers/nutritionProfileQuery';
+import { resolveNutritionMarketplaceFollowUp } from './helpers/nutritionFollowUp';
 import {
   assistantAskedWhichPet,
   inferExerciseParamsFromConversation,
@@ -31,7 +34,7 @@ const ADOPTION_CONTEXT =
 const LOST_CONTEXT = /\b(perdida|perdido|perdidas|perdidos|extraviad|desaparecid|reportad)\b/i;
 const MARKETPLACE_CONTEXT = /\b(producto|productos|tienda|servicio|servicios|precio|comprar)\b/i;
 const NUTRITION_CONTEXT =
-  /\b(nutrici[oó]n|comida|alimentaci[oó]n|alimento|registrar comida|gramos|desayuno|cena|merienda|horario)\b/i;
+  /\b(nutrici[oó]n|comida|alimentaci[oó]n|alimento|prote[ií]na|grasa|grasas|dieta|macro|fibra|calor[ií]a|vitamina|vitaminas|mineral|minerales|omega|calcio|zinc|hierro|registrar comida|gramos|desayuno|cena|merienda|horario)\b/i;
 const EXERCISE_CONTEXT =
   /\b(ejercicio|actividad f[ií]sica|paseo|caminata|caminar|carrera|fetch|entrenamiento|trazabilidad|registrar ejercicio)\b/i;
 const VETERINARY_CONTEXT =
@@ -82,6 +85,7 @@ export function getRecentTools(history: ConversationTurn[]): string[] {
 
 export function getConversationTopic(history: ConversationTurn[]): 'adoption' | 'lost_pets' | 'marketplace' | 'nutrition' | 'exercise' | 'veterinary' | 'health' | 'pets' | null {
   const recent = history.slice(-6).map((t) => t.content.toLowerCase()).join(' ');
+  if (/\b(nutrici[oó]n|prote[ií]na|grasa|grasas|dieta|alimentaci[oó]n|comida|macro|vitamina|vitaminas|mineral|minerales|fibra|calcio|zinc|omega|calor[ií]a)\b/i.test(recent)) return 'nutrition';
   if (HEALTH_CONTEXT.test(recent)) return 'health';
   if (ADOPTION_CONTEXT.test(recent)) return 'adoption';
   if (LOST_CONTEXT.test(recent)) return 'lost_pets';
@@ -147,7 +151,16 @@ export function resolveContextualTool(
     return { toolName: 'pet_insights', params };
   }
 
-  if (COMPARE_CONTEXT.test(lower)) {
+  if (isSinglePetNutrientIdealQuery(trimmed, ctx)) {
+    const petName = inferPetNameParam(trimmed, history, ctx?.userPetNames);
+    const daysMatch = trimmed.match(/(\d+)\s*d[ií]as?\b/i);
+    return {
+      toolName: 'nutrition_analyze_diet',
+      params: { pet_name: petName, days: daysMatch ? Number(daysMatch[1]) : 30 },
+    };
+  }
+
+  if (COMPARE_CONTEXT.test(lower) && !isSinglePetNutrientIdealQuery(trimmed, ctx)) {
     const params: Record<string, unknown> = { pet_name: 'todos' };
     if (names.length > 0) params.pet_name = names[names.length - 1];
     return { toolName: 'pets_compare', params };
@@ -177,15 +190,42 @@ export function resolveContextualTool(
     if (params.service_name) return { toolName: 'bookings_search_availability', params };
   }
 
-  if (HEALTH_CONTEXT.test(lower)) {
+  if (HEALTH_CONTEXT.test(lower) && !/\balimentaci[oó]n\b/i.test(lower) && !isNutritionReadIntent(lower)) {
     const params: Record<string, unknown> = { days_back: 7 };
-    const petInMsg = trimmed.match(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)\b/);
-    if (petInMsg && !['Como', 'Cómo', 'Salud', 'Estado', 'Mi', 'Mis'].includes(petInMsg[1])) {
-      params.pet_name = petInMsg[1];
-    } else if (names.length > 0) {
-      params.pet_name = names[names.length - 1];
-    }
+    const petName = inferPetNameParam(trimmed, history, ctx?.userPetNames);
+    if (petName) params.pet_name = petName;
     return { toolName: 'pet_health_summary', params };
+  }
+
+  if (isNutritionReadIntent(lower)) {
+    const params: Record<string, unknown> = { limit: 100 };
+    const petName = inferPetNameParam(trimmed, history, ctx?.userPetNames);
+    if (petName) params.pet_name = petName;
+    if (mentionsNutritionTopic(lower) && /\b(suficiente|analiza|analizar|ideal|comparaci[oó]n|perfil|contenido|baj[oa]|adecuad)\b/i.test(lower)) {
+      if (petName || /\b(atis|sasha|shaggy)\b/i.test(lower)) {
+        const daysMatch = trimmed.match(/(\d+)\s*d[ií]as?\b/i);
+        return {
+          toolName: 'nutrition_analyze_diet',
+          params: { pet_name: petName, days: daysMatch ? Number(daysMatch[1]) : 30 },
+        };
+      }
+      const foodMatch = trimmed.match(
+        /(?:royal canin|pedigree|purina(?:\s+pro plan)?|dog chow|whiskas|nupec|ganador|hill'?s)[^?.!]*/i,
+      );
+      if (foodMatch || /\b(royal canin|pedigree|purina)\b/i.test(lower)) {
+        return {
+          toolName: 'nutrition_get_food_profile',
+          params: { food_query: foodMatch?.[0]?.trim() || trimmed },
+        };
+      }
+    }
+    if (/\b([uú]ltima\s+semana|semana\s+pasada|7\s*d[ií]as?)\b/i.test(lower)) {
+      params.hours = 168;
+    } else {
+      const daysMatch = trimmed.match(/(\d+)\s*d[ií]as?\b/i);
+      if (daysMatch) params.hours = Number(daysMatch[1]) * 24;
+    }
+    return { toolName: 'nutrition_list_recent', params };
   }
 
   const standalone = resolveStandaloneRegisterIntent(trimmed);
@@ -195,20 +235,23 @@ export function resolveContextualTool(
   if (marketplaceIntent) return marketplaceIntent;
 
   if (
-    /\b(carrito|agrégalo|agregalo|añadir al carrito|añádelo|ponlo en el carrito|quiero comprarlo)\b/i.test(lower) &&
+    /\b(carrito|agrégalo|agregalo|añadir al carrito|añádelo|ponlo en el carrito|quiero comprarlo|lo compro|el primero|la primera)\b/i.test(lower) &&
     history.length > 0
   ) {
     const recentTools = getRecentTools(history);
     if (
       recentTools.some((t) =>
-        ['marketplace_search_products', 'marketplace_search_semantic'].includes(t),
+        ['marketplace_search_products', 'marketplace_search_semantic', 'nutrition_analyze_diet'].includes(t),
       )
     ) {
       const lastAssistant = [...history].reverse().find((t) => t.role === 'assistant');
-      const productMatch = lastAssistant?.content.match(/\d+\.\s+\*\*([^*]+)\*\*/);
+      const productMatch =
+        lastAssistant?.content.match(/\d+\.\s+\*\*([^*]+)\*\*/) ??
+        lastAssistant?.content.match(/\d+\.\s+([^(\n]+?)(?:\s*[-–—]\s*Q|\s*\(Q|\s+por\s+Q)/i) ??
+        lastAssistant?.content.match(/(?:recomiendo|opción|opcion):\s*\*?\*?([^*\n]+)/i);
       const qtyMatch = trimmed.match(/(\d+)\s*(?:unidades?|piezas?)?/i);
       const params: Record<string, unknown> = {
-        product_name: productMatch?.[1] ?? trimmed,
+        product_name: productMatch?.[1]?.trim() ?? trimmed,
         quantity: qtyMatch ? Number(qtyMatch[1]) : 1,
       };
       return { toolName: 'cart_add_item', params };
@@ -218,6 +261,21 @@ export function resolveContextualTool(
   if (history.length === 0) return null;
   const recentTools = getRecentTools(history);
   const topic = getConversationTopic(history);
+
+  // User picked a pet after "¿De cuál mascota...?" (salud, timeline, insights, vet)
+  if (assistantAskedWhichPet(history)) {
+    const petName = inferPetNameParam(trimmed, history, ctx?.userPetNames);
+    const healthTool = recentTools.find((t) =>
+      ['pet_health_summary', 'pet_timeline', 'pet_insights'].includes(t),
+    );
+    if (petName && healthTool) {
+      const params: Record<string, unknown> = {
+        pet_name: petName,
+        days_back: healthTool === 'pet_timeline' || healthTool === 'pet_insights' ? 30 : 7,
+      };
+      return { toolName: healthTool, params };
+    }
+  }
 
   if (
     !wantsAllPets(lower) &&
@@ -322,6 +380,13 @@ export function resolveContextualTool(
     NUTRITION_CONTEXT.test(history.slice(-4).map((t) => t.content).join(' '));
 
   if (nutritionActive && !isActiveExerciseRegisterFlow(history, trimmed) && !EXERCISE_CONTEXT.test(lower)) {
+    if (wantsMarketplaceProducts(trimmed)) {
+      const contextualMarketplace = resolveNutritionMarketplaceFollowUp(trimmed, history, ctx);
+      if (contextualMarketplace) return contextualMarketplace;
+      const marketplaceIntent = resolveMarketplaceIntent(trimmed);
+      if (marketplaceIntent) return marketplaceIntent;
+    }
+
     if (
       /\b(opciones|qu[eé] hay|cu[aá]les hay|disponibles|lista)\b/i.test(lower) &&
       !/\b(producto|productos|tienda|marketplace)\b/i.test(lower)
@@ -420,7 +485,7 @@ export function resolveContextualTool(
         if (petInMsg && !['Si', 'Sí', 'Gramos', 'Hills', 'Whiskas'].includes(petInMsg[1])) {
           params.pet_name = petInMsg[1];
         } else {
-          const inferred = inferPetNameParam(trimmed, history);
+          const inferred = inferPetNameParam(trimmed, history, ctx?.userPetNames);
           if (inferred) params.pet_name = inferred;
         }
       }
@@ -442,10 +507,10 @@ export function resolveContextualTool(
       params.pet_name = 'todos';
     } else {
       const petInMsg = trimmed.match(/\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)\b/);
-      if (petInMsg && !['Si', 'Sí', 'Gramos', 'Hills', 'Whiskas'].includes(petInMsg[1])) {
+      if (petInMsg && !['Si', 'Sí', 'Gramos', 'Hills', 'Whiskas', 'Busca', 'Marketplace', 'Productos', 'Tienda'].includes(petInMsg[1])) {
         params.pet_name = petInMsg[1];
       } else {
-        const inferred = inferPetNameParam(trimmed, history);
+        const inferred = inferPetNameParam(trimmed, history, ctx?.userPetNames);
         if (inferred) params.pet_name = inferred;
       }
     }
@@ -471,7 +536,7 @@ export function resolveContextualTool(
   // Visita veterinaria explícita
   if (isActiveVeterinaryRegisterFlow(history, trimmed)) {
     const params = inferVeterinaryVisitParamsFromConversation(history, trimmed);
-    const petName = inferPetNameParam(trimmed, history);
+    const petName = inferPetNameParam(trimmed, history, ctx?.userPetNames);
     if (petName) params.pet_name = petName;
     else if (wantsAllPets(lower) && (ctx?.userPetNames?.length ?? 0) <= 1) {
       params.pet_name = 'todos';
@@ -527,7 +592,7 @@ export function resolveContextualTool(
       Object.assign(params, inferNutritionScheduleParamsFromConversation(history, trimmed));
     }
 
-    const petName = inferPetNameParam(trimmed, history);
+    const petName = inferPetNameParam(trimmed, history, ctx?.userPetNames);
     if (petName) params.pet_name = petName;
 
     return { toolName, params };

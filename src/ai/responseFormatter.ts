@@ -52,7 +52,9 @@ export function formatToolResult(
       const products = (data.products as Array<Record<string, unknown>>) ?? [];
       if (products.length === 0) {
         return {
-          message: 'No encontré productos con ese criterio. ¿Quieres buscar otra cosa o ver toda la tienda?',
+          message:
+            'No encontré productos activos con stock en el marketplace para esa necesidad en este momento. ' +
+            'Puedes probar con otros términos, revisar la tienda más adelante o consultar con tu veterinario para una recomendación específica.',
           actionLink: basePath ? { label: 'Ver tienda', path: basePath } : undefined,
         };
       }

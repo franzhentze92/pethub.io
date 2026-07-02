@@ -25,27 +25,39 @@ import {
 import { wantsAllPets } from '../helpers/petResolver';
 import { inferPetNameParam } from '../helpers/inferPetParam';
 import { extractCartAction } from '../helpers/cartActions';
+import { toolRequiresLlmSynthesis, wrapToolResultForLlm } from '../helpers/toolResponsePolicy';
+import { attachProductRecommendations } from '../helpers/petBuddyProductRecommendations';
+import { shouldAppendMarketplaceEmptyNotice } from '../helpers/nutritionMarketplaceNotice';
+
+function appendNutritionMarketplaceEmptyNotice(
+  response: PetBuddyResponse,
+  toolName: string,
+  toolResult: unknown,
+): void {
+  if (toolName !== 'nutrition_analyze_diet' || !toolResult || typeof toolResult !== 'object') return;
+  const data = toolResult as Record<string, unknown>;
+  const marketplace = data.marketplace_recommendations as Record<string, unknown> | undefined;
+  const note = marketplace?.marketplace_availability_note;
+  if (typeof note !== 'string' || !note.trim()) return;
+  if (!shouldAppendMarketplaceEmptyNotice(response.message, note)) return;
+  response.message = response.message ? `${response.message}\n\n${note}` : note;
+}
 
 initAiModules();
 
 const MAX_TOOL_STEPS = 8;
+
+const HEALTH_INTENT_PATTERN =
+  /\b(salud|bienestar|c[oó]mo est[aá]|como esta|c[oó]mo va|estado de salud|estado general|resumen de salud)\b/i;
 
 /** Tools whose formatted result should be shown directly (avoid LLM rewriting failures). */
 const DIRECT_RESPONSE_TOOLS = new Set([
   'nutrition_register_meal',
   'nutrition_create_schedule',
   'nutrition_list_foods',
-  'nutrition_list_recent',
-  'nutrition_list_scheduled',
   'nutrition_deduplicate_scheduled',
   'nutrition_complete_scheduled',
-  'marketplace_search_products',
   'exercise_register_session',
-  'veterinary_list_sessions',
-  'veterinary_get_session',
-  'veterinary_vaccination_status',
-  'veterinary_vaccination_schedule',
-  'veterinary_spending_summary',
   'veterinary_register_visit',
   'veterinary_register_vaccination',
   'veterinary_set_follow_up',
@@ -63,20 +75,11 @@ const DIRECT_RESPONSE_TOOLS = new Set([
   'breeding_send_request',
   'profile_update',
   'marketplace_add_favorite',
-  'pet_health_summary',
-  'pet_timeline',
-  'pet_insights',
-  'pets_compare',
-  'memory_list_facts',
   'memory_save_fact',
   'memory_delete_fact',
   'cart_add_item',
   'bookings_add_to_cart',
-  'bookings_search_availability',
-  'orders_track',
-  'pet_briefing',
   'veterinary_query_document',
-  'marketplace_search_semantic',
 ]);
 
 export async function askOpenAi(
@@ -95,7 +98,7 @@ export async function askOpenAi(
 
   if (isActiveVeterinaryRegisterFlow(history, message)) {
     const params = inferVeterinaryVisitParamsFromConversation(history, message);
-    const petName = inferPetNameParam(message, history);
+    const petName = inferPetNameParam(message, history, ctx.userPetNames);
     if (petName) params.pet_name = petName;
     else if (wantsAllPets(message.toLowerCase()) && (ctx.userPetNames?.length ?? 0) <= 1) {
       params.pet_name = 'todos';
@@ -157,8 +160,16 @@ SERVICIO (preguntar todos): nombre → categoría → descripción → detalles 
   const guideName = BLUEPRINT_MASCOTS[dashboard].name;
   const dashboardLabel = BLUEPRINT_DASHBOARD_LABELS[dashboard];
 
-  const systemPrompt = `Eres ${guideName}, el asistente guía de PetHub Latinoamérica para el ${dashboardLabel}. Tu nombre es ${guideName}; preséntate siempre con ese nombre si el usuario pregunta quién eres o cómo te llamas. Respondes en español, de forma amigable y concisa.
+  const systemPrompt = `Eres ${guideName}, el asistente guía de PetHub Latinoamérica para el ${dashboardLabel}. Tu nombre es ${guideName}; preséntate siempre con ese nombre si el usuario pregunta quién eres o cómo te llamas. Respondes en español, de forma amigable y conversacional — como ChatGPT, no como un formulario ni un reporte automático.
 Tienes acceso a herramientas que consultan y modifican la base de datos en tiempo real.
+
+ESTILO CONVERSACIONAL (obligatorio):
+- Habla como una persona coherente que conoce al usuario y sus mascotas. Nunca suenes a plantilla ni a máquina de respuestas.
+- Cuando uses una herramienta de consulta, INTERPRETA los datos: resume en prosa, calcula totales (gramos, calorías, minutos), destaca lo importante y da contexto.
+- Prohibido volcar listas largas línea por línea. Si hay muchos registros, da el total y 1-2 ejemplos representativos.
+- Si preguntan "¿cómo está la salud de X?", cuenta la historia en 3-5 frases (nutrición, ejercicio, vet) — no pegues un reporte con emojis.
+- Si preguntan cuántos gramos comió, SUMA los gramos del período y responde con el número total.
+- Mantén coherencia con el hilo: si ya hablaron de Atis, no cambies de mascota sin razón.
 
 MEMORIA CONVERSACIONAL (muy importante):
 - Mantén el hilo de la conversación. Lee los mensajes anteriores antes de responder.
@@ -199,8 +210,8 @@ NUTRICIÓN (muy importante):
 - Para REGISTRAR una comida puntual (hoy, ahora) DEBES llamar nutrition_register_meal. NUNCA digas que registraste alimentación sin ejecutar esa herramienta con éxito.
 - Si hay varias mascotas y el usuario quiere registrar para todas, usa pet_name="todos". También nombres separados por coma. Frases: "mis tres mascotas", "para todos", "a todas". NUNCA pidas nombres.
 - Para CREAR horarios recurrentes o comidas automáticas (ej. todos los días a las 7am y 7pm) DEBES llamar nutrition_create_schedule. NUNCA digas que programaste un horario sin ejecutar esa herramienta con éxito. Para todas las mascotas usa pet_name="todos".
-- Los alimentos del módulo Nutrición (pet_foods) son para REGISTRAR comidas en el diario — usa nutrition_list_foods solo para eso.
-- Para COMPRAR alimento, concentrado, croquetas o cualquier producto en la TIENDA usa marketplace_search_products (category=alimentos si aplica). No digas que no hay sin ejecutar esa herramienta.
+- Los alimentos del catálogo Nutrición (pet_foods) tienen perfil COMPLETO — usa nutrition_get_food_profile. nutrition_analyze_diet detecta déficits y devuelve marketplace_recommendations (productos activos con stock). Si hay déficit de grasa, presenta alimentos altos en grasa u omegas del marketplace y ofrece cart_add_item para comprar.
+- Para COMPRAR alimento en la TIENDA usa marketplace_search_products — los productos de alimentos/medicamentos pueden tener ingredients y nutrition (grasa%, proteína%) del proveedor. Prioriza esos datos sobre estimaciones genéricas.
 - Registro puntual: necesitas alimento y gramos. Horario recurrente: necesitas horas (times) y mascota si hay varias; alimento y gramos si no hay uno claro en el chat.
 - Para CONSULTAR historial de comidas YA REGISTRADAS (pasado) DEBES llamar nutrition_list_recent con hours (ej. 72 para últimas 72 horas). Lista TODOS los registros que devuelve la herramienta; no omitas alimentos ni agrupes inventando conteos.
 - Para CONSULTAR comidas PROGRAMADAS futuras (calendario, próximos días, qué viene) DEBES llamar nutrition_list_scheduled con days (ej. 7). NO uses nutrition_list_recent para comidas programadas — ese es solo historial pasado.
@@ -244,7 +255,8 @@ MEMORIA A LARGO PLAZO:
 - La memoria también se carga automáticamente desde el servidor (alergias, preferencias, notas).
 
 MASCOTAS / AJUSTES:
-- Para CREAR mascota usa pets_create. Para EDITAR pets_update. Para LISTAR pets_list_mine.
+- Para LISTAR todas tus mascotas (solo cuando pregunten "mis mascotas", "cuáles tengo") usa pets_list_mine. NUNCA uses pets_list_mine si preguntan por salud, bienestar o mencionan un nombre concreto (ej. "salud de Shaggy").
+- Si preguntan "¿cómo está la salud de X?" → SIEMPRE pet_health_summary con pet_name=X. Nunca listes mascotas.
 - Para actualizar perfil personal (nombre, teléfono, dirección) usa profile_update.
 
 ADOPCIÓN:
@@ -296,6 +308,7 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
   const toolsUsed: string[] = [];
   let actionLink: PetBuddyResponse['actionLink'];
   let cartAction: PetBuddyResponse['cartAction'];
+  let productRecommendations: PetBuddyResponse['productRecommendations'];
   let lastFormattedMessage: string | undefined;
 
   for (let step = 0; step < MAX_TOOL_STEPS; step++) {
@@ -313,12 +326,37 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
       messages.push({ role: 'assistant', tool_calls: choice.tool_calls });
 
       for (const call of choice.tool_calls) {
-        const tool = aiRegistry.getTool(call.function.name);
+        let toolName = call.function.name;
+        if (
+          toolName === 'pets_list_mine' &&
+          !/\b(mis mascotas|mi mascota|cu[aá]les mascotas|listar mascotas|qu[eé] mascotas)\b/i.test(message)
+        ) {
+          const contextText = [message, ...history.slice(-4).map((t) => t.content)].join(' ');
+          if (HEALTH_INTENT_PATTERN.test(contextText)) {
+            toolName = 'pet_health_summary';
+          }
+        }
+
+        const tool = aiRegistry.getTool(toolName);
         let params: Record<string, unknown> = {};
         try {
           params = JSON.parse(call.function.arguments || '{}');
         } catch {
-          params = inferToolParams(call.function.name, message, history);
+          params = inferToolParams(toolName, message, history, ctx.userPetNames);
+        }
+
+        if (
+          ['pet_health_summary', 'pet_timeline', 'pet_insights', 'pets_compare', 'nutrition_list_recent'].includes(
+            toolName,
+          ) &&
+          !params.pet_name
+        ) {
+          const inferred = inferPetNameParam(message, history, ctx.userPetNames);
+          if (inferred) params.pet_name = inferred;
+        }
+
+        if (toolName === 'pet_health_summary' && !params.days_back) {
+          params.days_back = 7;
         }
 
         let toolResult: unknown = { error: 'Tool not found' };
@@ -352,21 +390,23 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
           if (formatted.actionLink) actionLink = formatted.actionLink;
           const toolCartAction = extractCartAction(toolResult);
           if (toolCartAction) cartAction = toolCartAction;
+          const recDraft: PetBuddyResponse = {
+            message: '',
+            toolsUsed: [],
+            productRecommendations,
+          };
+          attachProductRecommendations(recDraft, tool.name, toolResult);
+          productRecommendations = recDraft.productRecommendations;
 
           if (DIRECT_RESPONSE_TOOLS.has(tool.name)) {
             const data = toolResult as Record<string, unknown>;
             if (
               data?.success ||
               data?.foods ||
-              data?.sessions ||
-              data?.products ||
-              data?.availability ||
-              data?.order ||
               data?.answer ||
-              data?.pets ||
               (data?.error && data?.message)
             ) {
-              return { message: formatted.message, toolsUsed, actionLink, cartAction };
+              return { message: formatted.message, toolsUsed, actionLink, cartAction, productRecommendations };
             }
           }
         }
@@ -374,7 +414,9 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
         messages.push({
           role: 'tool',
           tool_call_id: call.id,
-          content: JSON.stringify(toolResult),
+          content: toolRequiresLlmSynthesis(tool.name)
+            ? wrapToolResultForLlm(tool.name, toolResult)
+            : JSON.stringify(toolResult),
         });
       }
       continue;
@@ -386,6 +428,7 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
         toolsUsed,
         actionLink,
         cartAction,
+        productRecommendations,
         streamed: useStream,
       };
     }
@@ -393,7 +436,7 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
   }
 
   if (lastFormattedMessage) {
-    return { message: lastFormattedMessage, toolsUsed, actionLink, cartAction };
+    return { message: lastFormattedMessage, toolsUsed, actionLink, cartAction, productRecommendations };
   }
 
   return {
@@ -401,5 +444,68 @@ ${aiRegistry.getCapabilitiesSummary(ctx)}`;
     toolsUsed,
     actionLink,
     cartAction,
+    productRecommendations,
   };
+}
+
+/** Run a read tool and ask the LLM to answer conversationally from the JSON result. */
+export async function synthesizeToolResult(
+  userMessage: string,
+  history: ConversationTurn[],
+  ctx: AiExecutionContext,
+  toolName: string,
+  toolResult: unknown,
+): Promise<PetBuddyResponse> {
+  const dashboard = getMascotDashboardForRole(ctx.userRole);
+  const guideName = BLUEPRINT_MASCOTS[dashboard].name;
+  const useStream = Boolean(ctx.streamResponses && ctx.onStreamDelta);
+
+  const messages: OpenAiChatMessage[] = [
+    {
+      role: 'system',
+      content:
+        `Eres ${guideName}, asistente de PetHub. Responde en español latino, tono cálido y natural como ChatGPT. ` +
+        'Interpreta los datos de la herramienta: resume en prosa, no listes reportes ni uses markdown pesado. ' +
+        'Calcula totales si aplica. Máximo 4-6 oraciones salvo que el usuario pida detalle.',
+    },
+  ];
+
+  for (const turn of history) {
+    if (turn.role === 'user' || turn.role === 'assistant') {
+      messages.push({ role: turn.role, content: turn.content });
+    }
+  }
+
+  messages.push({ role: 'user', content: userMessage });
+  messages.push({
+    role: 'assistant',
+    content: `Consulté la herramienta ${toolName}. Datos:\n${wrapToolResultForLlm(toolName, toolResult)}`,
+  });
+  messages.push({
+    role: 'user',
+    content: 'Con esos datos, responde al usuario de forma conversacional y clara.',
+  });
+
+  const json = await callPetBuddyAgent({
+    messages,
+    tools: [],
+    stream: useStream,
+    loadMemory: false,
+    onDelta: ctx.onStreamDelta,
+  });
+
+  const text = json.choices?.[0]?.message?.content?.trim();
+  const response: PetBuddyResponse = { message: '', toolsUsed: [toolName], streamed: useStream };
+  attachProductRecommendations(response, toolName, toolResult);
+
+  if (text) {
+    response.message = text;
+    appendNutritionMarketplaceEmptyNotice(response, toolName, toolResult);
+    return response;
+  }
+
+  const formatted = formatToolResult(toolName, toolResult, undefined);
+  response.message = formatted.message;
+  appendNutritionMarketplaceEmptyNotice(response, toolName, toolResult);
+  return response;
 }

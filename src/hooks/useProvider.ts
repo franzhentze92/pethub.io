@@ -234,6 +234,13 @@ export interface ProviderProduct {
   product_subtype?: string | null;
   life_stage?: string | null;
   subscription_enabled?: boolean;
+  ingredients?: string | null;
+  nutrition_protein_pct?: number | null;
+  nutrition_fat_pct?: number | null;
+  nutrition_fiber_pct?: number | null;
+  nutrition_moisture_pct?: number | null;
+  nutrition_ash_pct?: number | null;
+  nutrition_calories_per_100g?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -17,6 +17,77 @@ import {
 
 export type PetBuddyCartItemPayload = Omit<CartItem, 'id'> & { id?: string };
 
+function buildProductCartItem(
+  p: {
+    id: string;
+    product_name: string;
+    product_category?: string | null;
+    description?: string | null;
+    price: number;
+    currency?: string | null;
+    stock_quantity?: number | null;
+    providers?: {
+      user_id?: string;
+      business_name?: string;
+      has_delivery?: boolean;
+      has_pickup?: boolean;
+    } | null;
+  },
+  quantity: number,
+): { product: typeof p; cartItem: PetBuddyCartItemPayload } | { error: string } {
+  const provider = p.providers;
+  if (!provider?.user_id) {
+    return { error: 'El producto no tiene un proveedor válido.' };
+  }
+  if (quantity > (p.stock_quantity ?? 0)) {
+    return { error: `Solo hay ${p.stock_quantity} unidades en stock.` };
+  }
+
+  return {
+    product: p,
+    cartItem: {
+      id: `product-${p.id}-general-${Date.now()}`,
+      type: 'product',
+      name: p.product_name,
+      price: Number(p.price),
+      currency: p.currency ?? 'GTQ',
+      quantity,
+      provider_id: provider.user_id,
+      provider_name: provider.business_name ?? 'Tienda',
+      description: p.description ?? undefined,
+      product_id: p.id,
+      product_category: p.product_category ?? undefined,
+      product_size: 'general',
+      has_delivery: provider.has_delivery ?? false,
+      has_pickup: provider.has_pickup ?? false,
+    },
+  };
+}
+
+export async function resolveProductByIdForCart(
+  productId: string,
+  quantity = 1,
+): Promise<{ product: Record<string, unknown>; cartItem: PetBuddyCartItemPayload } | { error: string }> {
+  const { data, error } = await supabase
+    .from('provider_products')
+    .select(
+      'id, product_name, product_category, description, price, currency, stock_quantity, provider_id, providers(user_id, business_name, has_delivery, has_pickup)',
+    )
+    .eq('id', productId)
+    .eq('is_active', true)
+    .gt('stock_quantity', 0)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    return { error: 'Este producto ya no está disponible en la tienda.' };
+  }
+
+  const built = buildProductCartItem(data, quantity);
+  if ('error' in built) return built;
+  return { product: built.product as Record<string, unknown>, cartItem: built.cartItem };
+}
+
 export function extractCartAction(result: unknown): PetBuddyCartAction | undefined {
   if (!result || typeof result !== 'object' || !('cart_action' in result)) return undefined;
   const cartAction = (result as { cart_action?: PetBuddyCartAction }).cart_action;
@@ -51,39 +122,9 @@ export async function resolveProductForCart(
     (a, b) => scoreProductMatch(b, tokens) - scoreProductMatch(a, tokens),
   );
   const p = ranked[0];
-  const provider = p.providers as {
-    user_id?: string;
-    business_name?: string;
-    has_delivery?: boolean;
-    has_pickup?: boolean;
-  };
-
-  if (!provider?.user_id) {
-    return { error: 'El producto no tiene un proveedor válido.' };
-  }
-
-  if (quantity > (p.stock_quantity ?? 0)) {
-    return { error: `Solo hay ${p.stock_quantity} unidades en stock.` };
-  }
-
-  const cartItem: PetBuddyCartItemPayload = {
-    id: `product-${p.id}-general-${Date.now()}`,
-    type: 'product',
-    name: p.product_name,
-    price: Number(p.price),
-    currency: p.currency ?? 'GTQ',
-    quantity,
-    provider_id: provider.user_id,
-    provider_name: provider.business_name ?? 'Tienda',
-    description: p.description ?? undefined,
-    product_id: p.id,
-    product_category: p.product_category ?? undefined,
-    product_size: 'general',
-    has_delivery: provider.has_delivery ?? false,
-    has_pickup: provider.has_pickup ?? false,
-  };
-
-  return { product: p, cartItem };
+  const built = buildProductCartItem(p, quantity);
+  if ('error' in built) return built;
+  return { product: built.product as Record<string, unknown>, cartItem: built.cartItem };
 }
 
 export async function buildServiceCartItem(

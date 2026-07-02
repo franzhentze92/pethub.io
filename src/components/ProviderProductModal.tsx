@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Package, DollarSign, Info, Image as ImageIcon, Tag, Scale, Ruler, Loader2, Sparkles } from 'lucide-react';
+import { Package, DollarSign, Info, Image as ImageIcon, Tag, Scale, Ruler, Loader2, Sparkles, Apple } from 'lucide-react';
 import { ProviderProduct } from '@/hooks/useProvider';
 import { ProductMultipleImagesUpload } from './ProductMultipleImagesUpload';
 import { generateCatalogImage } from '@/lib/generateCatalogImage';
@@ -22,6 +22,12 @@ import {
   LIFE_STAGE_OPTIONS,
   PET_SPECIES_OPTIONS,
 } from '@/config/productFilters';
+import {
+  categoryRequiresNutritionProfile,
+  categoryRequiresIngredients,
+  parseOptionalCalories,
+  parseOptionalNutritionPct,
+} from '@/config/productNutrition';
 import { cn } from '@/lib/utils';
 import { landingBtnPrimary } from '@/lib/landingTheme';
 import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
@@ -98,6 +104,13 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
     product_subtype: '',
     life_stage: '',
     subscription_enabled: false,
+    ingredients: '',
+    nutrition_protein_pct: '',
+    nutrition_fat_pct: '',
+    nutrition_fiber_pct: '',
+    nutrition_moisture_pct: '',
+    nutrition_ash_pct: '',
+    nutrition_calories_per_100g: '',
   });
 
   const { toast } = useToast();
@@ -139,6 +152,13 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         product_subtype: product.product_subtype || '',
         life_stage: product.life_stage || '',
         subscription_enabled: product.subscription_enabled ?? false,
+        ingredients: product.ingredients || '',
+        nutrition_protein_pct: product.nutrition_protein_pct?.toString() || '',
+        nutrition_fat_pct: product.nutrition_fat_pct?.toString() || '',
+        nutrition_fiber_pct: product.nutrition_fiber_pct?.toString() || '',
+        nutrition_moisture_pct: product.nutrition_moisture_pct?.toString() || '',
+        nutrition_ash_pct: product.nutrition_ash_pct?.toString() || '',
+        nutrition_calories_per_100g: product.nutrition_calories_per_100g?.toString() || '',
       });
     } else if (initialDraft && isOpen) {
       setFormData({
@@ -171,6 +191,13 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         product_subtype: initialDraft.product_subtype || '',
         life_stage: initialDraft.life_stage || '',
         subscription_enabled: initialDraft.subscription_enabled ?? false,
+        ingredients: initialDraft.ingredients || '',
+        nutrition_protein_pct: initialDraft.nutrition_protein_pct?.toString() || '',
+        nutrition_fat_pct: initialDraft.nutrition_fat_pct?.toString() || '',
+        nutrition_fiber_pct: initialDraft.nutrition_fiber_pct?.toString() || '',
+        nutrition_moisture_pct: initialDraft.nutrition_moisture_pct?.toString() || '',
+        nutrition_ash_pct: initialDraft.nutrition_ash_pct?.toString() || '',
+        nutrition_calories_per_100g: initialDraft.nutrition_calories_per_100g?.toString() || '',
       });
     } else {
       setFormData({
@@ -203,6 +230,13 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         product_subtype: '',
         life_stage: '',
         subscription_enabled: false,
+        ingredients: '',
+        nutrition_protein_pct: '',
+        nutrition_fat_pct: '',
+        nutrition_fiber_pct: '',
+        nutrition_moisture_pct: '',
+        nutrition_ash_pct: '',
+        nutrition_calories_per_100g: '',
       });
     }
   }, [product, isEditing, initialDraft, isOpen]);
@@ -255,6 +289,12 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
       if (!formData.stock_quantity || parseInt(formData.stock_quantity) < 0) {
         throw new Error('La cantidad en stock debe ser 0 o mayor');
       }
+      if (
+        categoryRequiresIngredients(formData.product_category) &&
+        !formData.ingredients.trim()
+      ) {
+        throw new Error('Los alimentos deben incluir la lista de ingredientes (pestaña Nutrición)');
+      }
 
       // Save the product
       const productData = {
@@ -287,6 +327,13 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         product_subtype: formData.product_subtype || null,
         life_stage: formData.life_stage || null,
         subscription_enabled: formData.subscription_enabled,
+        ingredients: formData.ingredients.trim() || null,
+        nutrition_protein_pct: parseOptionalNutritionPct(formData.nutrition_protein_pct),
+        nutrition_fat_pct: parseOptionalNutritionPct(formData.nutrition_fat_pct),
+        nutrition_fiber_pct: parseOptionalNutritionPct(formData.nutrition_fiber_pct),
+        nutrition_moisture_pct: parseOptionalNutritionPct(formData.nutrition_moisture_pct),
+        nutrition_ash_pct: parseOptionalNutritionPct(formData.nutrition_ash_pct),
+        nutrition_calories_per_100g: parseOptionalCalories(formData.nutrition_calories_per_100g),
       };
       
       setPendingProductData(productData);
@@ -377,6 +424,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
   const subtypeOptions = getSubtypeOptionsForCategory(formData.product_category);
   const subtypeLabel = getSubtypeFieldLabel(formData.product_category);
   const showLifeStage = categorySupportsLifeStage(formData.product_category);
+  const showNutritionTab = categoryRequiresNutritionProfile(formData.product_category);
 
   const addTag = () => {
     if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
@@ -420,13 +468,18 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5" id="product-modal-description">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={cn(modalTabListClass, 'grid-cols-3')}>
+            <TabsList className={cn(modalTabListClass, showNutritionTab ? 'grid-cols-4' : 'grid-cols-3')}>
               <TabsTrigger value="basic" className={modalTabTriggerClass}>
                 Información Básica
               </TabsTrigger>
               <TabsTrigger value="details" className={modalTabTriggerClass}>
                 Detalles
               </TabsTrigger>
+              {showNutritionTab && (
+                <TabsTrigger value="nutrition" className={modalTabTriggerClass}>
+                  Nutrición
+                </TabsTrigger>
+              )}
               <TabsTrigger value="inventory" className={modalTabTriggerClass}>
                 Inventario
               </TabsTrigger>
@@ -840,6 +893,122 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </p>
               </div>
             </TabsContent>
+
+            {showNutritionTab && (
+              <TabsContent value="nutrition" className="space-y-4">
+                <div className={modalInfoBannerClass}>
+                  <div className="flex items-center gap-2 text-landing-aqua-dark">
+                    <Apple className="w-5 h-5" />
+                    <span className="font-medium">Perfil nutricional para PetBuddy</span>
+                  </div>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Estos datos permiten que el asistente recomiende tu producto según déficits de grasa,
+                    proteína u omega. Copia el análisis garantizado de la etiqueta cuando puedas.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="product-ingredients">
+                    Ingredientes {categoryRequiresIngredients(formData.product_category) ? '*' : '(recomendado)'}
+                  </Label>
+                  <Textarea
+                    id="product-ingredients"
+                    value={formData.ingredients}
+                    onChange={(e) => handleInputChange('ingredients', e.target.value)}
+                    placeholder="Ej: Pollo deshidratado, arroz, gluten de maíz, grasa de pollo, pulpa de remolacha, aceite de pescado (omega 3)..."
+                    rows={4}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Separa con comas. Incluye fuentes de grasa/proteína y suplementos (omega 3, zinc, etc.).
+                  </p>
+                </div>
+
+                <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+                  <Label className="text-base font-semibold text-gray-900">
+                    Análisis garantizado (% en alimento tal como se vende)
+                  </Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="nutrition-protein">Proteína cruda %</Label>
+                      <Input
+                        id="nutrition-protein"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.nutrition_protein_pct}
+                        onChange={(e) => handleInputChange('nutrition_protein_pct', e.target.value)}
+                        placeholder="23"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nutrition-fat">Grasa cruda %</Label>
+                      <Input
+                        id="nutrition-fat"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.nutrition_fat_pct}
+                        onChange={(e) => handleInputChange('nutrition_fat_pct', e.target.value)}
+                        placeholder="12"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nutrition-fiber">Fibra cruda %</Label>
+                      <Input
+                        id="nutrition-fiber"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.nutrition_fiber_pct}
+                        onChange={(e) => handleInputChange('nutrition_fiber_pct', e.target.value)}
+                        placeholder="3.5"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nutrition-moisture">Humedad %</Label>
+                      <Input
+                        id="nutrition-moisture"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.nutrition_moisture_pct}
+                        onChange={(e) => handleInputChange('nutrition_moisture_pct', e.target.value)}
+                        placeholder="10"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nutrition-ash">Cenizas %</Label>
+                      <Input
+                        id="nutrition-ash"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.nutrition_ash_pct}
+                        onChange={(e) => handleInputChange('nutrition_ash_pct', e.target.value)}
+                        placeholder="7"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nutrition-calories">Energía (kcal/100g)</Label>
+                      <Input
+                        id="nutrition-calories"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={formData.nutrition_calories_per_100g}
+                        onChange={(e) => handleInputChange('nutrition_calories_per_100g', e.target.value)}
+                        placeholder="380"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            )}
 
             {/* Inventory Tab */}
             <TabsContent value="inventory" className="space-y-4">

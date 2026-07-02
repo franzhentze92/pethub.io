@@ -19,6 +19,7 @@ import { memoryModule } from './memory.module';
 import { bookingsModule } from './bookings.module';
 import { cartModule } from './cart.module';
 import { briefingModule } from './briefing.module';
+import { dataAccessModule } from './dataAccess.module';
 
 let initialized = false;
 
@@ -44,6 +45,7 @@ export function initAiModules() {
     bookingsModule,
     cartModule,
     briefingModule,
+    dataAccessModule,
   ].forEach((m) => aiRegistry.register(m));
   initialized = true;
 }
@@ -67,6 +69,7 @@ export {
   bookingsModule,
   cartModule,
   briefingModule,
+  dataAccessModule,
 };
 
 /**

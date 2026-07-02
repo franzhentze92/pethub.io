@@ -14,8 +14,12 @@ const QUERY_STOP_WORDS = new Set([
   'que',
   'quiero',
   'necesito',
-  'busco',
+  'busca',
   'buscar',
+  'marketplace',
+  'productos',
+  'producto',
+  'tienda',
   'comprar',
   'compra',
   'me',
@@ -53,6 +57,7 @@ const TEXT_FIELDS = [
   'product_category',
   'product_subtype',
   'life_stage',
+  'ingredients',
 ] as const;
 
 export function tokenizeMarketplaceQuery(raw: string): string[] {
@@ -119,6 +124,7 @@ type ScorableProduct = {
   life_stage?: string | null;
   tags?: string[] | null;
   target_species?: string[] | null;
+  ingredients?: string | null;
 };
 
 export function scoreProductMatch(row: ScorableProduct, tokens: string[]): number {
@@ -132,6 +138,7 @@ export function scoreProductMatch(row: ScorableProduct, tokens: string[]): numbe
     row.product_category,
     row.product_subtype,
     row.life_stage,
+    row.ingredients,
     ...(row.tags ?? []),
     ...(row.target_species ?? []),
   ]

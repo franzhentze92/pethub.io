@@ -17,6 +17,10 @@ import {
   type PetFoodRecord,
 } from '@/utils/nutritionSession';
 import { resolvePets } from '../helpers/petResolver';
+import {
+  analyzePetDietProfile,
+  lookupFoodNutritionProfile,
+} from '../helpers/nutritionFoodProfile';
 
 type FoodRow = PetFoodRecord & { id: string; species?: string };
 
@@ -787,7 +791,7 @@ export const nutritionModule: AiModuleDefinition = {
         let query = supabase
           .from('nutrition_sessions')
           .select(
-            'id, date, feeding_time, meal_type, food_name, quantity_grams, total_calories, created_at, pets(name)',
+            'id, date, feeding_time, meal_type, food_name, quantity_grams, total_calories, total_protein, total_fat, total_carbs, total_fiber, calories_per_100g, protein_per_100g, fat_per_100g, carbs_per_100g, fiber_per_100g, created_at, pets(name)',
           )
           .eq('owner_id', ctx.userId);
 
@@ -841,6 +845,69 @@ export const nutritionModule: AiModuleDefinition = {
           ),
         };
       },
+    },
+    {
+      name: 'nutrition_get_food_profile',
+      description:
+        'Perfil nutricional COMPLETO de un alimento del catálogo pet_foods: macros, vitaminas (A,D,E,K,B1-B12,C) y minerales (Ca,P,Mg,Fe,Zn,Cu,Mn,Se,Na,K,I) por 100g, más data_source. OBLIGATORIO para grasa/proteína/micros de Royal Canin, Pedigree, etc. NO uses marketplace_search_products.',
+      keywords: [
+        'grasa del alimento',
+        'proteína del alimento',
+        'perfil nutricional',
+        'contenido de grasa',
+        'royal canin',
+        'macros del alimento',
+        'análisis del alimento',
+      ],
+      parameters: {
+        type: 'object',
+        properties: {
+          food_query: {
+            type: 'string',
+            description: 'Nombre del alimento, ej. "Royal Canin Medium Adult" o "Royal Canin - Adulto Razas Medianas"',
+          },
+          species: { type: 'string', description: 'Dog o Cat (opcional)' },
+        },
+        required: ['food_query'],
+        additionalProperties: false,
+      },
+      execute: async (params: { food_query: string; species?: string }) => {
+        const result = await lookupFoodNutritionProfile(params.food_query, params.species);
+        if (!result.found) {
+          return {
+            error: 'FOOD_NOT_FOUND',
+            message: `No encontré "${params.food_query}" en el catálogo nutricional.`,
+            candidates: result.candidates,
+          };
+        }
+        return { success: true, profile: result.profile, catalog_size: result.catalog_size, sync_status: result.sync_status };
+      },
+    },
+    {
+      name: 'nutrition_analyze_diet',
+      description:
+        'Analiza la dieta de una mascota: comidas + perfil nutricional completo + ingesta vs necesidad estimada. Si detecta déficits (grasa, proteína, omega, etc.), incluye marketplace_recommendations con productos ACTIVOS en tienda (alimentos altos en grasa, suplementos omega) y servicios veterinarios. Ofrece cart_add_item para concretar compra.',
+      keywords: [
+        'analiza su dieta',
+        'analizar dieta',
+        'suficiente grasa',
+        'perfil nutricional de',
+        'qué está comiendo',
+        'lo que ha ingerido',
+        'recomendación nutricional',
+      ],
+      parameters: {
+        type: 'object',
+        properties: {
+          pet_name: { type: 'string', description: 'Nombre de la mascota' },
+          days: { type: 'number', description: 'Días hacia atrás (default 30)' },
+        },
+        additionalProperties: false,
+      },
+      execute: async (
+        params: { pet_name?: string; days?: number },
+        ctx: AiExecutionContext,
+      ) => analyzePetDietProfile(ctx, params),
     },
   ],
 };

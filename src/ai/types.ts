@@ -66,6 +66,20 @@ export interface PetBuddyPendingAction {
   status?: 'pending' | 'confirmed' | 'cancelled';
 }
 
+export interface PetBuddyProductRecommendation {
+  productId: string;
+  productName: string;
+  brand?: string | null;
+  price: number;
+  currency: string;
+  stock?: number;
+  provider?: string;
+  reason?: string;
+  fatPct?: number | null;
+  proteinPct?: number | null;
+  hasDelivery?: boolean;
+}
+
 export interface PetBuddyMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -77,6 +91,8 @@ export interface PetBuddyMessage {
   actionLink?: { label: string; path: string };
   /** Action awaiting user confirmation */
   pendingAction?: PetBuddyPendingAction;
+  /** Marketplace products with one-tap add to cart */
+  productRecommendations?: PetBuddyProductRecommendation[];
 }
 
 export interface PetBuddyCartAction {
@@ -120,4 +136,5 @@ export interface PetBuddyResponse {
   pendingAction?: PetBuddyPendingAction;
   streamed?: boolean;
   cartAction?: PetBuddyCartAction;
+  productRecommendations?: PetBuddyProductRecommendation[];
 }

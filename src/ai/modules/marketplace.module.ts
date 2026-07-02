@@ -64,7 +64,7 @@ export const marketplaceModule: AiModuleDefinition = {
           let query = supabase
             .from('provider_products')
             .select(
-              'id, product_name, product_category, description, detailed_description, brand, price, currency, stock_quantity, tags, target_species, product_subtype, life_stage, providers(business_name, has_delivery)',
+              'id, product_name, product_category, description, detailed_description, brand, price, currency, stock_quantity, tags, target_species, product_subtype, life_stage, ingredients, nutrition_protein_pct, nutrition_fat_pct, nutrition_fiber_pct, nutrition_moisture_pct, nutrition_ash_pct, nutrition_calories_per_100g, providers(business_name, has_delivery)',
             )
             .eq('is_active', true);
 
@@ -116,6 +116,7 @@ export const marketplaceModule: AiModuleDefinition = {
           category_applied: category,
           species_applied: species,
           products: ranked.map((p) => ({
+            id: p.id,
             name: p.product_name,
             category: p.product_category,
             brand: p.brand,
@@ -124,6 +125,14 @@ export const marketplaceModule: AiModuleDefinition = {
             stock: p.stock_quantity,
             provider: (p.providers as { business_name?: string })?.business_name,
             hasDelivery: (p.providers as { has_delivery?: boolean })?.has_delivery,
+            ingredients: p.ingredients,
+            nutrition: {
+              protein_pct: p.nutrition_protein_pct,
+              fat_pct: p.nutrition_fat_pct,
+              fiber_pct: p.nutrition_fiber_pct,
+              moisture_pct: p.nutrition_moisture_pct,
+              calories_per_100g: p.nutrition_calories_per_100g,
+            },
           })),
         };
       },
@@ -174,7 +183,7 @@ export const marketplaceModule: AiModuleDefinition = {
         let query = supabase
           .from('provider_products')
           .select(
-            'id, product_name, product_category, description, detailed_description, brand, price, currency, stock_quantity, tags, target_species, product_subtype, life_stage, providers(business_name, has_delivery)',
+            'id, product_name, product_category, description, detailed_description, brand, price, currency, stock_quantity, tags, target_species, product_subtype, life_stage, ingredients, nutrition_protein_pct, nutrition_fat_pct, nutrition_fiber_pct, nutrition_moisture_pct, nutrition_ash_pct, nutrition_calories_per_100g, providers(business_name, has_delivery)',
           )
           .eq('is_active', true)
           .gt('stock_quantity', 0);
@@ -207,6 +216,7 @@ export const marketplaceModule: AiModuleDefinition = {
           category_applied: category,
           species_applied: species,
           products: ranked.map((p) => ({
+            id: p.id,
             name: p.product_name,
             category: p.product_category,
             brand: p.brand,
@@ -216,6 +226,14 @@ export const marketplaceModule: AiModuleDefinition = {
             tags: p.tags,
             provider: (p.providers as { business_name?: string })?.business_name,
             hasDelivery: (p.providers as { has_delivery?: boolean })?.has_delivery,
+            ingredients: p.ingredients,
+            nutrition: {
+              protein_pct: p.nutrition_protein_pct,
+              fat_pct: p.nutrition_fat_pct,
+              fiber_pct: p.nutrition_fiber_pct,
+              moisture_pct: p.nutrition_moisture_pct,
+              calories_per_100g: p.nutrition_calories_per_100g,
+            },
           })),
         };
       },

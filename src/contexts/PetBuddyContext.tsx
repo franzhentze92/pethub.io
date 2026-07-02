@@ -4,12 +4,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useUserProfile } from '@/hooks/useSettings';
 import { askPetBuddy, executeConfirmedTool } from '@/ai/orchestrator';
+import { askPetBuddyAgent } from '@/ai/agentOrchestrator';
 import { maybeUpdateConversationSummary } from '@/ai/helpers/petBuddyMemory';
 import {
   detectPendingActionIntent,
   findLatestPendingActionMessage,
 } from '@/ai/actionConfirmation';
-import type { PetBuddyMessage, PetBuddyPendingAction, PetBuddyCartAction } from '@/ai/types';
+import type { PetBuddyMessage, PetBuddyPendingAction, PetBuddyCartAction, PetBuddyProductRecommendation } from '@/ai/types';
+import { resolveProductByIdForCart } from '@/ai/helpers/cartActions';
 import {
   clearPetBuddyChat,
   loadPetBuddyChat,
@@ -19,6 +21,8 @@ import { clearPetBuddyMemory } from '@/ai/helpers/petBuddyMemory';
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
+const AGENT_MODE_KEY = 'petBuddyAgentMode';
+
 interface PetBuddyContextValue {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
@@ -26,9 +30,12 @@ interface PetBuddyContextValue {
   messages: PetBuddyMessage[];
   isLoading: boolean;
   providerId?: string;
+  agentMode: boolean;
+  setAgentMode: (enabled: boolean) => void;
   sendMessage: (text: string, options?: { voiceMode?: boolean }) => Promise<void>;
   confirmPendingAction: (messageId: string, action: PetBuddyPendingAction) => Promise<void>;
   cancelPendingAction: (messageId: string) => void;
+  addProductRecommendationToCart: (rec: PetBuddyProductRecommendation) => Promise<boolean>;
   resetMemory: () => void;
   /** @deprecated Use resetMemory */
   clearChat: () => void;
@@ -54,6 +61,22 @@ export const PetBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const messagesRef = useRef<PetBuddyMessage[]>([]);
   const persistReadyRef = useRef(false);
   const [providerId, setProviderId] = useState<string | undefined>();
+  const [agentMode, setAgentModeState] = useState(() => {
+    try {
+      return localStorage.getItem(AGENT_MODE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setAgentMode = useCallback((enabled: boolean) => {
+    setAgentModeState(enabled);
+    try {
+      localStorage.setItem(AGENT_MODE_KEY, enabled ? 'true' : 'false');
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -168,6 +191,22 @@ export const PetBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   }, []);
 
+  const addProductRecommendationToCart = useCallback(
+    async (rec: PetBuddyProductRecommendation): Promise<boolean> => {
+      if (!user?.id) return false;
+      try {
+        const result = await resolveProductByIdForCart(rec.productId, 1);
+        if ('error' in result) return false;
+        applyCartAction(addItem, { action: 'add', item: result.cartItem });
+        return true;
+      } catch (err) {
+        console.error('[PetBuddy] add to cart', err);
+        return false;
+      }
+    },
+    [user?.id, addItem],
+  );
+
   const sendMessage = useCallback(
     async (text: string, options?: { voiceMode?: boolean }) => {
       const trimmed = text.trim();
@@ -255,7 +294,8 @@ export const PetBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             toolsUsed: m.toolsUsed,
           }));
 
-        const response = await askPetBuddy(
+        const ask = agentMode ? askPetBuddyAgent : askPetBuddy;
+        const response = await ask(
           trimmed,
           {
             ...ctx,
@@ -281,6 +321,7 @@ export const PetBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   toolsUsed: response.toolsUsed,
                   actionLink: response.actionLink,
                   pendingAction: response.pendingAction,
+                  productRecommendations: response.productRecommendations,
                 }
               : m,
           ),
@@ -306,7 +347,7 @@ export const PetBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsLoading(false);
       }
     },
-    [ctx, confirmPendingAction, cancelPendingAction, user?.id, addItem]
+    [ctx, confirmPendingAction, cancelPendingAction, user?.id, addItem, agentMode]
   );
 
   const resetMemory = useCallback(() => {
@@ -329,13 +370,16 @@ export const PetBuddyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       messages,
       isLoading,
       providerId,
+      agentMode,
+      setAgentMode,
       sendMessage,
       confirmPendingAction,
       cancelPendingAction,
+      addProductRecommendationToCart,
       resetMemory,
       clearChat,
     }),
-    [isOpen, messages, isLoading, providerId, sendMessage, confirmPendingAction, cancelPendingAction, resetMemory, clearChat, toggle]
+    [isOpen, messages, isLoading, providerId, agentMode, setAgentMode, sendMessage, confirmPendingAction, cancelPendingAction, addProductRecommendationToCart, resetMemory, clearChat, toggle]
   );
 
   return <PetBuddyContext.Provider value={value}>{children}</PetBuddyContext.Provider>;

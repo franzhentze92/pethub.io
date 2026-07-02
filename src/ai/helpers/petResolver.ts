@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { AiExecutionContext } from '../types';
+import { fuzzyMatchPetName } from './petNameFuzzy';
 
 export type UserPet = {
   id: string;
@@ -59,11 +60,18 @@ export async function loadUserPets(ctx: AiExecutionContext): Promise<UserPet[]> 
 
 export function matchPetByName(pets: UserPet[], rawName: string): UserPet | undefined {
   const needle = rawName.trim().toLowerCase();
-  return (
+  const exact =
     pets.find((p) => p.name.toLowerCase() === needle) ??
     pets.find((p) => p.name.toLowerCase().includes(needle)) ??
-    pets.find((p) => needle.includes(p.name.toLowerCase()))
-  );
+    pets.find((p) => needle.includes(p.name.toLowerCase()));
+  if (exact) return exact;
+
+  const fuzzy = fuzzyMatchPetName(rawName, pets.map((p) => p.name));
+  if (fuzzy) {
+    return pets.find((p) => p.name.toLowerCase() === fuzzy.toLowerCase());
+  }
+
+  return undefined;
 }
 
 export async function resolvePets(

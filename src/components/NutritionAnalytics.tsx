@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { formatPetOptionLabel } from '@/utils/petLabels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { toast } from 'sonner';
 import NutritionProgressChart from './NutritionProgressChart';
 import { MobileSectionCard } from './mobile/MobileUi';

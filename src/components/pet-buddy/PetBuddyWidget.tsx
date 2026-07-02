@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, Send, Sparkles, Trash2, ExternalLink, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { X, Send, Sparkles, Trash2, ExternalLink, Mic, MicOff, Volume2, VolumeX, Bot } from 'lucide-react';
 import { usePetBuddy } from '@/contexts/PetBuddyContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserProfile } from '@/hooks/useSettings';
+import { useUserProfile, usePets } from '@/hooks/useSettings';
 import { usePetBuddyVoice } from '@/hooks/usePetBuddyVoice';
 import { cn } from '@/lib/utils';
 import { buildChatGreeting } from '@/lib/blueprint/blueprintMascots';
-import { textForSpeech, PET_BUDDY_VOICE_LANG } from '@/lib/petBuddySpeech';
+import { textForSpeech, PET_BUDDY_VOICE_LANG, isIosSafari, isMobileBrowser, primeMobileSpeechOnGesture, primeSpeechSynthesis } from '@/lib/petBuddySpeech';
 import { BLUEPRINT_MASCOTS, type BlueprintDashboard } from '@/lib/blueprint/blueprintMascots';
 import { PetBuddyActionConfirmCard } from '@/components/pet-buddy/PetBuddyActionConfirmCard';
+import { PetBuddyProductRecommendationCards } from '@/components/pet-buddy/PetBuddyProductRecommendationCards';
 import { PetBuddyResetMemoryDialog } from '@/components/pet-buddy/PetBuddyResetMemoryDialog';
+import { normalizeVoiceTranscript } from '@/ai/helpers/petNameFuzzy';
 import { buildEditPrompt } from '@/ai/actionConfirmation';
 import type { PetBuddyMessage } from '@/ai/types';
 
@@ -70,15 +72,17 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
 }) => {
   const { user } = useAuth();
   const { data: profile } = useUserProfile(user?.id);
+  const { data: pets = [] } = usePets(user?.id);
   const userRole = (profile?.role ?? localStorage.getItem('user_role') ?? 'client') as string;
   const mascotDashboard: BlueprintDashboard =
     userRole === 'provider' ? 'provider' : userRole === 'shelter' ? 'shelter' : 'client';
   const mascot = BLUEPRINT_MASCOTS[mascotDashboard];
-  const { isOpen, setIsOpen, toggle, messages, isLoading, sendMessage, confirmPendingAction, cancelPendingAction, resetMemory } = usePetBuddy();
+  const { isOpen, setIsOpen, toggle, messages, isLoading, sendMessage, confirmPendingAction, cancelPendingAction, addProductRecommendationToCart, resetMemory, agentMode, setAgentMode } = usePetBuddy();
   const [confirmingMessageId, setConfirmingMessageId] = useState<string | null>(null);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [input, setInput] = useState('');
   const [voiceMode, setVoiceMode] = useState(false);
+  const voiceModeRef = useRef(false);
   const [speakResponses, setSpeakResponses] = useState(
     () => localStorage.getItem(SPEAK_RESPONSES_KEY) !== '0'
   );
@@ -89,12 +93,32 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
   const isLoadingRef = useRef(isLoading);
   const pendingVoiceSendRef = useRef(false);
   const wasSpeakingRef = useRef(false);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     isLoadingRef.current = isLoading;
   }, [isLoading]);
 
+  useEffect(() => {
+    voiceModeRef.current = voiceMode;
+  }, [voiceMode]);
+
   const userName = profile?.full_name ?? user?.email?.split('@')[0];
+  const speechPetNames = useMemo(
+    () => [
+      mascot.name,
+      ...pets.map((p) => p.name).filter(Boolean),
+    ],
+    [mascot.name, pets],
+  );
+  const toSpeech = useCallback(
+    (markdown: string) => textForSpeech(markdown, { petNames: speechPetNames }),
+    [speechPetNames],
+  );
   const quickPrompts = quickPromptsForRole(userRole);
   const welcomeMessage: PetBuddyMessage = useMemo(
     () => ({
@@ -116,13 +140,14 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
       pendingVoiceSendRef.current = true;
       stopListeningRef.current();
       setInput('');
+      const normalized = normalizeVoiceTranscript(text, speechPetNames);
       try {
-        await sendMessage(text, { voiceMode: voiceMode || speakResponses });
+        await sendMessage(normalized, { voiceMode: voiceMode || speakResponses });
       } finally {
         pendingVoiceSendRef.current = false;
       }
     },
-    [sendMessage, voiceMode, speakResponses],
+    [sendMessage, voiceMode, speakResponses, speechPetNames],
   );
 
   const {
@@ -131,18 +156,21 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
     voiceReady,
     isListening,
     isSpeaking,
+    micBlocked,
     startListening,
     stopListening,
     speak,
     stopSpeaking,
     scheduleListenRestart,
     allowListenRestart,
+    primeMicOnGesture,
+    requestMicAccess,
   } = usePetBuddyVoice({
     lang: PET_BUDDY_VOICE_LANG,
     voiceProfile: mascot.voiceProfile,
     conversationMode: voiceMode,
     getKeepListening: () =>
-      voiceMode && !isLoadingRef.current && !pendingVoiceSendRef.current,
+      voiceModeRef.current && !isLoadingRef.current && !pendingVoiceSendRef.current,
     onFinalTranscript: handleFinalTranscript,
     onInterimTranscript: (text) => {
       if (text) setInput(text);
@@ -164,8 +192,9 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
   const resumeConversationListening = useCallback(() => {
     if (!voiceMode || isLoadingRef.current || pendingVoiceSendRef.current) return;
     allowListenRestart();
+    void startListening();
     scheduleListenRestart(900);
-  }, [voiceMode, scheduleListenRestart, allowListenRestart]);
+  }, [voiceMode, scheduleListenRestart, allowListenRestart, startListening]);
 
   useEffect(() => {
     localStorage.setItem(SPEAK_RESPONSES_KEY, speakResponses ? '1' : '0');
@@ -173,23 +202,93 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
 
   const endConversation = useCallback(() => {
     voiceIntroSpokenRef.current = false;
+    voiceModeRef.current = false;
     setVoiceMode(false);
     stopListening();
     stopSpeaking();
   }, [stopListening, stopSpeaking]);
 
-  const startConversation = useCallback(() => {
+  const startConversation = useCallback(async () => {
+    voiceModeRef.current = true;
     setVoiceMode(true);
     setSpeakResponses(true);
-    if (voiceIntroSpokenRef.current) {
+    primeMobileSpeechOnGesture(mascot.voiceProfile);
+    primeSpeechSynthesis();
+
+    const micOk = await primeMicOnGesture();
+    if (!micOk) return;
+
+    // No re-leer mensajes viejos al activar voz.
+    const lastAssistant = [...messagesRef.current].reverse().find((m) => m.role === 'assistant');
+    if (lastAssistant) {
+      lastSpokenIdRef.current = lastAssistant.id;
+    }
+
+    const openMic = () => {
       allowListenRestart();
-      scheduleListenRestart(600);
+      void startListening();
+      scheduleListenRestart(800);
+    };
+
+    if (voiceIntroSpokenRef.current) {
+      openMic();
       return;
     }
     voiceIntroSpokenRef.current = true;
-    const intro = textForSpeech(buildChatGreeting(mascotDashboard, userName, true));
-    speak(intro);
-  }, [speak, userName, mascotDashboard, scheduleListenRestart, allowListenRestart]);
+    const intro = toSpeech(buildChatGreeting(mascotDashboard, userName, true));
+    if (intro.trim()) {
+      speak(intro, openMic);
+    } else {
+      openMic();
+    }
+  }, [
+    speak,
+    userName,
+    mascotDashboard,
+    mascot.voiceProfile,
+    scheduleListenRestart,
+    allowListenRestart,
+    toSpeech,
+    primeMicOnGesture,
+    startListening,
+  ]);
+
+  const handleRetryMic = useCallback(async () => {
+    const micOk = await primeMicOnGesture();
+    if (!micOk) return;
+    allowListenRestart();
+    await startListening();
+  }, [primeMicOnGesture, allowListenRestart, startListening]);
+
+  const prevVoiceModeRef = useRef(false);
+  useEffect(() => {
+    const wasOn = prevVoiceModeRef.current;
+    prevVoiceModeRef.current = voiceMode;
+    if (voiceMode && !wasOn) {
+      allowListenRestart();
+      scheduleListenRestart(600);
+    }
+  }, [voiceMode, allowListenRestart, scheduleListenRestart]);
+
+  useEffect(() => {
+    if (!voiceMode || micBlocked || isListening || isSpeaking || isLoading || pendingVoiceSendRef.current) {
+      return;
+    }
+    const watchdog = window.setTimeout(() => {
+      if (!voiceModeRef.current || isLoadingRef.current || pendingVoiceSendRef.current) return;
+      allowListenRestart();
+      void startListening();
+    }, 2800);
+    return () => window.clearTimeout(watchdog);
+  }, [
+    voiceMode,
+    micBlocked,
+    isListening,
+    isSpeaking,
+    isLoading,
+    allowListenRestart,
+    startListening,
+  ]);
 
   useEffect(() => {
     if (!voiceMode) {
@@ -214,6 +313,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
 
     const last = messages[messages.length - 1];
     if (!last || last.role !== 'assistant' || last.id === lastSpokenIdRef.current) return;
+    if (!last.content?.trim()) return;
 
     lastSpokenIdRef.current = last.id;
 
@@ -222,9 +322,12 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
         last.pendingAction && (voiceMode || speakResponses)
           ? `${last.content} Di confirmar, cancelar o editar.`
           : last.content;
-      const plain = textForSpeech(speechContent);
+      const plain = toSpeech(speechContent);
       if (plain) {
-        const start = () => speak(plain);
+        const start = () =>
+          speak(plain, () => {
+            if (voiceMode) resumeConversationListening();
+          });
         if (voiceReady) start();
         else setTimeout(start, 300);
         return;
@@ -243,6 +346,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
     voiceReady,
     voiceMode,
     speak,
+    toSpeech,
     resumeConversationListening,
   ]);
 
@@ -263,7 +367,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
 
   const toggleVoiceMode = () => {
     if (voiceMode) endConversation();
-    else startConversation();
+    else void startConversation();
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -330,7 +434,9 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm leading-tight">{mascot.name}</p>
             <p className="text-[11px] text-white/80 truncate">
-              {isSpeaking
+              {agentMode
+                ? 'Modo agente (beta) — conversación libre'
+                : isSpeaking
                 ? 'Hablando…'
                 : voiceMode
                   ? isListening
@@ -341,6 +447,22 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
                     : 'Tu asistente inteligente'}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setAgentMode(!agentMode)}
+            title={
+              agentMode
+                ? 'Desactivar modo agente (volver al asistente clásico)'
+                : 'Activar modo agente (beta): conversación libre + acceso a tablas'
+            }
+            className={cn(
+              'p-2 rounded-full transition-colors',
+              agentMode ? 'bg-white/30 ring-2 ring-white/50' : 'hover:bg-white/20',
+            )}
+            aria-label={agentMode ? 'Desactivar modo agente' : 'Activar modo agente'}
+          >
+            <Bot className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={toggleSpeakResponses}
@@ -401,33 +523,76 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
         </div>
 
         {voiceMode ? (
-          <div className="shrink-0 px-3 py-2.5 border-b bg-red-50 border-red-100 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-              <p className="text-xs text-red-800 font-medium truncate">
-                {isListening
-                  ? 'Te escucho — habla con naturalidad'
-                  : isSpeaking
-                    ? 'Respondiendo en voz alta…'
-                    : isLoading
-                      ? 'Pensando…'
-                      : 'Conversación abierta — el micrófono sigue activo'}
-              </p>
+          <div
+            className={cn(
+              'shrink-0 px-3 py-2.5 border-b flex flex-col gap-1',
+              micBlocked ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-100',
+            )}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={cn(
+                    'w-2.5 h-2.5 rounded-full shrink-0',
+                    micBlocked ? 'bg-amber-500' : 'bg-red-500 animate-pulse',
+                  )}
+                />
+                <p
+                  className={cn(
+                    'text-xs font-medium truncate',
+                    micBlocked ? 'text-amber-900' : 'text-red-800',
+                  )}
+                >
+                  {micBlocked
+                    ? 'Micrófono bloqueado en el navegador'
+                    : isListening
+                      ? 'Te escucho — habla con naturalidad'
+                      : isSpeaking
+                        ? 'Respondiendo en voz alta…'
+                        : isLoading
+                          ? 'Pensando…'
+                          : 'Conversación abierta — activando micrófono…'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={endConversation}
+                className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Finalizar
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={endConversation}
-              className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors"
-            >
-              Finalizar
-            </button>
+            {micBlocked ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] text-amber-900/90 leading-snug">
+                  {isMobileBrowser()
+                    ? 'Ve a Ajustes del navegador y permite el micrófono para este sitio.'
+                    : 'En Chrome: clic en el ícono del candado o micrófono en la barra de dirección → Micrófono → Permitir. Luego pulsa «Activar micrófono».'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleRetryMic()}
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                >
+                  Activar micrófono
+                </button>
+              </div>
+            ) : (
+              <p className="text-[10px] text-red-700/90 leading-snug">
+                {isMobileBrowser()
+                  ? isIosSafari()
+                    ? 'Voz en español latino (Paulina). Habla claro y cerca del micrófono.'
+                    : 'Voz en español. Habla pausado y cerca del micrófono.'
+                  : 'Si no te escucha, revisa que Chrome tenga permiso de micrófono para localhost.'}
+              </p>
+            )}
           </div>
         ) : (
           sttSupported && (
             <div className="shrink-0 px-3 py-2 border-b bg-landing-aqua/5 border-landing-aqua/15">
               <button
                 type="button"
-                onClick={startConversation}
+                onClick={() => void startConversation()}
                 className="w-full flex items-center justify-center gap-2 text-sm font-medium text-landing-aqua-dark py-2 rounded-xl hover:bg-landing-aqua/10 transition-colors"
               >
                 <Mic className="w-4 h-4" />
@@ -465,7 +630,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
                 {msg.role === 'assistant' && ttsSupported && speakResponses && !voiceMode && (
                   <button
                     type="button"
-                    onClick={() => speak(textForSpeech(msg.content))}
+                    onClick={() => speak(toSpeech(msg.content))}
                     className="mt-2 flex items-center gap-1 text-[11px] text-landing-aqua-dark hover:underline"
                     aria-label="Escuchar de nuevo"
                   >
@@ -501,6 +666,13 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
                       inputRef.current?.focus();
                     }}
                     onCancel={() => cancelPendingAction(msg.id)}
+                  />
+                )}
+                {msg.productRecommendations && msg.productRecommendations.length > 0 && (
+                  <PetBuddyProductRecommendationCards
+                    recommendations={msg.productRecommendations}
+                    onAddToCart={addProductRecommendationToCart}
+                    onCloseChat={() => setIsOpen(false)}
                   />
                 )}
               </div>
@@ -541,14 +713,22 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
         <form
           onSubmit={handleSubmit}
           className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white/80"
+          lang="es"
         >
           <input
             ref={inputRef}
             type="text"
+            lang="es"
+            inputMode={voiceMode || isListening ? 'none' : 'text'}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={!voiceMode && !isListening}
+            readOnly={voiceMode || isListening}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={inputPlaceholder}
-            disabled={isLoading || isListening}
+            disabled={isLoading}
             className="flex-1 min-w-0 rounded-full border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-landing-aqua/40 focus:border-landing-aqua/40 disabled:opacity-60"
           />
           <button

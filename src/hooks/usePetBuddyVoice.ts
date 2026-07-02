@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  applyTtsToUtterance,
+  chunkTextForDesktopTts,
+  chunkTextForMobileTts,
   getSpeechRecognitionCtor,
-  getTtsSettings,
+  isIosSafari,
+  isMobileBrowser,
   isSpeechRecognitionSupported,
   isSpeechSynthesisSupported,
   PET_BUDDY_VOICE_LANG,
   pickSpanishVoiceForProfile,
+  primeSpeechSynthesis,
+  resolveSpeechRecognitionLang,
+  queryMicrophonePermission,
+  requestMicrophoneAccess,
+  isMicPermissionError,
+  isMicErrorRecoverable,
+  shouldChunkTts,
+  waitForSpanishVoice,
 } from '@/lib/petBuddySpeech';
 import type { PetBuddyVoiceProfile } from '@/lib/blueprint/blueprintMascots';
 
@@ -31,6 +43,11 @@ export function usePetBuddyVoice({
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
+
+  const micBlockedRef = useRef(false);
+  const micPrimedRef = useRef(false);
+  const startingListenRef = useRef(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const onFinalRef = useRef(onFinalTranscript);
@@ -65,6 +82,10 @@ export function usePetBuddyVoice({
     isListeningRef.current = isListening;
   }, [isListening]);
 
+  useEffect(() => {
+    micBlockedRef.current = micBlocked;
+  }, [micBlocked]);
+
   const voiceProfileRef = useRef(voiceProfile);
   useEffect(() => {
     voiceProfileRef.current = voiceProfile;
@@ -89,8 +110,37 @@ export function usePetBuddyVoice({
     }
   }, []);
 
+  const markMicBlocked = useCallback(
+    (blocked: boolean) => {
+      micBlockedRef.current = blocked;
+      setMicBlocked(blocked);
+      if (blocked) clearRestartTimer();
+    },
+    [clearRestartTimer],
+  );
+
+  const primeMicOnGesture = useCallback(async (): Promise<boolean> => {
+    const result = await requestMicrophoneAccess();
+    if (result === 'granted') {
+      micPrimedRef.current = true;
+      markMicBlocked(false);
+      return true;
+    }
+    if (result === 'denied') {
+      markMicBlocked(true);
+      return false;
+    }
+    // prompt/unsupported — still try SpeechRecognition (has its own permission flow)
+    micPrimedRef.current = true;
+    return true;
+  }, [markMicBlocked]);
+
+  /** @deprecated Use primeMicOnGesture on user click only */
+  const requestMicAccess = primeMicOnGesture;
+
   const stopSpeaking = useCallback(() => {
     if (!ttsSupported) return;
+    speakGenerationRef.current += 1;
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
     isSpeakingRef.current = false;
@@ -117,13 +167,20 @@ export function usePetBuddyVoice({
   const scheduleListenRestart = useCallback(
     (delayMs?: number) => {
       clearRestartTimer();
+      if (micBlockedRef.current) return;
       if (suppressListenRestartRef.current) return;
       if (!getKeepListeningRef.current?.()) return;
       if (isSpeakingRef.current) return;
 
       const delay =
         delayMs ??
-        (conversationModeRef.current ? 900 : 450);
+        (conversationModeRef.current
+          ? isMobileBrowser()
+            ? 1400
+            : 900
+          : isMobileBrowser()
+            ? 800
+            : 450);
 
       const now = Date.now();
       if (now - lastRestartAtRef.current < 500) return;
@@ -134,33 +191,64 @@ export function usePetBuddyVoice({
         if (!getKeepListeningRef.current?.() || isSpeakingRef.current || isListeningRef.current) {
           return;
         }
-        startListeningRef.current?.();
+        void startListeningRef.current?.();
       }, delay);
     },
     [clearRestartTimer],
   );
 
-  const startListeningRef = useRef<() => boolean>(() => false);
+  const startListeningRef = useRef<() => Promise<boolean>>(async () => false);
 
-  const startListening = useCallback((): boolean => {
-    if (!sttSupported || isListeningRef.current || isSpeakingRef.current) return false;
+  const startListening = useCallback(async (): Promise<boolean> => {
+    if (!sttSupported || isListeningRef.current || isSpeakingRef.current || startingListenRef.current) {
+      return false;
+    }
+    if (micBlockedRef.current) return false;
 
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return false;
+    startingListenRef.current = true;
+    try {
+      const perm = await queryMicrophonePermission();
+      if (perm === 'denied') {
+        markMicBlocked(true);
+        return false;
+      }
+      if (perm !== 'granted' && !micPrimedRef.current) {
+        scheduleListenRestart(1200);
+        return false;
+      }
 
-    clearRestartTimer();
+      const Ctor = getSpeechRecognitionCtor();
+      if (!Ctor) return false;
 
-    const recognition = new Ctor();
-    recognition.lang = lang;
-    recognition.continuous = conversationModeRef.current;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+      clearRestartTimer();
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      isListeningRef.current = true;
-      onInterimRef.current?.('');
-    };
+      const recognition = new Ctor();
+      recognition.lang = resolveSpeechRecognitionLang(lang);
+      // Chrome desktop breaks with continuous=true — restart via onend instead.
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      let listenStarted = false;
+      const startWatch = window.setTimeout(() => {
+        if (!listenStarted && recognitionRef.current === recognition) {
+          try {
+            recognition.stop();
+          } catch {
+            /* ignore */
+          }
+          scheduleListenRestart(600);
+        }
+      }, 4000);
+
+      recognition.onstart = () => {
+        listenStarted = true;
+        window.clearTimeout(startWatch);
+        markMicBlocked(false);
+        setIsListening(true);
+        isListeningRef.current = true;
+        onInterimRef.current?.('');
+      };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
@@ -196,18 +284,30 @@ export function usePetBuddyVoice({
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      window.clearTimeout(startWatch);
       setIsListening(false);
       isListeningRef.current = false;
       if (event.error === 'aborted') return;
+      if (isMicPermissionError(event.error)) {
+        markMicBlocked(true);
+        console.warn('[PetBuddy voice] mic blocked:', event.error);
+        return;
+      }
       if (event.error !== 'no-speech') {
         console.warn('[PetBuddy voice]', event.error);
       }
-      scheduleListenRestart(event.error === 'no-speech' ? 700 : 1000);
+      if (isMicErrorRecoverable(event.error)) {
+        scheduleListenRestart(event.error === 'no-speech' ? 700 : 1000);
+      } else {
+        scheduleListenRestart(1200);
+      }
     };
 
     recognition.onend = () => {
+      window.clearTimeout(startWatch);
       setIsListening(false);
       isListeningRef.current = false;
+      if (micBlockedRef.current) return;
       if (!getKeepListeningRef.current?.() || isSpeakingRef.current) return;
       scheduleListenRestart();
     };
@@ -217,15 +317,92 @@ export function usePetBuddyVoice({
       recognition.start();
       return true;
     } catch (err) {
+      window.clearTimeout(startWatch);
       console.warn('[PetBuddy voice] start failed:', err);
       setIsListening(false);
       isListeningRef.current = false;
       scheduleListenRestart(1200);
       return false;
     }
-  }, [sttSupported, lang, clearRestartTimer, scheduleListenRestart]);
+    } finally {
+      startingListenRef.current = false;
+    }
+  }, [sttSupported, lang, clearRestartTimer, scheduleListenRestart, markMicBlocked]);
 
   startListeningRef.current = startListening;
+
+  const speakOneChunk = useCallback(
+    (
+      chunk: string,
+      voice: SpeechSynthesisVoice | null,
+      profile: typeof voiceProfile,
+      generation: number,
+    ): Promise<void> =>
+      new Promise((resolve) => {
+        if (generation !== speakGenerationRef.current) {
+          resolve();
+          return;
+        }
+
+        let settled = false;
+        let started = false;
+        let poll = 0;
+        let timeout = 0;
+        let startWatch = 0;
+
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          if (poll) window.clearInterval(poll);
+          if (timeout) window.clearTimeout(timeout);
+          if (startWatch) window.clearTimeout(startWatch);
+          resolve();
+        };
+
+        timeout = window.setTimeout(finish, 25000);
+
+        const utterance = new SpeechSynthesisUtterance(chunk);
+        applyTtsToUtterance(utterance, voice, profile);
+
+        utterance.onstart = () => {
+          if (generation !== speakGenerationRef.current) return;
+          started = true;
+          setIsSpeaking(true);
+          isSpeakingRef.current = true;
+        };
+        utterance.onend = () => finish();
+        utterance.onerror = () => finish();
+
+        primeSpeechSynthesis();
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+
+        poll = window.setInterval(() => {
+          if (generation !== speakGenerationRef.current) {
+            finish();
+            return;
+          }
+          if (!started) return;
+          if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+            finish();
+          }
+        }, 500);
+
+        startWatch = window.setTimeout(() => {
+          if (!started) finish();
+        }, 3500);
+      }),
+    [],
+  );
+
+  const finishSpeak = useCallback((generation: number, onEnd?: () => void) => {
+    if (generation !== speakGenerationRef.current) return;
+    setIsSpeaking(false);
+    isSpeakingRef.current = false;
+    const cb = speakEndRef.current ?? onEnd;
+    speakEndRef.current = null;
+    cb?.();
+  }, []);
 
   const speak = useCallback(
     (text: string, onEnd?: () => void) => {
@@ -238,49 +415,51 @@ export function usePetBuddyVoice({
       stopListening();
 
       const generation = ++speakGenerationRef.current;
+      speakEndRef.current = onEnd ?? null;
 
-      const runSpeak = () => {
-        if (generation !== speakGenerationRef.current) return;
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        const profile = voiceProfileRef.current;
-        const voice = pickSpanishVoiceForProfile(profile);
-        utterance.lang = voice?.lang ?? lang;
-        if (voice) utterance.voice = voice;
-        const tts = getTtsSettings(voice, profile);
-        utterance.rate = tts.rate;
-        utterance.pitch = tts.pitch;
-        utterance.volume = tts.volume;
-
-        utterance.onstart = () => {
+      const runSpeak = async () => {
+        try {
           if (generation !== speakGenerationRef.current) return;
-          setIsSpeaking(true);
-          isSpeakingRef.current = true;
-        };
-        utterance.onend = () => {
-          if (generation !== speakGenerationRef.current) return;
-          setIsSpeaking(false);
-          isSpeakingRef.current = false;
-          const cb = speakEndRef.current;
-          speakEndRef.current = null;
-          cb?.();
-        };
-        utterance.onerror = () => {
-          if (generation !== speakGenerationRef.current) return;
-          setIsSpeaking(false);
-          isSpeakingRef.current = false;
-          speakEndRef.current = null;
-          onEnd?.();
-        };
 
-        speakEndRef.current = onEnd ?? null;
-        window.speechSynthesis.speak(utterance);
+          primeSpeechSynthesis();
+          window.speechSynthesis.cancel();
+
+          // Chrome/Safari need a brief gap after cancel() or speak() silently fails.
+          await new Promise((r) => setTimeout(r, isMobileBrowser() ? 120 : 80));
+
+          if (generation !== speakGenerationRef.current) return;
+
+          const profile = voiceProfileRef.current;
+          const voice = (await waitForSpanishVoice(profile)) ?? pickSpanishVoiceForProfile(profile);
+
+          const chunks = shouldChunkTts(text)
+            ? isMobileBrowser()
+              ? chunkTextForMobileTts(text)
+              : chunkTextForDesktopTts(text)
+            : [text];
+
+          if (chunks.length === 0) return;
+
+          for (let i = 0; i < chunks.length; i++) {
+            if (generation !== speakGenerationRef.current) return;
+            await speakOneChunk(chunks[i], voice, profile, generation);
+            if (isIosSafari() && i < chunks.length - 1) {
+              await new Promise((r) => setTimeout(r, 140));
+            }
+            if (!isMobileBrowser() && i < chunks.length - 1) {
+              await new Promise((r) => setTimeout(r, 20));
+            }
+          }
+        } catch (err) {
+          console.warn('[PetBuddy voice] speak failed:', err);
+        } finally {
+          finishSpeak(generation, onEnd);
+        }
       };
 
-      setTimeout(runSpeak, 80);
+      void runSpeak();
     },
-    [ttsSupported, lang, stopListening, clearRestartTimer, voiceProfile],
+    [ttsSupported, stopListening, clearRestartTimer, speakOneChunk, finishSpeak],
   );
 
   useEffect(() => {
@@ -298,11 +477,14 @@ export function usePetBuddyVoice({
     voiceReady,
     isListening,
     isSpeaking,
+    micBlocked,
     startListening,
     stopListening,
     speak,
     stopSpeaking,
     scheduleListenRestart,
     allowListenRestart,
+    primeMicOnGesture,
+    requestMicAccess,
   };
 };

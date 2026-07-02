@@ -92,9 +92,7 @@ const ROLE_DEFAULT_INTENTS: Record<string, ToolIntent[]> = {
 };
 
 const ALWAYS_TOOL_NAMES = new Set([
-  'pets_list_mine',
   'profile_get_mine',
-  'memory_list_facts',
   'memory_save_fact',
 ]);
 

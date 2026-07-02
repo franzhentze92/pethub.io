@@ -2,6 +2,7 @@ export type { AiModuleDefinition, AiToolDefinition, AiExecutionContext, Conversa
 export { aiRegistry } from './registry';
 export { initAiModules } from './modules';
 export { askPetBuddy } from './orchestrator';
+export { askPetBuddyAgent } from './agentOrchestrator';
 
 /**
  * Pet Buddy AI Layer
