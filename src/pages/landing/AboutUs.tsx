@@ -1,181 +1,283 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Link } from 'react-router-dom';
-import { 
-  Users, Heart, Target, Award, Globe, Zap, ArrowRight, Shield, 
-  Activity, Utensils, Stethoscope, ShoppingBag, PawPrint, 
-  BarChart3, TrendingUp, CheckCircle, Star, Calendar, MessageCircle,
-  Building2, Package, Coins, Eye, Bell, MapPin, Phone, Mail
+import {
+  Users, Heart, Target, Award, Globe, ArrowRight, Shield,
+  PawPrint, CheckCircle, Star, Eye, MapPin, Sparkles,
+  Lightbulb, Rocket, Mail, HandHeart, Leaf, Building2,
 } from 'lucide-react';
+import { landingBadge } from '@/lib/landingTheme';
+import { LandingAmbientBackground } from '@/components/landing/LandingAmbientBackground';
+import { LandingPetDecorations } from '@/components/landing/LandingPetDecorations';
+
+const values = [
+  {
+    icon: Heart,
+    title: 'Amor por los Animales',
+    description: 'Cada decisión que tomamos — de producto a partnerships — nace del respeto genuino por el bienestar animal.',
+    color: 'from-landing-mango to-landing-tropical',
+    bg: 'from-landing-mango/10 to-landing-tropical/10',
+  },
+  {
+    icon: Users,
+    title: 'Comunidad',
+    description: 'No construimos software en aislamiento: escuchamos a dueños, refugios y veterinarios para crecer juntos.',
+    color: 'from-landing-aqua to-landing-mint',
+    bg: 'from-landing-aqua/10 to-landing-mint/10',
+  },
+  {
+    icon: Lightbulb,
+    title: 'Innovación con Propósito',
+    description: 'Adoptamos tecnología solo cuando resuelve un problema real del cuidado animal en nuestra región.',
+    color: 'from-landing-mint to-landing-aqua',
+    bg: 'from-landing-mint/10 to-landing-aqua/10',
+  },
+  {
+    icon: Shield,
+    title: 'Responsabilidad',
+    description: 'Transparencia, privacidad de datos y estándares éticos en cada relación con usuarios y aliados.',
+    color: 'from-landing-aqua to-landing-mango',
+    bg: 'from-landing-aqua/10 to-landing-mango/10',
+  },
+];
+
+const milestones = [
+  {
+    year: '2023',
+    icon: Lightbulb,
+    title: 'El problema',
+    description: 'Vimos familias usando hojas de cálculo, WhatsApp y cuadernos para cuidar a sus mascotas. Refugios sin herramientas digitales. Negocios pet desconectados.',
+    color: 'from-landing-tropical to-landing-mango',
+  },
+  {
+    year: '2024',
+    icon: Rocket,
+    title: 'PetHub nace',
+    description: 'Fundamos PetHub con la convicción de que el cuidado animal en Latinoamérica merece una respuesta accesible y humana — respaldada por buena tecnología.',
+    color: 'from-landing-aqua to-landing-mint',
+  },
+  {
+    year: 'Hoy',
+    icon: Sparkles,
+    title: 'Creciendo con propósito',
+    description: 'Seguimos construyendo al lado de nuestra comunidad, ampliando alianzas con refugios, clínicas y emprendedores pet en la región.',
+    color: 'from-landing-mango to-landing-aqua',
+  },
+];
+
+const commitments = [
+  {
+    icon: HandHeart,
+    title: 'Adopción responsable',
+    description: 'Apoyamos a refugios y familias en procesos de adopción seguros, con seguimiento y educación.',
+  },
+  {
+    icon: Leaf,
+    title: 'Impacto regional',
+    description: 'Priorizamos soluciones pensadas para Latinoamérica — idioma, contexto y realidad del mercado pet en la región.',
+  },
+  {
+    icon: Building2,
+    title: 'Aliados de confianza',
+    description: 'Trabajamos con veterinarios, tiendas y albergues verificados que comparten nuestros valores de calidad y ética.',
+  },
+];
+
+const teamPrinciples = [
+  'Escuchamos antes de construir',
+  'Priorizamos el bienestar animal sobre las métricas',
+  'Diseñamos para familias reales, no solo para demos',
+  'Crecemos de forma sostenible y responsable',
+];
 
 export const AboutUs: React.FC = () => {
-  const values = [
-    {
-      icon: Heart,
-      title: 'Amor por los Animales',
-      description: 'Cada decisión que tomamos está guiada por nuestro profundo amor y respeto por todas las mascotas.',
-      color: 'from-pink-500 to-purple-600',
-      bgColor: 'bg-gradient-to-br from-pink-50 to-purple-100'
-    },
-    {
-      icon: Users,
-      title: 'Comunidad',
-      description: 'Creemos en el poder de la comunidad para crear un mundo mejor para las mascotas y sus dueños.',
-      color: 'from-blue-500 to-purple-600',
-      bgColor: 'bg-gradient-to-br from-blue-50 to-purple-100'
-    },
-    {
-      icon: Target,
-      title: 'Innovación',
-      description: 'Buscamos constantemente nuevas formas de mejorar el cuidado y bienestar de las mascotas.',
-      color: 'from-green-500 to-teal-600',
-      bgColor: 'bg-gradient-to-br from-green-50 to-teal-100'
-    },
-    {
-      icon: Shield,
-      title: 'Responsabilidad',
-      description: 'Nos comprometemos a mantener los más altos estándares de calidad y seguridad.',
-      color: 'from-emerald-500 to-green-600',
-      bgColor: 'bg-gradient-to-br from-emerald-50 to-green-100'
-    }
-  ];
-
-  // Platform features based on dashboard analysis
-  const platformFeatures = [
-    {
-      icon: Activity,
-      title: 'Ejercicio y Trazabilidad',
-      description: 'Registra y analiza el ejercicio de tus mascotas con métricas detalladas',
-      color: 'from-green-500 to-teal-600',
-      stats: '10,000+ sesiones registradas'
-    },
-    {
-      icon: Utensils,
-      title: 'Nutrición Inteligente',
-      description: 'Gestiona horarios de alimentación automática y seguimiento nutricional',
-      color: 'from-emerald-500 to-green-600',
-      stats: '5,000+ horarios activos'
-    },
-    {
-      icon: Stethoscope,
-      title: 'Veterinaria Digital',
-      description: 'Registra citas, análisis veterinarios y mantén un historial médico completo',
-      color: 'from-red-500 to-pink-600',
-      stats: '500+ veterinarios conectados'
-    },
-    {
-      icon: ShoppingBag,
-      title: 'Marketplace Integral',
-      description: 'Accede a productos y servicios especializados para mascotas',
-      color: 'from-orange-500 to-red-600',
-      stats: '1,000+ productos disponibles'
-    },
-    {
-      icon: Heart,
-      title: 'Adopción Responsable',
-      description: 'Conecta refugios con familias adoptivas para encontrar el hogar perfecto',
-      color: 'from-pink-500 to-purple-600',
-      stats: '2,000+ adopciones exitosas'
-    },
-    {
-      icon: Bell,
-      title: 'Recordatorios Inteligentes',
-      description: 'Sistema de notificaciones para el cuidado preventivo de mascotas',
-      color: 'from-purple-500 to-indigo-600',
-      stats: '15,000+ recordatorios activos'
-    }
-  ];
-
-
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-purple-600 to-pink-600 py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
-            <PawPrint className="w-5 h-5 text-white" />
-            <span className="text-white font-medium">PetHub</span>
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-            Sobre <span className="text-yellow-300">PetHub</span>
+    <div className="min-h-screen overflow-x-hidden bg-white">
+      {/* ── HERO ── */}
+      <section className="relative min-h-[65vh] flex items-center py-20 md:py-28 overflow-hidden">
+        <LandingAmbientBackground variant="hero" />
+        <LandingPetDecorations preset="hero" />
+        <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/90 via-landing-mint/80 to-landing-mango/90" />
+        <div className="absolute inset-0 bg-black/15" />
+
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
+          <Badge className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-2 inline-flex items-center gap-2">
+            <PawPrint className="w-4 h-4" />
+            Sobre PetHub
+          </Badge>
+
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            Una plataforma latinoamericana{' '}
+            <span className="text-landing-tropical">al servicio de las mascotas</span>
           </h1>
-          <p className="text-xl text-purple-100 max-w-3xl mx-auto leading-relaxed">
-            Nuestra misión es revolucionar el cuidado de mascotas a través de la tecnología 
-            y la comunidad, creando un mundo donde cada mascota reciba el amor y cuidado que merece.
+
+          <p className="text-lg md:text-xl text-white/90 leading-relaxed max-w-2xl mx-auto mb-8">
+            Somos un equipo apasionado por el bienestar animal. Creamos PetHub porque creemos
+            que las familias, refugios y negocios pet en Latinoamérica merecen mejores herramientas
+            — y un ecosistema que los conecte con propósito.
           </p>
-          <div className="flex flex-wrap justify-center gap-4 mt-8">
-            <Badge className="bg-white/20 text-white border-white/40 px-4 py-2">
-              <Users className="w-4 h-4 mr-2" />
-              10,000+ Familias
+
+          <div className="flex flex-wrap justify-center gap-3">
+            <Badge className="bg-white/15 text-white border-white/25 px-3 py-1.5 backdrop-blur-sm">
+              <MapPin className="w-3.5 h-3.5 mr-1.5 inline" />
+              Latinoamérica
             </Badge>
-            <Badge className="bg-white/20 text-white border-white/40 px-4 py-2">
-              <Building2 className="w-4 h-4 mr-2" />
-              500+ Proveedores
+            <Badge className="bg-white/15 text-white border-white/25 px-3 py-1.5 backdrop-blur-sm">
+              <Heart className="w-3.5 h-3.5 mr-1.5 inline" />
+              Bienestar animal
             </Badge>
-            <Badge className="bg-white/20 text-white border-white/40 px-4 py-2">
-              <Heart className="w-4 h-4 mr-2" />
-              2,000+ Adopciones
+            <Badge className="bg-white/15 text-white border-white/25 px-3 py-1.5 backdrop-blur-sm">
+              <Users className="w-3.5 h-3.5 mr-1.5 inline" />
+              Enfoque comunitario
             </Badge>
           </div>
         </div>
       </section>
 
-      {/* Mission & Vision */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── QUIÉNES SOMOS ── */}
+      <section className="relative py-20 md:py-28 overflow-hidden bg-white">
+        <LandingPetDecorations preset="section" className="opacity-40" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+            <div>
+              <Badge variant="secondary" className={`mb-4 px-4 py-2 ${landingBadge}`}>
+                Quiénes somos
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+                Más que una plataforma — un movimiento regional
+              </h2>
+              <div className="space-y-4 text-gray-600 leading-relaxed">
+                <p>
+                  PetHub es una empresa de tecnología con enfoque latinoamericano, dedicada a mejorar
+                  la vida de las mascotas y de quienes las cuidan. Nacimos de una observación
+                  simple: el cuidado animal en la región estaba fragmentado, informal y
+                  difícil de coordinar.
+                </p>
+                <p>
+                  Nuestro equipo reúne experiencia en software, diseño y pasión por los animales.
+                  Trabajamos cerca de familias, refugios y profesionales del sector pet para
+                  entender sus necesidades reales — no las que asumimos desde un escritorio.
+                </p>
+                <p>
+                  Hoy seguimos creciendo con los pies en la tierra: escuchando, iterando y
+                  construyendo relaciones de confianza con nuestra comunidad.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/20 to-landing-mango/20 rounded-3xl blur-2xl" />
+              <div className="relative bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 rounded-2xl p-8 md:p-10 border border-landing-aqua/20 shadow-lg">
+                <blockquote className="text-lg md:text-xl text-gray-800 font-medium leading-relaxed italic mb-6">
+                  "Creemos que cuando una comunidad tiene las herramientas correctas,
+                  cada mascota tiene más oportunidades de una vida sana, feliz y amada."
+                </blockquote>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-full flex items-center justify-center">
+                    <PawPrint className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">El equipo PetHub</p>
+                    <p className="text-sm text-gray-500">Latinoamérica · 2024</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── TIMELINE ── */}
+      <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-to-br from-gray-50 via-landing-aqua/5 to-landing-mint/10">
+        <LandingPetDecorations preset="section" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <Badge variant="secondary" className={`mb-4 px-4 py-2 ${landingBadge}`}>
+              <Rocket className="w-3.5 h-3.5 mr-1.5 inline" />
+              Nuestra historia
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+              Cómo llegamos hasta aquí
+            </h2>
+            <p className="text-gray-600 max-w-xl mx-auto">
+              Tres momentos que definieron quiénes somos como empresa.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {milestones.map((m, i) => (
+              <div key={i} className="relative group">
+                {i < milestones.length - 1 && (
+                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-landing-aqua/40 to-transparent" />
+                )}
+                <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${m.color} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                      <m.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-2xl font-black text-landing-aqua/30">{m.year}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{m.title}</h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">{m.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── MISIÓN & VISIÓN ── */}
+      <section className="relative py-20 md:py-28 bg-white overflow-hidden">
+        <LandingPetDecorations preset="bento" className="opacity-40" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+            <div className="rounded-2xl p-8 md:p-10 bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 border border-landing-aqua/20 shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-landing-aqua to-landing-mint rounded-xl flex items-center justify-center">
                   <Target className="w-6 h-6 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900">
-                  Nuestra Misión
-                </h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Misión</h2>
               </div>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                Conectar a dueños de mascotas, veterinarios y proveedores de servicios 
-                en una plataforma integral que facilite el cuidado, la adopción responsable 
-                y el seguimiento de la salud de las mascotas.
+              <p className="text-gray-600 leading-relaxed mb-4">
+                Mejorar la calidad de vida de las mascotas en Latinoamérica,
+                conectando a las personas y organizaciones que las cuidan a través de
+                tecnología accesible, humana y confiable.
               </p>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                Creemos que cada mascota merece una vida feliz y saludable, y trabajamos 
-                incansablemente para hacer esa visión una realidad.
+              <p className="text-gray-600 leading-relaxed">
+                Queremos que ninguna familia sienta que cuidar bien a su mascota es
+                complicado, costoso o solitario.
               </p>
-              <div className="flex flex-wrap gap-3 mt-6">
-                <Badge className="bg-purple-100 text-purple-800 px-3 py-1">
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Innovación
-                </Badge>
-                <Badge className="bg-pink-100 text-pink-800 px-3 py-1">
-                  <Heart className="w-4 h-4 mr-1" />
-                  Compromiso
-                </Badge>
-                <Badge className="bg-blue-100 text-blue-800 px-3 py-1">
-                  <Users className="w-4 h-4 mr-1" />
-                  Comunidad
-                </Badge>
-              </div>
             </div>
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-2xl border border-purple-100 shadow-lg">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <Eye className="w-5 h-5 text-white" />
+
+            <div className="rounded-2xl p-8 md:p-10 bg-gray-900 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-landing-aqua/10 rounded-full blur-3xl" />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-landing-mango to-landing-tropical rounded-xl flex items-center justify-center">
+                    <Eye className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold">Visión</h2>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900">Nuestra Visión</h3>
-              </div>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Ser la plataforma líder en Latinoamérica para el cuidado integral de mascotas, 
-                reconocida por nuestra innovación, compromiso con la comunidad y contribución 
-                al bienestar animal.
-              </p>
-              <div className="bg-white/50 p-4 rounded-lg">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Globe className="w-4 h-4 text-purple-600" />
-                  <span>Expansión a toda Latinoamérica</span>
+                <p className="text-gray-300 leading-relaxed mb-6">
+                  Ser la empresa de referencia en Latinoamérica para el bienestar animal
+                  digital — reconocida no solo por nuestra tecnología, sino por el impacto
+                  real que generamos en familias, refugios y comunidades.
+                </p>
+                <div className="space-y-3">
+                  {[
+                    { icon: Globe, text: 'Presencia en Latinoamérica' },
+                    { icon: Award, text: 'Reconocidos por impacto social pet' },
+                    { icon: Heart, text: 'Aliado de confianza del sector animal' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-white/5 rounded-lg px-4 py-3 border border-white/10">
+                      <item.icon className="w-4 h-4 text-landing-aqua shrink-0" />
+                      <span className="text-sm text-gray-300">{item.text}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -183,201 +285,157 @@ export const AboutUs: React.FC = () => {
         </div>
       </section>
 
-      {/* Values Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-6">
-              <Star className="w-4 h-4" />
-              <span className="font-medium">Nuestros Valores</span>
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Los principios que nos guían
+      {/* ── VALORES ── */}
+      <section className="relative py-20 md:py-28 bg-gradient-to-b from-white to-landing-aqua/5 overflow-hidden">
+        <LandingPetDecorations preset="section" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <Badge variant="secondary" className={`mb-4 px-4 py-2 ${landingBadge}`}>
+              <Star className="w-3.5 h-3.5 mr-1.5 inline" />
+              Nuestros valores
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+              Lo que nos define como empresa
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Los valores fundamentales que guían cada decisión y acción en PetHub.
+            <p className="text-gray-600 max-w-xl mx-auto">
+              Estos principios guían cómo trabajamos, a quién elegimos como aliado y qué decisiones tomamos.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {values.map((value, index) => (
-              <Card key={index} className="text-center border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group">
-                <CardHeader className="pb-4">
-                  <div className={`w-16 h-16 bg-gradient-to-r ${value.color} rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                    <value.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <CardTitle className="text-lg font-semibold text-gray-900">
-                    {value.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 leading-relaxed">
-                    {value.description}
-                  </p>
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {values.map((value, i) => (
+              <div
+                key={i}
+                className={`group rounded-2xl p-6 bg-gradient-to-br ${value.bg} border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
+              >
+                <div className={`w-14 h-14 bg-gradient-to-r ${value.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md`}>
+                  <value.icon className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{value.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{value.description}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Platform Features Section */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full mb-6">
-              <BarChart3 className="w-4 h-4" />
-              <span className="font-medium">Nuestra Plataforma</span>
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Tecnología al servicio de las mascotas
+      {/* ── COMPROMISO SOCIAL ── */}
+      <section className="relative py-20 md:py-28 bg-gray-900 overflow-hidden">
+        <LandingAmbientBackground variant="dark" className="opacity-40" />
+        <LandingPetDecorations preset="dark" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <span className="inline-block text-xs font-semibold uppercase tracking-widest text-landing-aqua mb-3">
+              Compromiso
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+              Más allá del software
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Una plataforma integral que conecta todos los aspectos del cuidado de mascotas 
-              con tecnología avanzada y una interfaz intuitiva.
+            <p className="text-gray-400 max-w-xl mx-auto">
+              PetHub existe para generar impacto real en la vida de mascotas y personas — no solo para vender licencias.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {platformFeatures.map((feature, index) => (
-              <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${feature.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <feature.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">
-                        {feature.title}
-                      </CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 leading-relaxed mb-4">
-                    {feature.description}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>{feature.stats}</span>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {commitments.map((item, i) => (
+              <div
+                key={i}
+                className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 md:p-8 hover:bg-white/10 transition-colors"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-xl flex items-center justify-center mb-4">
+                  <item.icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">{item.description}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Founder Message Section */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-6">
-              <Heart className="w-4 h-4" />
-              <span className="font-medium">Mensaje del Fundador</span>
+      {/* ── CÓMO TRABAJAMOS ── */}
+      <section className="relative py-20 md:py-28 bg-white overflow-hidden">
+        <LandingPetDecorations preset="bento" className="opacity-30" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <Badge variant="secondary" className={`mb-4 px-4 py-2 ${landingBadge}`}>
+                Nuestra cultura
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+                Cómo trabajamos en PetHub
+              </h2>
+              <p className="text-gray-600 leading-relaxed mb-8">
+                Somos un equipo pequeño y enfocado. Cada persona en PetHub comparte
+                una obsesión: que nuestra plataforma realmente ayude — no que impresione
+                en una presentación.
+              </p>
+              <ul className="space-y-4">
+                {teamPrinciples.map((principle, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-landing-mint-dark shrink-0 mt-0.5" />
+                    <span className="text-gray-700">{principle}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Un mensaje de nuestro fundador
-            </h2>
+
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Región', value: 'LATAM', sub: 'enfoque regional' },
+                { label: 'Enfoque', value: 'Bienestar', sub: 'animal primero' },
+                { label: 'Modelo', value: 'Comunidad', sub: 'crecemos juntos' },
+                { label: 'Fundada', value: '2024', sub: 'crecimiento continuo' },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 rounded-2xl p-5 border border-landing-aqua/15 text-center"
+                >
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{item.label}</p>
+                  <p className="text-xl font-bold text-landing-aqua-dark">{item.value}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.sub}</p>
+                </div>
+              ))}
+            </div>
           </div>
-
-          <Card className="border-0 shadow-xl overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8">
-              {/* Founder Image */}
-              <div className="flex flex-col items-center md:items-start">
-                <div className="relative mb-6">
-                  <img 
-                    src="/Franz Hentze.png" 
-                    alt="Franz Hentze - Fundador de PetHub"
-                    className="w-48 h-48 rounded-full object-cover border-4 border-purple-200 shadow-lg"
-                  />
-                  <div className="absolute -bottom-2 -right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full p-3 shadow-lg">
-                    <Award className="w-6 h-6" />
-                  </div>
-                </div>
-                <div className="text-center md:text-left">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    Franz Hentze
-                  </h3>
-                  <Badge className="bg-purple-100 text-purple-800 px-4 py-2 text-base">
-                    Fundador & CEO
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Founder Message */}
-              <div className="md:col-span-2 space-y-6">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                    <span className="text-white text-lg font-bold">"</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-lg text-gray-700 leading-relaxed">
-                      PetHub nació de una visión simple pero poderosa: crear un mundo donde cada mascota 
-                      reciba el amor, cuidado y atención que merece. Nuestra plataforma conecta corazones, 
-                      facilita el cuidado responsable y promueve el bienestar animal.
-                    </p>
-                    <p className="text-lg text-gray-700 leading-relaxed mt-4">
-                      Te invito a unirte a esta misión. Juntos, podemos transformar la forma en que 
-                      cuidamos a nuestros compañeros de cuatro patas.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                  <Heart className="w-5 h-5 text-purple-600" />
-                  <span className="text-gray-600 font-medium">Con amor y dedicación,</span>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-800 font-semibold">Franz Hentze</p>
-                  <p className="text-sm text-gray-600">Fundador de PetHub</p>
-                </div>
-              </div>
-            </div>
-          </Card>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-purple-600 to-pink-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
-            <Heart className="w-5 h-5 text-white" />
-            <span className="text-white font-medium">Únete a nuestra comunidad</span>
-          </div>
+      {/* ── CTA ── */}
+      <section className="relative py-20 md:py-28 bg-gradient-to-r from-landing-aqua to-landing-mango overflow-hidden">
+        <LandingPetDecorations preset="cta" />
+        <div className="absolute inset-0 bg-black/10" />
+
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
+          <Badge className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-2">
+            <Heart className="w-4 h-4 mr-2 inline" />
+            Conversemos
+          </Badge>
+
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Únete a Nuestra Misión
+            ¿Quieres conocernos mejor?
           </h2>
-          <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-            Juntos podemos crear un mundo mejor para las mascotas. 
-            ¿Te unes a nosotros en esta increíble aventura?
+          <p className="text-lg text-white/85 mb-10 max-w-xl mx-auto">
+            Ya sea que quieras colaborar, ser aliado o simplemente saber más sobre
+            lo que hacemos — nos encantaría escucharte.
           </p>
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register">
-              <Button size="lg" className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                Comenzar Ahora
+            <Link to="/contact">
+              <Button size="lg" className="w-full sm:w-auto bg-white text-landing-aqua-dark hover:bg-gray-100 text-lg px-8 py-4 h-auto shadow-lg font-semibold">
+                <Mail className="mr-2 w-5 h-5" />
+                Contactar al equipo
+              </Button>
+            </Link>
+            <Link to="/features">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto border-2 border-white text-white hover:bg-white hover:text-landing-aqua-dark text-lg px-8 py-4 h-auto font-semibold bg-white/10 backdrop-blur-sm">
+                Ver la plataforma
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
-            <Link to="/contact">
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-purple-600 text-lg px-8 py-3 font-semibold bg-white/10 backdrop-blur-sm hover:bg-white/20">
-                Contactar
-              </Button>
-            </Link>
-          </div>
-          <div className="flex flex-wrap justify-center gap-6 mt-8">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white">10,000+</div>
-              <div className="text-purple-200 text-sm">Familias activas</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white">500+</div>
-              <div className="text-purple-200 text-sm">Proveedores</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white">2,000+</div>
-              <div className="text-purple-200 text-sm">Adopciones</div>
-            </div>
           </div>
         </div>
       </section>

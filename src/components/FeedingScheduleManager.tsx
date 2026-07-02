@@ -1,20 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Switch } from './ui/switch';
-import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import { FeedingScheduleService, FeedingSchedule, AutomatedMeal } from '../services/FeedingScheduleService';
+import { generateMealsForSchedules, generateMealsForSchedule } from '../utils/feedingScheduleAutomation';
+import {
+  fetchMealForDeepLink,
+  loadNutritionPagePendingMealIds,
+  markNutritionNotificationsReadForMeal,
+} from '@/utils/nutritionNotifications';
+import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
+import { subscribeToPushNotifications, getPushPermission, isPushSupported } from '../lib/pushNotifications';
 import ManualFeedingForm from './ManualFeedingForm';
 import NutritionAnalytics from './NutritionAnalytics';
+import NutritionComparison from './NutritionComparison';
+import { fetchMergedNutritionFoodCatalog } from '@/utils/nutritionFoodCatalog';
 import { 
   Clock, 
   Plus, 
@@ -28,11 +35,31 @@ import {
   Play,
   Pause,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  X,
+  Loader2,
+  BarChart3,
+  PawPrint,
+  Scale,
 } from 'lucide-react';
+import { SectionLoader, PageLoader } from '@/components/PageLoader';
 import PageHeader from './PageHeader';
-import { useNavigation } from '@/contexts/NavigationContext';
-
+import { DashboardShell } from './dashboard/DashboardShell';
+import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
+import {
+  NutritionFormSection,
+  SettingToggleRow,
+  WeekDayPills,
+  nutritionFieldClass,
+} from './nutrition/NutritionFormUi';
+import { cn } from '@/lib/utils';
+import { ActionConfirmDialog } from './ui/ActionConfirmDialog';
 interface Pet {
   id: string;
   name: string;
@@ -92,21 +119,30 @@ interface AutomatedMeal {
   actual_notes?: string;
   pets?: { name: string };
   pet_foods?: { name: string; brand: string };
+  pet_feeding_schedules?: {
+    auto_complete_enabled: boolean;
+    auto_complete_minutes_after: number;
+  };
 }
 
 const FeedingScheduleManager: React.FC = () => {
   const { user } = useAuth();
-  const { isMobileMenuOpen, toggleMobileMenu } = useNavigation();
-  
-  // State management
+  const navigate = useNavigate();
+  const location = useLocation();
+  const deepLinkHandled = useRef<string | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [availableFoods, setAvailableFoods] = useState<PetFood[]>([]);
   const [schedules, setSchedules] = useState<FeedingSchedule[]>([]);
   const [automatedMeals, setAutomatedMeals] = useState<AutomatedMeal[]>([]);
   const [loadingMeals, setLoadingMeals] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showScheduleConfirm, setShowScheduleConfirm] = useState(false);
+  const [showMealConfirm, setShowMealConfirm] = useState(false);
+  const [pendingMeal, setPendingMeal] = useState<AutomatedMeal | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loadingFoods, setLoadingFoods] = useState(false);
   const [activeTab, setActiveTab] = useState('schedules');
+  const guidedTour = useBlueprintGuidedTourOptional();
   
   // Form states
   const [selectedPet, setSelectedPet] = useState('');
@@ -118,13 +154,19 @@ const FeedingScheduleManager: React.FC = () => {
   const [autoGenerate, setAutoGenerate] = useState(true);
   const [sendNotifications, setSendNotifications] = useState(true);
   const [notificationMinutes, setNotificationMinutes] = useState(15);
-  const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(false);
+  const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
   const [autoCompleteMinutes, setAutoCompleteMinutes] = useState(30);
   const [notes, setNotes] = useState('');
   
   // UI states
   const [editingSchedule, setEditingSchedule] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [hasGeneratedMeals, setHasGeneratedMeals] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [filterPetId, setFilterPetId] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [allMeals, setAllMeals] = useState<AutomatedMeal[]>([]);
+  const [pendingMealNotificationIds, setPendingMealNotificationIds] = useState<Set<string>>(new Set());
 
   const daysOfWeek = [
     { value: 1, label: 'Lunes' },
@@ -140,17 +182,226 @@ const FeedingScheduleManager: React.FC = () => {
     { value: 'breakfast', label: 'Desayuno', icon: '🌅' },
     { value: 'lunch', label: 'Almuerzo', icon: '🌞' },
     { value: 'dinner', label: 'Cena', icon: '🌙' },
-    { value: 'snack', label: 'Merienda', icon: '🍪' }
+    { value: 'snack', label: 'Merienda', icon: '🍪' },
   ];
+
+  const nutritionTabs: MobileTabItem[] = useMemo(
+    () => [
+      { id: 'schedules', label: 'Mis Horarios', shortLabel: 'Horarios', icon: Calendar, gradientIndex: 0 },
+      { id: 'create', label: 'Crear', shortLabel: 'Crear', icon: Plus, gradientIndex: 2 },
+      { id: 'manual', label: 'Manual', shortLabel: 'Manual', icon: Utensils, gradientIndex: 4 },
+      {
+        id: 'meals',
+        label: 'Comidas',
+        shortLabel: pendingMealNotificationIds.size
+          ? `Comidas · ${pendingMealNotificationIds.size} pendiente${pendingMealNotificationIds.size !== 1 ? 's' : ''}`
+          : 'Comidas',
+        icon: Clock,
+        gradientIndex: 1,
+      },
+      { id: 'analytics', label: 'Análisis', shortLabel: 'Análisis', icon: BarChart3, gradientIndex: 3 },
+      { id: 'comparison', label: 'Objetivo vs Real', shortLabel: 'Comparar', icon: Scale, gradientIndex: 5 },
+    ],
+    [pendingMealNotificationIds.size],
+  );
+
+  const refreshPendingMealIds = useCallback(async () => {
+    if (!user?.id) return;
+    const ids = await loadNutritionPagePendingMealIds(user.id);
+    setPendingMealNotificationIds(ids);
+  }, [user?.id]);
 
   // Load initial data
   useEffect(() => {
-    if (user) {
-      loadPets();
-      loadSchedules();
-      loadAutomatedMeals();
+    if (!user) {
+      setInitialLoading(false);
+      return;
     }
+    const loadAll = async () => {
+      setInitialLoading(true);
+      await Promise.all([loadPets(), loadSchedules()]);
+      setInitialLoading(false);
+    };
+    void loadAll();
   }, [user]);
+
+  useEffect(() => {
+    void refreshPendingMealIds();
+  }, [refreshPendingMealIds]);
+
+  useEffect(() => {
+    const onUpdate = () => {
+      void refreshPendingMealIds();
+    };
+    window.addEventListener('notifications-updated', onUpdate);
+    window.addEventListener('feeding-notifications-updated', onUpdate);
+    return () => {
+      window.removeEventListener('notifications-updated', onUpdate);
+      window.removeEventListener('feeding-notifications-updated', onUpdate);
+    };
+  }, [refreshPendingMealIds]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('nutrition_page_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'feeding_schedule_notifications',
+          filter: `owner_id=eq.${user.id}`,
+        },
+        () => {
+          void refreshPendingMealIds();
+          dispatchNotificationsUpdated();
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'automated_meals',
+          filter: `owner_id=eq.${user.id}`,
+        },
+        () => {
+          if (activeTab === 'meals') {
+            void loadAutomatedMeals();
+          }
+          void refreshPendingMealIds();
+          dispatchNotificationsUpdated();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeTab, refreshPendingMealIds]);
+
+  useEffect(() => {
+    const state = location.state as { tab?: string } | null;
+    if (state?.tab) {
+      setActiveTab(state.tab);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (guidedTour?.isActive && guidedTour.currentStep?.moduleTab) {
+      setActiveTab(guidedTour.currentStep.moduleTab);
+    }
+  }, [guidedTour?.isActive, guidedTour?.currentStep?.moduleTab]);
+
+  useEffect(() => {
+    const state = location.state as {
+      mealId?: string;
+      openComplete?: boolean;
+      tab?: string;
+    } | null;
+    if (!user?.id || !state?.mealId || deepLinkHandled.current === state.mealId) return;
+
+    const run = async () => {
+      const meal = await fetchMealForDeepLink(state.mealId!);
+      if (!meal) return;
+
+      deepLinkHandled.current = state.mealId!;
+      setActiveTab('meals');
+      setSelectedDate(meal.scheduled_date);
+      await markNutritionNotificationsReadForMeal(user.id, meal.id);
+      await refreshPendingMealIds();
+
+      navigate('/feeding-schedules', {
+        replace: true,
+        state: state.tab ? { tab: state.tab } : undefined,
+      });
+
+      if (state.openComplete && meal.status === 'scheduled') {
+        setPendingMeal(meal as AutomatedMeal);
+        setShowMealConfirm(true);
+      }
+    };
+
+    void run();
+  }, [location.state, user?.id, navigate, refreshPendingMealIds]);
+
+  useEffect(() => {
+    if (activeTab === 'meals' && user) {
+      void loadAutomatedMeals();
+    }
+  }, [activeTab, user]);
+
+  // Function to generate meals for the next week (always maintains 7 days ahead)
+  const generateMealsForNextWeek = async () => {
+    if (!user?.id) return;
+
+    try {
+      const activeSchedules = schedules.filter((s) => s.is_active && s.auto_generate_meals);
+      if (activeSchedules.length === 0) {
+        console.log('No active schedules with auto-generate enabled');
+        return;
+      }
+
+      const totalGenerated = await generateMealsForSchedules(user.id, schedules, 7);
+
+      if (totalGenerated > 0) {
+        console.log(`✅ Total: Generated ${totalGenerated} meals for the next 7 days`);
+        toast.success(`Se generaron ${totalGenerated} comidas para los próximos 7 días`);
+      } else {
+        console.log('✅ Todas las comidas ya están generadas para los próximos 7 días');
+      }
+
+      loadAutomatedMeals();
+    } catch (error) {
+      console.error('Error generating meals for next week:', error);
+      toast.error("Error al generar comidas automáticas");
+    }
+  };
+
+  // Load automated meals and generate if needed when schedules are loaded
+  useEffect(() => {
+    if (user && schedules.length > 0) {
+      loadAutomatedMeals();
+      // Generate meals for next week if not already generated (or regenerate daily)
+      const lastGeneration = localStorage.getItem('lastMealGeneration');
+      const today = new Date().toISOString().split('T')[0];
+      
+      if (!hasGeneratedMeals || lastGeneration !== today) {
+        generateMealsForNextWeek();
+        setHasGeneratedMeals(true);
+        localStorage.setItem('lastMealGeneration', today);
+      }
+    }
+  }, [schedules.length, user]);
+
+  // Check daily if meals need to be generated (runs every hour)
+  useEffect(() => {
+    if (!user || schedules.length === 0) return;
+
+    const checkAndGenerateMeals = () => {
+      const lastGeneration = localStorage.getItem('lastMealGeneration');
+      const today = new Date().toISOString().split('T')[0];
+      
+      // If we haven't generated meals today, generate them
+      if (lastGeneration !== today) {
+        console.log('🔄 Daily check: Generating meals for today');
+        generateMealsForNextWeek();
+        localStorage.setItem('lastMealGeneration', today);
+      }
+    };
+
+    // Check immediately
+    checkAndGenerateMeals();
+
+    // Then check every hour
+    const interval = setInterval(checkAndGenerateMeals, 60 * 60 * 1000); // 1 hour
+
+    return () => clearInterval(interval);
+  }, [user, schedules.length]);
+
+  // Auto-complete is handled globally by useFeedingAutomation (see Index.tsx)
 
   // Load foods when pet is selected
   useEffect(() => {
@@ -158,6 +409,15 @@ const FeedingScheduleManager: React.FC = () => {
       loadFoodsForPet(selectedPet);
     }
   }, [selectedPet]);
+
+  // Reload automated meals when date changes and reset filters
+  useEffect(() => {
+    if (user) {
+      setFilterPetId('all');
+      setFilterStatus('all');
+      loadAutomatedMeals();
+    }
+  }, [selectedDate]);
 
   const loadPets = async () => {
     try {
@@ -178,9 +438,8 @@ const FeedingScheduleManager: React.FC = () => {
   const loadFoodsForPet = async (petId: string) => {
     try {
       setLoadingFoods(true);
-      setAvailableFoods([]); // Clear previous foods
-      
-      // First get the pet data to know the species
+      setAvailableFoods([]);
+
       const { data: petData, error: petError } = await supabase
         .from('pets')
         .select('species')
@@ -190,33 +449,19 @@ const FeedingScheduleManager: React.FC = () => {
       if (petError) throw petError;
       if (!petData) return;
 
-      // Then get foods for that species
-      let { data, error } = await supabase
-        .from('pet_foods')
-        .select('*')
-        .eq('species', petData.species)
-        .eq('is_available', true)
-        .order('brand')
-        .order('name');
-
-      if (error) throw error;
-
-      // If no foods found for this species, try to get all available foods
-      if (!data || data.length === 0) {
-        console.log('No foods found for species, fetching all available foods');
-        const allFoodsResult = await supabase
-          .from('pet_foods')
-          .select('*')
-          .eq('is_available', true)
-          .order('brand')
-          .order('name');
-        
-        data = allFoodsResult.data;
-        error = allFoodsResult.error;
-      }
-
-      if (error) throw error;
-      setAvailableFoods(data || []);
+      const { foods } = await fetchMergedNutritionFoodCatalog({ species: petData.species });
+      setAvailableFoods(
+        foods.map((food) => ({
+          id: food.id,
+          name: food.name,
+          brand: food.brand ?? '',
+          food_type: food.food_type ?? 'dry_food',
+          species: food.species ?? petData.species,
+          calories_per_100g: food.calories_per_100g ?? 350,
+          protein_per_100g: food.protein_per_100g ?? 25,
+          fat_per_100g: food.fat_per_100g ?? 15,
+        })),
+      );
     } catch (error) {
       console.error('Error loading foods:', error);
       toast.error("No se pudieron cargar los alimentos");
@@ -265,7 +510,11 @@ const FeedingScheduleManager: React.FC = () => {
         .select(`
           *,
           pets (name),
-          pet_foods!automated_meals_food_id_fkey (name, brand)
+          pet_foods!automated_meals_food_id_fkey (name, brand),
+          pet_feeding_schedules!automated_meals_schedule_id_fkey (
+            auto_complete_enabled,
+            auto_complete_minutes_after
+          )
         `)
         .eq('owner_id', user?.id)
         .gte('scheduled_date', selectedDate)
@@ -287,12 +536,36 @@ const FeedingScheduleManager: React.FC = () => {
       
       // If no meals exist for this date, try to generate them from schedules
       if (data && data.length === 0 && schedules.length > 0) {
-        console.log('No meals found, attempting to generate from schedules...');
+        console.log('No meals found for', selectedDate, ', attempting to generate from schedules...');
         await generateMealsFromSchedules();
+        // After generating, reload the meals
+        const { data: newData, error: newError } = await supabase
+          .from('automated_meals')
+          .select(`
+            *,
+            pets (name),
+            pet_foods!automated_meals_food_id_fkey (name, brand),
+            pet_feeding_schedules!automated_meals_schedule_id_fkey (
+              auto_complete_enabled,
+              auto_complete_minutes_after
+            )
+          `)
+          .eq('owner_id', user?.id)
+          .gte('scheduled_date', selectedDate)
+          .lte('scheduled_date', selectedDate)
+          .order('scheduled_time');
+        
+        if (!newError) {
+          setAutomatedMeals(newData || []);
+        } else {
+          setAutomatedMeals([]);
+        }
         return;
       }
       
-      setAutomatedMeals(data || []);
+      const mealsData = data || [];
+      setAllMeals(mealsData);
+      setAutomatedMeals(mealsData);
     } catch (error) {
       console.error('Error loading automated meals:', error);
       toast.error("No se pudieron cargar las comidas automáticas");
@@ -301,102 +574,36 @@ const FeedingScheduleManager: React.FC = () => {
     }
   };
 
-  const generateMealsFromSchedules = async () => {
-    try {
-      console.log('Generating meals from schedules for date:', selectedDate);
-      
-      // Get the day of the week for the selected date
-      const selectedDateObj = new Date(selectedDate);
-      const dayOfWeek = selectedDateObj.getDay(); // 0 = Sunday, 1 = Monday, etc.
-      
-      // Find schedules that apply to this day of the week
-      const applicableSchedules = schedules.filter(schedule => {
-        const scheduleDays = schedule.days_of_week || [];
-        return scheduleDays.includes(dayOfWeek);
-      });
-      
-      console.log('Applicable schedules for day', dayOfWeek, ':', applicableSchedules);
-      
-      if (applicableSchedules.length === 0) {
-        console.log('No schedules apply to this day of the week');
-        setAutomatedMeals([]);
-        return;
-      }
-      
-      // Generate meals for each applicable schedule
-      const mealsToCreate = [];
-      
-      for (const schedule of applicableSchedules) {
-        const feedingTimes = schedule.feeding_times || [];
-        
-        for (const feedingTime of feedingTimes) {
-          // Validate required fields
-          if (!schedule.pet_id || !feedingTime.food_id) {
-            console.warn('Skipping meal due to missing required fields:', {
-              pet_id: schedule.pet_id,
-              food_id: feedingTime.food_id,
-              schedule: schedule,
-              feedingTime: feedingTime
-            });
-            continue;
-          }
-          
-          mealsToCreate.push({
-            pet_id: schedule.pet_id,
-            food_id: feedingTime.food_id,
-            schedule_id: schedule.id, // Add the missing schedule_id
-            quantity_grams: feedingTime.quantity_grams || 100,
-            scheduled_date: selectedDate,
-            scheduled_time: feedingTime.time,
-            meal_type: feedingTime.meal_type,
-            status: 'scheduled', // Use 'scheduled' instead of 'pending'
-            owner_id: user?.id,
-            created_at: new Date().toISOString()
-          });
-        }
-      }
-      
-      console.log('Creating meals:', mealsToCreate);
-      console.log('Meal validation:', mealsToCreate.map(meal => ({
-        pet_id: meal.pet_id ? 'valid' : 'MISSING',
-        food_id: meal.food_id ? 'valid' : 'MISSING',
-        owner_id: meal.owner_id ? 'valid' : 'MISSING'
-      })));
-      
-      if (mealsToCreate.length > 0) {
-        const { data, error } = await supabase
-          .from('automated_meals')
-          .insert(mealsToCreate)
-          .select(`
-            *,
-            pets (name),
-            pet_foods!automated_meals_food_id_fkey (name, brand)
-          `);
+  // Filter meals based on selected filters
+  useEffect(() => {
+    let filtered = [...allMeals];
 
-        if (error) {
-          console.error('Error creating meals:', error);
-          console.error('Failed meals data:', mealsToCreate);
-          
-          // Show more specific error message
-          let errorMessage = "No se pudieron crear las comidas automáticas";
-          if (error.message.includes('invalid input syntax for type uuid')) {
-            errorMessage = "Error: Algunos campos requeridos están vacíos. Revisa que tus horarios tengan mascota y comida asignados.";
-          }
-          
-          toast.error(errorMessage);
-          return;
-        }
-        
-        console.log('Meals created successfully:', data);
-        setAutomatedMeals(data || []);
-        
-        toast.success(`${mealsToCreate.length} comidas generadas para ${selectedDate}`);
-      } else {
-        setAutomatedMeals([]);
+    // Filter by pet
+    if (filterPetId !== 'all') {
+      filtered = filtered.filter(meal => meal.pet_id === filterPetId);
+    }
+
+    // Filter by status
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(meal => meal.status === filterStatus);
+    }
+
+    setAutomatedMeals(filtered);
+  }, [filterPetId, filterStatus, allMeals]);
+
+  const generateMealsFromSchedules = async () => {
+    if (!user?.id) return 0;
+    try {
+      const dateObj = new Date(`${selectedDate}T12:00:00`);
+      const generated = await generateMealsForSchedules(user.id, schedules, 1, dateObj);
+      if (generated > 0) {
+        toast.success(`${generated} comida(s) generada(s) para ${selectedDate}`);
       }
+      return generated;
     } catch (error) {
       console.error('Error generating meals:', error);
-      toast.error("No se pudieron generar las comidas");
+      toast.error('No se pudieron generar las comidas');
+      return 0;
     }
   };
 
@@ -428,12 +635,36 @@ const FeedingScheduleManager: React.FC = () => {
     }
   };
 
+  const handleSendNotificationsChange = async (enabled: boolean) => {
+    setSendNotifications(enabled);
+    if (!enabled || !user?.id || !isPushSupported()) return;
+
+    if (getPushPermission() === 'granted') {
+      await subscribeToPushNotifications(user.id);
+      return;
+    }
+
+    if (getPushPermission() === 'default') {
+      const ok = await subscribeToPushNotifications(user.id);
+      if (ok) {
+        toast.success('Notificaciones del sistema activadas');
+      } else {
+        toast.message('Activa las notificaciones en el navegador para recibir recordatorios con la app cerrada');
+      }
+    }
+  };
+
   const saveSchedule = async () => {
     if (!selectedPet || !scheduleName || feedingTimes.length === 0) {
       toast.error("Por favor completa todos los campos requeridos");
       return;
     }
 
+    setShowScheduleConfirm(true);
+  };
+
+  const performSaveSchedule = async () => {
+    setShowScheduleConfirm(false);
     setLoading(true);
     try {
       const scheduleData = {
@@ -452,32 +683,46 @@ const FeedingScheduleManager: React.FC = () => {
         notes: notes || null
       };
 
-      let result;
+      let savedSchedule: FeedingSchedule | null = null;
+
       if (editingSchedule) {
-        result = await supabase
+        const { data, error } = await supabase
           .from('pet_feeding_schedules')
           .update(scheduleData)
-          .eq('id', editingSchedule);
+          .eq('id', editingSchedule)
+          .select()
+          .single();
+        if (error) throw error;
+        savedSchedule = data;
       } else {
-        result = await supabase
+        const { data, error } = await supabase
           .from('pet_feeding_schedules')
-          .insert(scheduleData);
+          .insert(scheduleData)
+          .select()
+          .single();
+        if (error) throw error;
+        savedSchedule = data;
       }
 
-      if (result.error) throw result.error;
-
-      // Generate meals for the next 7 days if auto-generate is enabled
-      if (autoGenerate) {
-        await supabase.rpc('generate_daily_meals_from_schedules', {
-          target_date: new Date().toISOString().split('T')[0]
-        });
+      if (autoGenerate && savedSchedule && user?.id) {
+        const generated = await generateMealsForSchedule(user.id, savedSchedule, 7);
+        if (generated > 0) {
+          console.log(`Generated ${generated} meals for saved schedule`);
+        }
       }
 
       toast.success(`Horario ${editingSchedule ? 'actualizado' : 'creado'} exitosamente`);
 
-      // Reset form
+      if (!editingSchedule) {
+        void guidedTour?.notifySectionSaved('nutrition');
+      }
+
       resetForm();
       loadSchedules();
+      void refreshPendingMealIds();
+      dispatchNotificationsUpdated();
+      window.dispatchEvent(new CustomEvent('feeding-notifications-updated'));
+      setHasGeneratedMeals(false);
       loadAutomatedMeals();
     } catch (error) {
       console.error('Error saving schedule:', error);
@@ -563,25 +808,35 @@ const FeedingScheduleManager: React.FC = () => {
     }
   };
 
-  const markMealAsCompleted = async (mealId: string) => {
+  const requestCompleteMeal = (meal: AutomatedMeal) => {
+    setPendingMeal(meal);
+    setShowMealConfirm(true);
+    if (user?.id) {
+      void markNutritionNotificationsReadForMeal(user.id, meal.id).then(() => {
+        void refreshPendingMealIds();
+        dispatchNotificationsUpdated();
+      });
+    }
+  };
+
+  const confirmCompleteMeal = async () => {
+    if (!pendingMeal) return;
+    setShowMealConfirm(false);
     try {
-      const { error } = await supabase
-        .from('automated_meals')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: user?.id
-        })
-        .eq('id', mealId);
-
-      if (error) throw error;
-
-      toast.success("Comida marcada como completada");
-
+      await FeedingScheduleService.markMealAsCompleted(pendingMeal.id, user?.id || '');
+      if (user?.id) {
+        await markNutritionNotificationsReadForMeal(user.id, pendingMeal.id);
+      }
+      toast.success("Comida marcada como completada y registrada en el historial");
       loadAutomatedMeals();
+      void refreshPendingMealIds();
+      dispatchNotificationsUpdated();
+      window.dispatchEvent(new CustomEvent('feeding-notifications-updated'));
     } catch (error) {
       console.error('Error marking meal as completed:', error);
       toast.error("No se pudo marcar la comida como completada");
+    } finally {
+      setPendingMeal(null);
     }
   };
 
@@ -611,203 +866,229 @@ const FeedingScheduleManager: React.FC = () => {
     }
   };
 
+  if (initialLoading) {
+    return (
+      <DashboardShell>
+        <PageLoader variant="inline" message="Cargando nutrición…" />
+      </DashboardShell>
+    );
+  }
+
   return (
-    <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-      <PageHeader 
-        title="Horarios de Alimentación"
-        subtitle="Configura horarios automáticos para la alimentación de tus mascotas"
-        gradient="from-green-500 to-emerald-500"
-        showHamburgerMenu={true}
-        onToggleHamburger={toggleMobileMenu}
-        isHamburgerOpen={isMobileMenuOpen}
+    <>
+    <DashboardShell>
+      <PageHeader
+        title="Nutrición"
+        subtitle="Horarios automáticos, registro manual y análisis nutricional de tus mascotas"
       >
-        <Utensils className="w-8 h-8" />
+        <Utensils className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
       </PageHeader>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
-          <TabsTrigger value="schedules" className="text-sm">Mis Horarios</TabsTrigger>
-          <TabsTrigger value="create" className="text-sm">Crear</TabsTrigger>
-          <TabsTrigger value="manual" className="text-sm">Manual</TabsTrigger>
-          <TabsTrigger value="meals" className="text-sm hidden md:block">Comidas</TabsTrigger>
-          <TabsTrigger value="analytics" className="text-sm hidden md:block">Análisis</TabsTrigger>
-        </TabsList>
+      {pendingMealNotificationIds.size > 0 && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200/80 px-4 py-3 text-sm text-amber-900">
+          Tienes {pendingMealNotificationIds.size} recordatorio
+          {pendingMealNotificationIds.size !== 1 ? 's' : ''} de comida sin revisar. Abre la pestaña
+          Comidas para registrarlas.
+        </div>
+      )}
 
-        <TabsContent value="schedules" className="space-y-6">
-          <div className="grid gap-4">
+      <MobileTabStrip
+        tabs={nutritionTabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        rowSizes={[3, 2]}
+      />
+
+      {activeTab === 'schedules' && (
+        <div className="space-y-4">
             {schedules.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                    No hay horarios configurados
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Crea tu primer horario de alimentación automática
+              <MobileSectionCard>
+                <div className="text-center py-10 px-4">
+                  <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <h3 className="font-semibold text-gray-800 mb-1">No hay horarios configurados</h3>
+                  <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+                    Crea un horario automático o registra comidas manualmente en las otras pestañas.
                   </p>
-                </CardContent>
-              </Card>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button className={landingBtnPrimary} onClick={() => setActiveTab('create')}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear horario
+                    </Button>
+                    <Button variant="outline" onClick={() => setActiveTab('manual')}>
+                      Registro manual
+                    </Button>
+                  </div>
+                </div>
+              </MobileSectionCard>
             ) : (
-              schedules.map((schedule) => (
-                <Card key={schedule.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {schedule.is_active ? (
-                            <Play className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <Pause className="w-5 h-5 text-gray-400" />
-                          )}
-                          <CardTitle className="text-lg">{schedule.schedule_name}</CardTitle>
-                        </div>
-                        <Badge variant={schedule.is_active ? "default" : "secondary"} className="flex-shrink-0">
-                          {schedule.is_active ? "Activo" : "Pausado"}
-                        </Badge>
+              schedules.map((schedule, index) => {
+                const petName = pets.find((p) => p.id === schedule.pet_id)?.name || 'Desconocida';
+                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                return (
+                  <MobileSectionCard key={schedule.id} className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white shadow-sm`}
+                      >
+                        {schedule.is_active ? (
+                          <Play className="w-5 h-5" />
+                        ) : (
+                          <Pause className="w-5 h-5" />
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editSchedule(schedule)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleScheduleStatus(schedule.id, schedule.is_active)}
-                        >
-                          {schedule.is_active ? (
-                            <>
-                              <Pause className="w-4 h-4 mr-2" />
-                              Pausar
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 mr-2" />
-                              Activar
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteSchedule(schedule.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Eliminar
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Mascota</Label>
-                        <p className="text-sm">
-                          {pets.find(p => p.id === schedule.pet_id)?.name || 'Desconocida'}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Horarios</Label>
-                        <p className="text-sm">
-                          {schedule.feeding_times.length} comida(s) por día
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Días</Label>
-                        <p className="text-sm">
-                          {schedule.days_of_week.length === 7 ? 'Todos los días' : 
-                           `${schedule.days_of_week.length} días por semana`}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <Label className="text-sm font-medium text-gray-600">Horarios de Comida</Label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {schedule.feeding_times.map((time, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {time.time} - {mealTypes.find(m => m.value === time.meal_type)?.label}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-gray-900 truncate">{schedule.schedule_name}</h3>
+                          <Badge variant={schedule.is_active ? 'default' : 'secondary'} className="text-[10px]">
+                            {schedule.is_active ? 'Activo' : 'Pausado'}
                           </Badge>
-                        ))}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-0.5">{petName}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {schedule.feeding_times.length} comida(s)/día ·{' '}
+                          {schedule.days_of_week.length === 7
+                            ? 'Todos los días'
+                            : `${schedule.days_of_week.length} días/semana`}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {schedule.feeding_times.map((time, timeIndex) => (
+                            <Badge key={timeIndex} variant="outline" className="text-[10px] font-normal">
+                              {time.time} · {mealTypes.find((m) => m.value === time.meal_type)?.label}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {schedule.notes && (
-                      <div className="mt-4">
-                        <Label className="text-sm font-medium text-gray-600">Notas</Label>
-                        <p className="text-sm text-gray-600 mt-1">{schedule.notes}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                    <div className="grid grid-cols-3 gap-1 mt-4 pt-3 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => editSchedule(schedule)}
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-gray-600 hover:bg-gray-100 min-h-[52px] justify-center text-[10px] font-medium"
+                      >
+                        <Edit size={18} />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleScheduleStatus(schedule.id, schedule.is_active)}
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-landing-aqua-dark hover:bg-landing-aqua/10 min-h-[52px] justify-center text-[10px] font-medium"
+                      >
+                        {schedule.is_active ? <Pause size={18} /> : <Play size={18} />}
+                        {schedule.is_active ? 'Pausar' : 'Activar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteSchedule(schedule.id)}
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-red-500 hover:bg-red-50 min-h-[52px] justify-center text-[10px] font-medium"
+                      >
+                        <Trash2 size={18} />
+                        Eliminar
+                      </button>
+                    </div>
+                  </MobileSectionCard>
+                );
+              })
             )}
-          </div>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="create" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-green-600" />
-                {editingSchedule ? 'Editar Horario' : 'Crear Nuevo Horario'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="pet">Mascota *</Label>
-                  <Select value={selectedPet} onValueChange={setSelectedPet}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar mascota" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pets.map((pet) => (
-                        <SelectItem key={pet.id} value={pet.id}>
-                          {pet.name} ({pet.breed})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="scheduleName">Nombre del Horario *</Label>
-                  <Input
-                    id="scheduleName"
-                    value={scheduleName}
-                    onChange={(e) => setScheduleName(e.target.value)}
-                    placeholder="Ej: Horario Mañana"
-                  />
-                </div>
+      {activeTab === 'create' && (
+        <div className="space-y-4">
+          {pets.length === 0 ? (
+            <MobileSectionCard>
+              <div className="text-center py-10 px-4">
+                <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-medium text-gray-800">Primero agrega una mascota</p>
+                <p className="text-sm text-gray-500 mt-1 mb-4">Necesitas una mascota para crear horarios de alimentación.</p>
+                <Button className={landingBtnPrimary} onClick={() => navigate('/pet-creation')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Registrar mascota
+                </Button>
               </div>
+            </MobileSectionCard>
+          ) : (
+          <MobileSectionCard className="overflow-hidden">
+            <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/5">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                <Settings className="w-5 h-5 text-landing-aqua-dark" />
+                {editingSchedule ? 'Editar horario' : 'Nuevo horario'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Configura comidas automáticas para tu mascota.
+              </p>
+            </div>
 
-              <div>
-                <Label className="text-base font-medium">Horarios de Comida</Label>
-                <div className="space-y-4 mt-4">
+            <div className="p-4 sm:p-5 space-y-5 pb-6">
+              <NutritionFormSection title="Información básica" icon={PawPrint}>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="pet">Mascota *</Label>
+                    <Select value={selectedPet} onValueChange={setSelectedPet}>
+                      <SelectTrigger className={nutritionFieldClass}>
+                        <SelectValue placeholder="Seleccionar mascota" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pets.map((pet) => (
+                          <SelectItem key={pet.id} value={pet.id}>
+                            {pet.name} ({pet.breed})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="scheduleName">Nombre del horario *</Label>
+                    <Input
+                      id="scheduleName"
+                      className={nutritionFieldClass}
+                      value={scheduleName}
+                      onChange={(e) => setScheduleName(e.target.value)}
+                      placeholder="Ej: Horario mañana"
+                    />
+                  </div>
+                </div>
+              </NutritionFormSection>
+
+              <NutritionFormSection
+                title="Horarios de comida"
+                description="Agrega una o más comidas por día."
+                icon={Clock}
+              >
+                <div className="space-y-3">
                   {feedingTimes.map((time, index) => (
-                    <Card key={index} className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div key={index} className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          Comida {index + 1}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFeedingTime(index)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label>Hora</Label>
+                          <Label className="text-xs">Hora</Label>
                           <Input
                             type="time"
+                            className={nutritionFieldClass}
                             value={time.time}
                             onChange={(e) => updateFeedingTime(index, 'time', e.target.value)}
                           />
                         </div>
                         <div>
-                          <Label>Tipo de Comida</Label>
+                          <Label className="text-xs">Tipo</Label>
                           <Select
                             value={time.meal_type}
                             onValueChange={(value) => updateFeedingTime(index, 'meal_type', value)}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className={nutritionFieldClass}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -819,258 +1100,332 @@ const FeedingScheduleManager: React.FC = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
-                          <Label>Alimento</Label>
-                          <Select
-                            value={time.food_id}
-                            onValueChange={(value) => updateFeedingTime(index, 'food_id', value)}
-                            disabled={!selectedPet || loadingFoods || availableFoods.length === 0}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={
-                                !selectedPet 
-                                  ? "Selecciona una mascota primero" 
-                                  : loadingFoods
-                                    ? "Cargando alimentos..." 
-                                    : availableFoods.length === 0 
-                                      ? "No hay alimentos disponibles" 
-                                      : "Seleccionar alimento"
-                              } />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingFoods ? (
-                                <SelectItem value="loading" disabled>
-                                  Cargando alimentos...
-                                </SelectItem>
-                              ) : availableFoods.length === 0 ? (
-                                <SelectItem value="no-foods" disabled>
-                                  {!selectedPet 
-                                    ? "Selecciona una mascota primero" 
-                                    : "No hay alimentos disponibles"}
-                                </SelectItem>
-                              ) : (
-                                availableFoods.map((food) => (
-                                  <SelectItem key={food.id} value={food.id}>
-                                    {food.brand} - {food.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                          {!selectedPet && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Selecciona una mascota para cargar los alimentos disponibles
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <Label>Cantidad (g)</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={time.quantity_grams}
-                              onChange={(e) => updateFeedingTime(index, 'quantity_grams', parseFloat(e.target.value))}
-                            />
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeFeedingTime(index)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
                       </div>
-                    </Card>
-                  ))}
-                  
-                  <Button
-                    variant="outline"
-                    onClick={addFeedingTime}
-                    className="w-full"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Agregar Horario de Comida
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-base font-medium">Días de la Semana</Label>
-                <div className="grid grid-cols-7 gap-2 mt-4">
-                  {daysOfWeek.map((day) => (
-                    <div key={day.value} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`day-${day.value}`}
-                        checked={selectedDays.includes(day.value)}
-                        onCheckedChange={() => toggleDay(day.value)}
-                      />
-                      <Label htmlFor={`day-${day.value}`} className="text-sm">
-                        {day.label.slice(0, 3)}
-                      </Label>
+                      <div>
+                        <Label className="text-xs">Alimento</Label>
+                        <Select
+                          value={time.food_id}
+                          onValueChange={(value) => updateFeedingTime(index, 'food_id', value)}
+                          disabled={!selectedPet || loadingFoods || availableFoods.length === 0}
+                        >
+                          <SelectTrigger className={nutritionFieldClass}>
+                            <SelectValue
+                              placeholder={
+                                !selectedPet
+                                  ? 'Selecciona una mascota'
+                                  : loadingFoods
+                                    ? 'Cargando...'
+                                    : availableFoods.length === 0
+                                      ? 'Sin alimentos'
+                                      : 'Seleccionar alimento'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableFoods.map((food) => (
+                              <SelectItem key={food.id} value={food.id}>
+                                {food.brand} - {food.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Cantidad (g)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          className={nutritionFieldClass}
+                          value={time.quantity_grams}
+                          onChange={(e) =>
+                            updateFeedingTime(index, 'quantity_grams', parseFloat(e.target.value))
+                          }
+                        />
+                      </div>
                     </div>
                   ))}
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startDate">Fecha de Inicio</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addFeedingTime}
+                    className="w-full min-h-[44px] border-dashed border-landing-aqua/40 text-landing-aqua-dark hover:bg-landing-aqua/5"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar comida
+                  </Button>
                 </div>
-                <div>
-                  <Label htmlFor="endDate">Fecha de Fin (opcional)</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
+              </NutritionFormSection>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+              <NutritionFormSection title="Días de la semana" icon={Calendar}>
+                <WeekDayPills days={daysOfWeek} selected={selectedDays} onToggle={toggleDay} />
+              </NutritionFormSection>
+
+              <NutritionFormSection title="Vigencia" icon={Calendar}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-base font-medium">Generar Comidas Automáticamente</Label>
-                    <p className="text-sm text-gray-600">
-                      Crear entradas automáticas en el historial de nutrición
-                    </p>
+                    <Label htmlFor="startDate">Fecha de inicio</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      className={nutritionFieldClass}
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
                   </div>
-                  <Switch
+                  <div>
+                    <Label htmlFor="endDate">Fecha de fin (opcional)</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      className={nutritionFieldClass}
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </NutritionFormSection>
+
+              <NutritionFormSection title="Opciones automáticas" icon={Bell}>
+                <div className="space-y-3">
+                  <SettingToggleRow
+                    label="Generar comidas automáticamente"
+                    description="Crear entradas en el historial de nutrición"
                     checked={autoGenerate}
                     onCheckedChange={setAutoGenerate}
                   />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Enviar Notificaciones</Label>
-                    <p className="text-sm text-gray-600">
-                      Recibir recordatorios antes de cada comida
-                    </p>
-                  </div>
-                  <Switch
+                  <SettingToggleRow
+                    label="Enviar notificaciones"
+                    description="Recordatorios en la campana y notificación del sistema (app cerrada)"
                     checked={sendNotifications}
-                    onCheckedChange={setSendNotifications}
-                  />
-                </div>
-
-                {sendNotifications && (
-                  <div>
-                    <Label htmlFor="notificationMinutes">Minutos antes de la comida</Label>
-                    <Input
-                      id="notificationMinutes"
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={notificationMinutes}
-                      onChange={(e) => setNotificationMinutes(parseInt(e.target.value))}
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base font-medium">Auto-Completar Comidas</Label>
-                    <p className="text-sm text-gray-600">
-                      Marcar automáticamente como completadas después del tiempo programado
-                    </p>
-                  </div>
-                  <Switch
+                    onCheckedChange={handleSendNotificationsChange}
+                  >
+                    {sendNotifications && (
+                      <div>
+                        <Label htmlFor="notificationMinutes" className="text-xs">
+                          Minutos antes
+                        </Label>
+                        <Input
+                          id="notificationMinutes"
+                          type="number"
+                          min="1"
+                          max="60"
+                          className={nutritionFieldClass}
+                          value={notificationMinutes}
+                          onChange={(e) => setNotificationMinutes(parseInt(e.target.value))}
+                        />
+                      </div>
+                    )}
+                  </SettingToggleRow>
+                  <SettingToggleRow
+                    label="Auto-completar comidas"
+                    description="Marcar como completadas tras el horario programado"
                     checked={autoCompleteEnabled}
                     onCheckedChange={setAutoCompleteEnabled}
-                  />
+                  >
+                    {autoCompleteEnabled && (
+                      <div>
+                        <Label htmlFor="autoCompleteMinutes" className="text-xs">
+                          Minutos después del horario
+                        </Label>
+                        <Input
+                          id="autoCompleteMinutes"
+                          type="number"
+                          min="5"
+                          max="120"
+                          className={nutritionFieldClass}
+                          value={autoCompleteMinutes}
+                          onChange={(e) => setAutoCompleteMinutes(parseInt(e.target.value))}
+                        />
+                      </div>
+                    )}
+                  </SettingToggleRow>
                 </div>
-
-                {autoCompleteEnabled && (
-                  <div>
-                    <Label htmlFor="autoCompleteMinutes">Minutos después del horario programado</Label>
-                    <Input
-                      id="autoCompleteMinutes"
-                      type="number"
-                      min="5"
-                      max="120"
-                      value={autoCompleteMinutes}
-                      onChange={(e) => setAutoCompleteMinutes(parseInt(e.target.value))}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Las comidas se marcarán automáticamente como completadas después de este tiempo
-                    </p>
-                  </div>
-                )}
-              </div>
+              </NutritionFormSection>
 
               <div>
-                <Label htmlFor="notes">Notas</Label>
+                <Label htmlFor="notes">Notas (opcional)</Label>
                 <Textarea
                   id="notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Notas adicionales sobre este horario..."
+                  placeholder="Instrucciones especiales sobre este horario..."
                   rows={3}
+                  className="mt-1.5 resize-none"
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button
+                  type="button"
                   onClick={saveSchedule}
                   disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                  data-blueprint-guided="create-feeding-schedule"
+                  className={cn('flex-1 min-h-[48px]', landingBtnPrimary)}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {editingSchedule ? 'Actualizar Horario' : 'Crear Horario'}
+                  {editingSchedule ? 'Actualizar horario' : 'Crear horario'}
                 </Button>
                 {editingSchedule && (
-                  <Button
-                    variant="outline"
-                    onClick={resetForm}
-                  >
+                  <Button type="button" variant="outline" onClick={resetForm} className="min-h-[48px]">
                     Cancelar
                   </Button>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </MobileSectionCard>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="meals" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Utensils className="w-5 h-5 text-green-600" />
-                Comidas Programadas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4 mb-6">
-                <div>
-                  <Label htmlFor="selectedDate">Fecha</Label>
-                  <Input
-                    id="selectedDate"
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      loadAutomatedMeals();
-                    }}
-                    disabled={loadingMeals}
-                  />
+      {activeTab === 'meals' && (
+        <div className="space-y-4">
+          <MobileSectionCard className="overflow-hidden">
+            <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                <Utensils className="w-5 h-5 text-landing-aqua-dark" />
+                Comidas programadas
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Generadas desde tus horarios activos en &quot;Horarios&quot;.
+              </p>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Collapsible "How it works" section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg mb-6">
+                <button
+                  onClick={() => setShowHowItWorks(!showHowItWorks)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-blue-100 transition-colors rounded-lg"
+                >
+                  <h4 className="font-semibold text-blue-900 flex items-center gap-2">
+                    <span>📋</span>
+                    <span>¿Cómo funciona la generación automática?</span>
+                  </h4>
+                  {showHowItWorks ? (
+                    <ChevronUp className="w-5 h-5 text-blue-900" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-blue-900" />
+                  )}
+                </button>
+                {showHowItWorks && (
+                  <div className="px-4 pb-4 text-sm text-blue-800 space-y-3">
+                    <div>
+                      <strong>🔄 Generación Automática:</strong>
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                        <li>El sistema genera comidas automáticamente para los <strong>próximos 7 días</strong></li>
+                        <li>Las comidas se crean <strong>inmediatamente</strong> cuando cargas la página (si tienes horarios activos)</li>
+                        <li>El sistema verifica cada hora si faltan comidas y las genera automáticamente</li>
+                        <li>Las comidas aparecen <strong>el mismo día</strong> de la alimentación programada (no un día antes)</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <strong>📅 Ejemplo:</strong>
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                        <li>Si hoy es Lunes y tienes un horario para "Lunes a Viernes a las 8:00 AM"</li>
+                        <li>El sistema genera comidas para: Hoy (Lunes), Mañana (Martes), Miércoles, Jueves, Viernes, Sábado, Domingo</li>
+                        <li>Cada día a las 8:00 AM verás la comida programada para ese día</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <strong>✅ Completar Comidas:</strong>
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                        <li><strong>Manual:</strong> Cuando alimentas a tu mascota, haz clic en el botón "Completar" para registrar la comida inmediatamente en el historial de nutrición</li>
+                        <li><strong>Automático:</strong> Si habilitas "Auto-Completar Comidas" en la configuración del horario, las comidas se marcarán automáticamente como completadas después del tiempo que configures (ej: 30 minutos después de las 8:00 AM = se completa a las 8:30 AM)</li>
+                        <li>El sistema verifica cada 5 minutos si hay comidas que deben auto-completarse</li>
+                        <li>Las comidas completadas (manual o automático) se registran en el historial y aparecen en la tab "Análisis"</li>
+                        <li>Puedes combinar ambos métodos: si completas manualmente antes del tiempo configurado, no se auto-completará</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <strong>⚙️ Configuración:</strong>
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                        <li>Los horarios deben estar <strong>activos</strong> y tener <strong>"Generar Comidas Automáticamente"</strong> habilitado</li>
+                        <li>El botón "Generar Comidas" crea manualmente las comidas para la fecha seleccionada</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Filters */}
+              <NutritionFormSection title="Filtros" icon={Filter}>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="selectedDate">Fecha</Label>
+                    <Input
+                      id="selectedDate"
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        loadAutomatedMeals();
+                      }}
+                      disabled={loadingMeals}
+                      className={nutritionFieldClass}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="filterPet">Mascota</Label>
+                      <Select value={filterPetId} onValueChange={setFilterPetId}>
+                        <SelectTrigger className={nutritionFieldClass}>
+                          <SelectValue placeholder="Todas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas las mascotas</SelectItem>
+                          {pets.map((pet) => (
+                            <SelectItem key={pet.id} value={pet.id}>
+                              {pet.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="filterStatus">Estado</Label>
+                      <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className={nutritionFieldClass}>
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="scheduled">Programada</SelectItem>
+                          <SelectItem value="completed">Completada</SelectItem>
+                          <SelectItem value="skipped">Omitida</SelectItem>
+                          <SelectItem value="modified">Modificada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {(filterPetId !== 'all' || filterStatus !== 'all') && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFilterPetId('all');
+                        setFilterStatus('all');
+                      }}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Limpiar filtros
+                    </Button>
+                  )}
                 </div>
+              </NutritionFormSection>
+
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={loadAutomatedMeals}
                   disabled={loadingMeals}
+                  className="min-h-[44px] flex-1 sm:flex-none"
                 >
                   {loadingMeals ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                      <Loader2 className="w-4 h-4 animate-spin text-landing-aqua-dark mr-2" />
                       Cargando...
                     </>
                   ) : (
@@ -1080,91 +1435,205 @@ const FeedingScheduleManager: React.FC = () => {
                     </>
                   )}
                 </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await generateMealsFromSchedules();
+                      await loadAutomatedMeals();
+                    } catch (error) {
+                      console.error('Error generating meals:', error);
+                    }
+                  }}
+                  disabled={loadingMeals || schedules.length === 0}
+                  className={cn('min-h-[44px] flex-1 sm:flex-none', landingBtnPrimary)}
+                  title={
+                    schedules.length === 0
+                      ? 'No hay horarios activos. Crea un horario primero.'
+                      : 'Genera comidas para la fecha seleccionada'
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Generar comidas
+                </Button>
               </div>
+              <p className="text-xs text-gray-500 text-center sm:text-left">
+                Mostrando {automatedMeals.length} de {allMeals.length} comidas
+              </p>
+              
+              {schedules.length > 0 && (
+                <div className="rounded-xl bg-landing-mint/10 border border-landing-mint/20 p-3">
+                  <p className="text-sm text-gray-700">
+                    <strong>Horarios activos:</strong> {schedules.filter((s) => s.is_active).length} de{' '}
+                    {schedules.length}
+                    {schedules.filter((s) => s.is_active && s.auto_generate_meals).length > 0 && (
+                      <span className="text-landing-mint-dark ml-1">
+                        ({schedules.filter((s) => s.is_active && s.auto_generate_meals).length} con auto-generación)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
 
               {loadingMeals ? (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p>Cargando comidas para {selectedDate}...</p>
-                </div>
+                <SectionLoader message={`Cargando comidas para ${selectedDate}…`} className="py-8" />
               ) : automatedMeals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p>No hay comidas programadas para esta fecha</p>
+                <div className="text-center py-10 px-4 rounded-xl border border-dashed border-gray-200">
+                  <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium text-gray-800">Sin comidas para esta fecha</p>
+                  <p className="text-sm text-gray-500 mt-1">Prueba otra fecha o genera comidas manualmente.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {automatedMeals.map((meal) => (
-                    <Card key={meal.id} className={`${getStatusColor(meal.status)}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                  {automatedMeals.map((meal) => {
+                    const hasPendingReminder = pendingMealNotificationIds.has(meal.id);
+                    return (
+                    <div
+                      key={meal.id}
+                      className={cn(
+                        'rounded-xl border p-4 bg-white/90',
+                        getStatusColor(meal.status),
+                        hasPendingReminder && 'ring-2 ring-amber-300/80 ring-offset-1',
+                      )}
+                    >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
                             {getStatusIcon(meal.status)}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">
-                                  {meal.scheduled_time}
-                                </span>
-                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                                  {new Date(meal.scheduled_date).toLocaleDateString('es-ES', { 
-                                    day: '2-digit', 
-                                    month: '2-digit', 
-                                    year: 'numeric' 
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-semibold text-gray-900">{meal.scheduled_time}</span>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {new Date(meal.scheduled_date).toLocaleDateString('es-ES', {
+                                    day: '2-digit',
+                                    month: '2-digit',
                                   })}
                                 </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {mealTypes.find(m => m.value === meal.meal_type)?.label}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {meal.pets?.name}
+                                <Badge variant="outline" className="text-[10px]">
+                                  {mealTypes.find((m) => m.value === meal.meal_type)?.label}
                                 </Badge>
                               </div>
-                              <div className="text-sm text-gray-600 mt-1">
-                                <span className="font-medium">
-                                  {meal.pet_foods?.brand} - {meal.pet_foods?.name}
+                              <p className="text-sm text-gray-600 mt-1 truncate">
+                                {meal.pets?.name} · {meal.pet_foods?.brand} - {meal.pet_foods?.name} ·{' '}
+                                {meal.quantity_grams}g
+                              </p>
+                              {hasPendingReminder && (
+                                <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                                  Es hora de alimentar
                                 </span>
-                                <span className="ml-2">
-                                  {meal.quantity_grams}g
-                                </span>
-                              </div>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             {meal.status === 'scheduled' && (
                               <Button
                                 size="sm"
-                                onClick={() => markMealAsCompleted(meal.id)}
-                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => requestCompleteMeal(meal)}
+                                className={cn('min-h-[40px]', landingBtnPrimary)}
                               >
                                 <CheckCircle className="w-4 h-4 mr-1" />
                                 Completar
                               </Button>
                             )}
                             <Badge variant={meal.status === 'completed' ? 'default' : 'secondary'}>
-                              {meal.status === 'completed' ? 'Completada' :
-                               meal.status === 'skipped' ? 'Omitida' :
-                               meal.status === 'modified' ? 'Modificada' : 'Programada'}
+                              {meal.status === 'completed'
+                                ? 'Completada'
+                                : meal.status === 'skipped'
+                                  ? 'Omitida'
+                                  : meal.status === 'modified'
+                                    ? 'Modificada'
+                                    : 'Programada'}
                             </Badge>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                    </div>
+                    );
+                  })}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </MobileSectionCard>
+        </div>
+      )}
 
-        <TabsContent value="manual" className="space-y-6">
+      {activeTab === 'manual' && (
+        <div className="space-y-4">
           <ManualFeedingForm />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="analytics" className="space-y-6">
+      {activeTab === 'analytics' && (
+        <div className="space-y-4">
           <NutritionAnalytics />
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+      )}
+
+      {activeTab === 'comparison' && (
+        <div className="space-y-4">
+          <NutritionComparison />
+        </div>
+      )}
+    </DashboardShell>
+
+    <ActionConfirmDialog
+      open={showScheduleConfirm}
+      onOpenChange={setShowScheduleConfirm}
+      title={editingSchedule ? 'Confirmar actualización de horario' : 'Confirmar horario de alimentación'}
+      description="Revisa el horario antes de guardar."
+      confirmLabel={editingSchedule ? 'Actualizar' : 'Crear horario'}
+      fields={[
+        { label: 'Mascota', value: pets.find((p) => p.id === selectedPet)?.name || '—' },
+        { label: 'Nombre', value: scheduleName },
+        {
+          label: 'Horarios',
+          value: feedingTimes.map((t) => `${t.time} (${mealTypes.find((m) => m.value === t.meal_type)?.label || t.meal_type})`).join(', '),
+        },
+        {
+          label: 'Días',
+          value: selectedDays.map((d) => daysOfWeek.find((day) => day.value === d)?.label || String(d)).join(', '),
+        },
+        { label: 'Desde', value: startDate },
+        ...(endDate ? [{ label: 'Hasta', value: endDate }] : []),
+        { label: 'Auto-generar comidas', value: autoGenerate ? 'Sí' : 'No' },
+      ]}
+      onConfirm={performSaveSchedule}
+      loading={loading}
+      onEdit={() => setShowScheduleConfirm(false)}
+    />
+
+    <ActionConfirmDialog
+      open={showMealConfirm}
+      onOpenChange={(open) => {
+        setShowMealConfirm(open);
+        if (!open) setPendingMeal(null);
+      }}
+      title="Confirmar registro de comida"
+      description="¿Registrar esta comida en el historial de nutrición?"
+      confirmLabel="Registrar comida"
+      fields={
+        pendingMeal
+          ? [
+              { label: 'Mascota', value: pendingMeal.pets?.name || '—' },
+              {
+                label: 'Alimento',
+                value: `${pendingMeal.pet_foods?.brand || ''} ${pendingMeal.pet_foods?.name || ''}`.trim() || '—',
+              },
+              { label: 'Cantidad', value: `${pendingMeal.quantity_grams} g` },
+              { label: 'Hora', value: pendingMeal.scheduled_time },
+              {
+                label: 'Fecha',
+                value: new Date(pendingMeal.scheduled_date).toLocaleDateString('es-ES'),
+              },
+              {
+                label: 'Comida',
+                value: mealTypes.find((m) => m.value === pendingMeal.meal_type)?.label || pendingMeal.meal_type,
+              },
+            ]
+          : []
+      }
+      onConfirm={confirmCompleteMeal}
+      onEdit={() => setShowMealConfirm(false)}
+    />
+    </>
   );
 };
 

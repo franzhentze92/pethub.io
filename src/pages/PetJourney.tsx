@@ -1,22 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import PageLoader from '@/components/PageLoader';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Calendar, Heart, Activity, Stethoscope, Utensils, ShoppingBag, 
-  Package, CreditCard, Eye, ChevronRight, TrendingUp, Clock,
-  MapPin, Building2, Tag, Timer, Info, Coins, FileText
+import {
+  Calendar,
+  Activity,
+  Stethoscope,
+  Utensils,
+  ShoppingBag,
+  Package,
+  CreditCard,
+  Eye,
+  TrendingUp,
+  MapPin,
+  ArrowLeft,
+  PawPrint,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import PageHeader from '@/components/PageHeader';
-import { format, parseISO, isAfter } from 'date-fns';
+import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { MobileTabStrip, type MobileTabItem } from '@/components/mobile/MobileTabStrip';
+import { MobileSectionCard } from '@/components/mobile/MobileUi';
+import { landingCardThemes, landingFeatureGradients } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+import { getAppointmentTypeLabel } from '@/lib/veterinaryTypes';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale/es';
-import { toast } from 'sonner';
-import { useNavigation } from '@/contexts/NavigationContext';
-
+import { formatSpeciesLabel, formatPetOptionLabel, getPetSpeciesEmoji } from '@/utils/petLabels';
+import PetJourneyOverview from '@/components/pet-journey/PetJourneyOverview';
 interface Pet {
   id: string;
   name: string;
@@ -39,7 +53,6 @@ interface TimelineEvent {
   currency: string;
   metadata: any;
   icon: React.ReactNode;
-  color: string;
 }
 
 interface PetStats {
@@ -83,24 +96,6 @@ const translateExerciseType = (type: string | null | undefined): string => {
   return translations[lowerType] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
 };
 
-const translateAppointmentType = (type: string | null | undefined): string => {
-  if (!type) return 'Consulta';
-  
-  const translations: { [key: string]: string } = {
-    'checkup': 'Revisión',
-    'vaccination': 'Vacunación',
-    'surgery': 'Cirugía',
-    'emergency': 'Emergencia',
-    'grooming': 'Aseo',
-    'dental': 'Dental',
-    'consultation': 'Consulta',
-    'follow-up': 'Seguimiento',
-    'other': 'Otro'
-  };
-  
-  const lowerType = type.toLowerCase().trim();
-  return translations[lowerType] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-};
 
 const translateMealType = (type: string | null | undefined): string => {
   if (!type) return 'Comida';
@@ -131,12 +126,34 @@ const translateIntensity = (intensity: string | null | undefined): string => {
   return translations[lowerIntensity] || intensity.charAt(0).toUpperCase() + intensity.slice(1).toLowerCase();
 };
 
+const eventGradientIndex: Record<TimelineEvent['type'], number> = {
+  product: 0,
+  service: 2,
+  veterinary: 4,
+  exercise: 1,
+  nutrition: 3,
+};
+
+const getEventGradient = (type: TimelineEvent['type']) =>
+  landingFeatureGradients[eventGradientIndex[type] % landingFeatureGradients.length];
+
+const getEventTypeLabel = (type: TimelineEvent['type']) => {
+  const labels: Record<TimelineEvent['type'], string> = {
+    product: 'Producto',
+    service: 'Servicio',
+    veterinary: 'Veterinaria',
+    exercise: 'Ejercicio',
+    nutrition: 'Nutrición',
+  };
+  return labels[type];
+};
+
+const getPetEmoji = (species: string) => getPetSpeciesEmoji(species);
+
 const PetJourney: React.FC = () => {
   const { petId } = useParams<{ petId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isMobileMenuOpen, toggleMobileMenu } = useNavigation();
-  
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -153,6 +170,7 @@ const PetJourney: React.FC = () => {
   });
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     if (petId && user) {
@@ -239,7 +257,6 @@ const PetJourney: React.FC = () => {
                 currency: order.currency || 'GTQ',
                 metadata: { orderItem, order, itemPet },
                 icon: <Package className="w-5 h-5" />,
-                color: 'bg-blue-500'
               });
             }
           });
@@ -248,50 +265,59 @@ const PetJourney: React.FC = () => {
         console.warn('Error loading products (order_item_pets table might not exist):', error);
       }
 
-      // 2. Load services (service_appointments) - Note: service_appointments might not have pet_id directly
-      // We'll load all services for the user and try to match by notes or show all
+      // 2. Load services linked to this pet via order_item_pets → order_item_id
       try {
-        const { data: services } = await supabase
-          .from('service_appointments')
-          .select(`
-            *,
-            provider_services (
-              service_name,
-              service_category,
-              description,
-              price,
-              currency,
-              duration_minutes,
-              providers (
-                business_name,
-                address,
-                phone
+        const { data: petOrderItems } = await supabase
+          .from('order_item_pets')
+          .select('order_item_id')
+          .eq('pet_id', pet.id);
+
+        const linkedOrderItemIds = (petOrderItems ?? [])
+          .map((row: { order_item_id: string }) => row.order_item_id)
+          .filter(Boolean);
+
+        if (linkedOrderItemIds.length > 0) {
+          const { data: services } = await supabase
+            .from('service_appointments')
+            .select(`
+              *,
+              provider_services (
+                service_name,
+                service_category,
+                description,
+                price,
+                currency,
+                duration_minutes,
+                providers (
+                  business_name,
+                  address,
+                  phone
+                )
               )
-            )
-          `)
-          .eq('client_id', user?.id)
-          .order('appointment_date', { ascending: false });
+            `)
+            .eq('client_id', user?.id)
+            .in('order_item_id', linkedOrderItemIds)
+            .order('appointment_date', { ascending: false });
 
-        if (services) {
-          services.forEach((service: any) => {
-            // For now, include all services. In the future, if service_appointments has pet_id, filter by it
-            const cost = service.provider_services?.price || 0;
-            servicesCost += cost;
-            totalServices += 1;
+          if (services) {
+            services.forEach((service: any) => {
+              const cost = service.provider_services?.price || 0;
+              servicesCost += cost;
+              totalServices += 1;
 
-            allEvents.push({
-              id: `service-${service.id}`,
-              type: 'service',
-              title: service.provider_services?.service_name || 'Servicio',
-              description: `${service.provider_services?.providers?.business_name || 'Proveedor'} | ${service.appointment_time || ''}`,
-              date: service.appointment_date || service.created_at,
-              cost: cost,
-              currency: service.provider_services?.currency || 'GTQ',
-              metadata: service,
-              icon: <ShoppingBag className="w-5 h-5" />,
-              color: 'bg-purple-500'
+              allEvents.push({
+                id: `service-${service.id}`,
+                type: 'service',
+                title: service.provider_services?.service_name || 'Servicio',
+                description: `${service.provider_services?.providers?.business_name || 'Proveedor'} | ${service.appointment_time || ''}`,
+                date: service.appointment_date || service.created_at,
+                cost: cost,
+                currency: service.provider_services?.currency || 'GTQ',
+                metadata: service,
+                icon: <ShoppingBag className="w-5 h-5" />,
+              });
             });
-          });
+          }
         }
       } catch (error) {
         console.warn('Error loading services:', error);
@@ -313,14 +339,13 @@ const PetJourney: React.FC = () => {
           allEvents.push({
             id: `vet-${session.id}`,
             type: 'veterinary',
-            title: `Visita Veterinaria: ${translateAppointmentType(session.appointment_type)}`,
+            title: `Visita Veterinaria: ${getAppointmentTypeLabel(session.appointment_type)}`,
             description: `${session.veterinarian_name || 'Veterinario'}${session.veterinary_clinic ? ` - ${session.veterinary_clinic}` : ''}`,
             date: session.date,
             cost: cost,
             currency: 'GTQ',
             metadata: session,
             icon: <Stethoscope className="w-5 h-5" />,
-            color: 'bg-red-500'
           });
         });
       }
@@ -346,7 +371,6 @@ const PetJourney: React.FC = () => {
             currency: 'GTQ',
             metadata: session,
             icon: <Activity className="w-5 h-5" />,
-            color: 'bg-green-500'
           });
         });
       }
@@ -372,7 +396,6 @@ const PetJourney: React.FC = () => {
             currency: 'GTQ',
             metadata: schedule,
             icon: <Utensils className="w-5 h-5" />,
-            color: 'bg-yellow-500'
           });
         });
       }
@@ -400,7 +423,6 @@ const PetJourney: React.FC = () => {
               currency: 'GTQ',
               metadata: meal,
               icon: <Utensils className="w-5 h-5" />,
-              color: 'bg-orange-500'
             });
           });
         }
@@ -453,207 +475,196 @@ const PetJourney: React.FC = () => {
     }
   };
 
+  const journeyTabs: MobileTabItem[] = useMemo(
+    () => [
+      { id: 'overview', label: 'Resumen', shortLabel: 'Resumen', icon: TrendingUp, gradientIndex: 0 },
+      { id: 'timeline', label: 'Timeline', shortLabel: 'Timeline', icon: Calendar, gradientIndex: 2 },
+    ],
+    [],
+  );
+
+  const journeyEvents = useMemo(
+    () =>
+      events.map(({ id, type, title, description, date, cost, currency }) => ({
+        id,
+        type,
+        title,
+        description,
+        date,
+        cost,
+        currency,
+      })),
+    [events],
+  );
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando trazabilidad...</p>
-          </div>
-        </div>
-      </div>
+      <DashboardShell>
+        <PageLoader variant="inline" message="Cargando Pet Journey…" />
+      </DashboardShell>
     );
   }
 
   if (!pet) {
     return (
-      <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-600 mb-4">Mascota no encontrada</p>
-            <Button onClick={() => navigate('/dashboard')}>Volver al Dashboard</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <DashboardShell>
+        <PageHeader title="Pet Journey" subtitle="Historial completo de tu mascota">
+          <PawPrint className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+        </PageHeader>
+        <MobileSectionCard>
+          <div className="text-center py-10 px-4">
+            <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p className="font-medium text-gray-800">Mascota no encontrada</p>
+            <p className="text-sm text-gray-500 mt-1 mb-4">No pudimos cargar la información de esta mascota.</p>
+            <Button variant="outline" className="min-h-[44px]" onClick={() => navigate('/dashboard')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver al inicio
+            </Button>
+          </div>
+        </MobileSectionCard>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-      <PageHeader 
-        title={`Trazabilidad de ${pet.name}`}
-        subtitle="Historial completo de actividades y gastos"
-        gradient="from-purple-600 to-pink-600"
-        showHamburgerMenu={true}
-        onToggleHamburger={toggleMobileMenu}
-        isHamburgerOpen={isMobileMenuOpen}
+    <DashboardShell>
+      <PageHeader
+        title={`Pet Journey · ${pet.name}`}
+        subtitle="Historial completo de actividades, cuidado y gastos"
       >
-        <Activity className="w-8 h-8" />
+        <MapPin className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
       </PageHeader>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0">
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Package className="w-4 h-4 md:w-5 md:h-5" />
-            </div>
-            <div className="text-xl md:text-2xl font-bold">{stats.totalProducts}</div>
-            <div className="text-xs md:text-sm opacity-90">Productos</div>
-            <div className="text-xs opacity-75 mt-1">{formatPrice(stats.productsCost)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0">
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <ShoppingBag className="w-4 h-4 md:w-5 md:h-5" />
-            </div>
-            <div className="text-xl md:text-2xl font-bold">{stats.totalServices}</div>
-            <div className="text-xs md:text-sm opacity-90">Servicios</div>
-            <div className="text-xs opacity-75 mt-1">{formatPrice(stats.servicesCost)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white border-0">
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Stethoscope className="w-4 h-4 md:w-5 md:h-5" />
-            </div>
-            <div className="text-xl md:text-2xl font-bold">{stats.totalVeterinaryVisits}</div>
-            <div className="text-xs md:text-sm opacity-90">Visitas Vet.</div>
-            <div className="text-xs opacity-75 mt-1">{formatPrice(stats.veterinaryCost)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0">
-          <CardContent className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
-            </div>
-            <div className="text-xl md:text-2xl font-bold">{formatPrice(stats.totalCost)}</div>
-            <div className="text-xs md:text-sm opacity-90">Costo Total</div>
-            <div className="text-xs opacity-75 mt-1">Inversión total</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Additional Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <Activity className="w-5 h-5 text-green-600" />
+      <MobileSectionCard>
+        <div className="p-4 sm:p-5">
+          <div className="flex items-center gap-4">
+            {pet.image_url ? (
+              <img
+                src={pet.image_url}
+                alt={pet.name}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-4 border-white shadow-lg shrink-0"
+              />
+            ) : (
+              <div
+                className={cn(
+                  'w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white text-2xl border-4 border-white shadow-lg shrink-0 bg-gradient-to-r',
+                  landingFeatureGradients[0],
+                )}
+              >
+                {getPetEmoji(pet.species)}
               </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{stats.totalExerciseSessions}</div>
-                <div className="text-sm text-gray-600">Sesiones de Ejercicio</div>
-              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{pet.name}</h2>
+              <p className="text-sm text-gray-500 truncate">
+                {[pet.breed, formatSpeciesLabel(pet.species)].filter(Boolean).join(' · ')}
+                {pet.age != null ? ` · ${pet.age} años` : ''}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Miembro desde {format(parseISO(pet.created_at), "d 'de' MMMM yyyy", { locale: es })}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      </MobileSectionCard>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <Utensils className="w-5 h-5 text-yellow-600" />
+      <MobileTabStrip tabs={journeyTabs} activeTab={activeTab} onChange={setActiveTab} columns={2} />
+
+      {activeTab === 'overview' && (
+        <PetJourneyOverview
+          pet={pet}
+          stats={stats}
+          events={journeyEvents}
+          formatPrice={formatPrice}
+          onViewTimeline={() => setActiveTab('timeline')}
+          onEventSelect={(event) => {
+            const full = events.find((e) => e.id === event.id);
+            if (full) {
+              setSelectedEvent(full);
+              setShowDetails(true);
+            }
+          }}
+        />
+      )}
+
+      {activeTab === 'timeline' && (
+        <MobileSectionCard>
+          <div className="p-4 sm:p-5">
+            <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+              <Calendar className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+              Timeline de actividades
+            </h3>
+
+            {events.length === 0 ? (
+              <div className="text-center py-10 px-2">
+                <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-medium text-gray-700">No hay actividades registradas</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Las compras, visitas, ejercicios y comidas de {pet.name} aparecerán aquí.
+                </p>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{stats.totalNutritionSessions}</div>
-                <div className="text-sm text-gray-600">Registros de Nutrición</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-5 sm:left-6 top-2 bottom-2 w-0.5 bg-gradient-to-b from-landing-aqua/40 via-landing-mint/30 to-landing-mango/20" />
 
-        <Card className="md:col-span-1">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{events.length}</div>
-                <div className="text-sm text-gray-600">Eventos Totales</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <div className="space-y-4">
+                  {events.map((event) => (
+                    <div key={event.id} className="relative flex items-start gap-3 sm:gap-4 pl-1">
+                      <div
+                        className={cn(
+                          'relative z-10 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white shadow-md shrink-0 bg-gradient-to-r',
+                          getEventGradient(event.type),
+                        )}
+                      >
+                        {event.icon}
+                      </div>
 
-      {/* Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-purple-600" />
-            Timeline de Actividades
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Activity className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium mb-2">No hay actividades registradas</p>
-              <p className="text-sm">Las actividades de {pet.name} aparecerán aquí</p>
-            </div>
-          ) : (
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute left-4 md:left-8 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-
-              <div className="space-y-6">
-                {events.map((event, index) => (
-                  <div key={event.id} className="relative flex items-start gap-4 md:gap-6">
-                    {/* Timeline dot */}
-                    <div className={`relative z-10 w-8 h-8 md:w-12 md:h-12 rounded-full ${event.color} flex items-center justify-center text-white shadow-lg flex-shrink-0`}>
-                      {event.icon}
-                    </div>
-
-                    {/* Event content */}
-                    <div className="flex-1 min-w-0 bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-base md:text-lg mb-1">{event.title}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{event.description}</p>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              <span>{formatDate(event.date)}</span>
+                      <div className="flex-1 min-w-0 rounded-xl border border-white/60 bg-white/70 p-3 sm:p-4 hover:shadow-md transition-shadow">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{event.title}</h4>
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {getEventTypeLabel(event.type)}
+                              </Badge>
                             </div>
-                            {event.cost > 0 && (
-                              <div className="flex items-center gap-1">
-                                <CreditCard className="w-3 h-3" />
-                                <span className="font-medium">{formatPrice(event.cost, event.currency)}</span>
-                              </div>
-                            )}
+                            <p className="text-sm text-gray-600 mb-2 leading-relaxed">{event.description}</p>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                              <span className="inline-flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                                {formatDate(event.date)}
+                              </span>
+                              {event.cost > 0 && (
+                                <span className="inline-flex items-center gap-1 font-medium text-landing-mango-dark">
+                                  <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                                  {formatPrice(event.cost, event.currency)}
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEvent(event);
+                              setShowDetails(true);
+                            }}
+                            className="shrink-0 min-h-[36px] text-xs"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            Detalles
+                          </Button>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedEvent(event);
-                            setShowDetails(true);
-                          }}
-                          className="flex-shrink-0"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Ver Detalles
-                        </Button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </div>
+        </MobileSectionCard>
+      )}
 
-      {/* Details Modal */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -752,7 +763,7 @@ const PetJourney: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-500">Tipo de Visita</label>
-                      <p className="text-gray-900">{translateAppointmentType(selectedEvent.metadata.appointment_type)}</p>
+                      <p className="text-gray-900">{getAppointmentTypeLabel(selectedEvent.metadata.appointment_type)}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Costo</label>
@@ -851,7 +862,7 @@ const PetJourney: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </DashboardShell>
   );
 };
 

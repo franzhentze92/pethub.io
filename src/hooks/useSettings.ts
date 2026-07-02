@@ -89,6 +89,7 @@ export const useUpdateUserProfile = () => {
     onSuccess: (data) => {
       console.log('Invalidating queries for user profile:', data.user_id)
       queryClient.invalidateQueries({ queryKey: ['userProfile', data.user_id] })
+      window.dispatchEvent(new CustomEvent('notifications-updated'))
     },
   })
 }
@@ -101,7 +102,7 @@ export const usePets = (ownerId?: string) => {
       console.log('Fetching pets for owner:', ownerId)
       const { data, error } = await supabase
         .from('pets')
-        .select('*')
+        .select('*, pet_images(image_url, display_order)')
         .eq('owner_id', ownerId)
         .order('created_at', { ascending: false })
 
@@ -154,6 +155,7 @@ export const useCreatePet = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pets', data.owner_id] })
+      window.dispatchEvent(new CustomEvent('notifications-updated'))
     },
   })
 }

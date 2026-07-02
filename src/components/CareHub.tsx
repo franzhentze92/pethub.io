@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PageLoader from '@/components/PageLoader';
 import { useAuth } from '../contexts/AuthContext';
 import { usePets } from '../hooks/useSettings';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { 
-  Utensils, 
-  Activity, 
-  Stethoscope, 
-  Heart
+import {
+  Utensils,
+  Activity,
+  Stethoscope,
+  Heart,
+  Bell,
+  Plus,
+  PawPrint,
+  ChevronRight,
 } from 'lucide-react';
+import { formatSpeciesLabel } from '@/utils/petLabels';
+import { DashboardShell } from './dashboard/DashboardShell';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
 
 interface Pet {
   id: string;
@@ -20,8 +30,44 @@ interface Pet {
   image_url?: string;
 }
 
+const careActions = [
+  {
+    id: 'feeding',
+    path: '/feeding-schedules',
+    label: 'Nutrición',
+    description: 'Programar comidas y horarios',
+    icon: Utensils,
+    gradientIndex: 2,
+  },
+  {
+    id: 'exercise',
+    path: '/trazabilidad',
+    label: 'Ejercicio',
+    description: 'Registrar actividades y paseos',
+    icon: Activity,
+    gradientIndex: 0,
+  },
+  {
+    id: 'vet',
+    path: '/veterinaria',
+    label: 'Veterinaria',
+    description: 'Citas médicas y salud',
+    icon: Stethoscope,
+    gradientIndex: 4,
+  },
+  {
+    id: 'reminders',
+    path: '/recordatorios',
+    label: 'Recordatorios',
+    description: 'Vacunas, citas y seguimientos',
+    icon: Bell,
+    gradientIndex: 1,
+  },
+] as const;
+
 const CareHub: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: pets, isLoading } = usePets(user?.id);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
 
@@ -31,134 +77,120 @@ const CareHub: React.FC = () => {
     }
   }, [pets]);
 
-  const handleCareAction = (type: string) => {
-    switch (type) {
-      case 'feeding':
-        window.location.href = '/feeding-schedules';
-        break;
-      case 'exercise':
-        window.location.href = '/trazabilidad';
-        break;
-      case 'vet':
-        window.location.href = '/veterinaria';
-        break;
-    }
-  };
-
   const getPetEmoji = (species: string) => {
     switch (species.toLowerCase()) {
-      case 'dog': return '🐕';
-      case 'cat': return '🐱';
-      case 'bird': return '🐦';
-      case 'fish': return '🐠';
-      default: return '🐾';
+      case 'dog':
+        return '🐕';
+      case 'cat':
+        return '🐱';
+      case 'bird':
+        return '🐦';
+      case 'fish':
+        return '🐠';
+      default:
+        return '🐾';
     }
   };
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando...</p>
-          </div>
-        </div>
-      </div>
+      <DashboardShell>
+        <PageLoader variant="inline" message="Cargando cuidado…" />
+      </DashboardShell>
     );
   }
 
   if (!selectedPet) {
     return (
-      <div className="p-6 text-center pb-20">
-        <div className="text-6xl mb-4">❤️</div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          ¡No tienes mascotas registradas!
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Crea tu primera mascota para comenzar a cuidarla
-        </p>
-        <Button 
-          onClick={() => window.location.href = '/pet-creation'}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-        >
-          Crear Mi Primera Mascota
-        </Button>
-      </div>
+      <DashboardShell>
+        <PageHeader title="Cuidado" subtitle="Nutrición, ejercicio, salud y recordatorios para tus mascotas">
+          <Heart className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+        </PageHeader>
+        <MobileSectionCard>
+          <div className="text-center py-10 px-4">
+            <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p className="font-medium text-gray-800">Primero agrega una mascota</p>
+            <p className="text-sm text-gray-500 mt-1 mb-4 max-w-sm mx-auto">
+              Crea tu primera mascota para comenzar a cuidarla desde un solo lugar.
+            </p>
+            <Button className={landingBtnPrimary} onClick={() => navigate('/pet-creation')}>
+              <Plus className="w-4 h-4 mr-2" />
+              Registrar mascota
+            </Button>
+          </div>
+        </MobileSectionCard>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 pb-20">
-      {/* Pet Info Header */}
-      <Card className="bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-4">
+    <DashboardShell>
+      <PageHeader title="Cuidado" subtitle={`Todo lo que ${selectedPet.name} necesita, en un solo lugar`}>
+        <Heart className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+      </PageHeader>
+
+      <MobileSectionCard>
+        <div className="p-4 sm:p-5">
+          <div className="flex items-center gap-4">
             {selectedPet.image_url ? (
               <img
                 src={selectedPet.image_url}
                 alt={selectedPet.name}
-                className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-4 border-white shadow-lg shrink-0"
               />
             ) : (
-              <div className="w-16 h-16 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl border-4 border-white shadow-lg">
+              <div
+                className={cn(
+                  'w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white text-2xl border-4 border-white shadow-lg shrink-0 bg-gradient-to-r',
+                  landingFeatureGradients[0],
+                )}
+              >
                 {getPetEmoji(selectedPet.species)}
               </div>
             )}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">{selectedPet.name}</h2>
-              <p className="text-gray-600">{selectedPet.breed || selectedPet.species}</p>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">{selectedPet.name}</h2>
+              <p className="text-sm text-gray-500">{selectedPet.breed || formatSpeciesLabel(selectedPet.species)}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </MobileSectionCard>
 
-      {/* Care Options */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Heart className="w-6 h-6 text-pink-600" />
+      <MobileSectionCard>
+        <div className="p-4 sm:p-5">
+          <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+            <Heart className="w-5 h-5 text-landing-aqua-dark shrink-0" />
             ¿Qué quieres hacer hoy?
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Button
-              onClick={() => handleCareAction('feeding')}
-              className="w-full h-16 flex items-center justify-start space-x-4 bg-gradient-to-r from-orange-500 to-red-500 hover:shadow-lg transition-all duration-300 transform hover:scale-105 border-0 text-white text-left"
-            >
-              <Utensils className="w-8 h-8" />
-              <div>
-                <div className="text-lg font-semibold">Nutrición</div>
-                <div className="text-sm opacity-90">Programar comidas y horarios</div>
-              </div>
-            </Button>
-            
-            <Button
-              onClick={() => handleCareAction('exercise')}
-              className="w-full h-16 flex items-center justify-start space-x-4 bg-gradient-to-r from-green-500 to-blue-500 hover:shadow-lg transition-all duration-300 transform hover:scale-105 border-0 text-white text-left"
-            >
-              <Activity className="w-8 h-8" />
-              <div>
-                <div className="text-lg font-semibold">Ejercicio</div>
-                <div className="text-sm opacity-90">Registrar actividades y paseos</div>
-              </div>
-            </Button>
-            
-            <Button
-              onClick={() => handleCareAction('vet')}
-              className="w-full h-16 flex items-center justify-start space-x-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:shadow-lg transition-all duration-300 transform hover:scale-105 border-0 text-white text-left"
-            >
-              <Stethoscope className="w-8 h-8" />
-              <div>
-                <div className="text-lg font-semibold">Veterinaria</div>
-                <div className="text-sm opacity-90">Citas médicas y salud</div>
-              </div>
-            </Button>
+          </h3>
+          <div className="space-y-3">
+            {careActions.map((action) => {
+              const Icon = action.icon;
+              const gradient = landingFeatureGradients[action.gradientIndex % landingFeatureGradients.length];
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => navigate(action.path)}
+                  className={cn(
+                    'w-full flex items-center gap-4 p-4 rounded-2xl text-white text-left shadow-md hover:shadow-lg active:scale-[0.99] transition-all duration-200 bg-gradient-to-r min-h-[72px]',
+                    gradient,
+                  )}
+                >
+                  <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-base sm:text-lg font-semibold">{action.label}</div>
+                    <div className="text-sm opacity-90 truncate">{action.description}</div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 shrink-0 opacity-80" />
+                </button>
+              );
+            })}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </MobileSectionCard>
+    </DashboardShell>
   );
 };
 

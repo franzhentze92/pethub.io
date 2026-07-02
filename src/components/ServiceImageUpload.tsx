@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { LandingSpinner } from '@/components/PageLoader';
 import { useDropzone } from 'react-dropzone';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -123,7 +124,7 @@ export const ServiceImageUpload: React.FC<ServiceImageUploadProps> = ({
               <input {...getInputProps()} />
               {uploading ? (
                 <div className="space-y-2">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <LandingSpinner size="sm" className="mx-auto" />
                   <p className="text-sm text-gray-600">Subiendo imagen...</p>
                 </div>
               ) : (

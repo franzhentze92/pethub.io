@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { LandingSpinner } from '@/components/PageLoader';
 import { useDropzone } from 'react-dropzone';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -156,7 +157,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
                 isDragActive ? 'bg-emerald-100' : 'bg-gray-100'
               }`}>
                 {uploading ? (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                  <LandingSpinner size="sm" className="mx-auto" />
                 ) : (
                   <Upload className={`h-8 w-8 ${
                     isDragActive ? 'text-emerald-600' : 'text-gray-600'
@@ -187,7 +188,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
       {uploading && (
         <div className="text-center">
           <div className="inline-flex items-center space-x-2 text-sm text-emerald-600">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600" />
+            <LandingSpinner size="sm" className="mx-auto" />
             <span>Subiendo imagen...</span>
           </div>
         </div>

@@ -1,25 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { 
-  Package, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  Truck, 
-  RefreshCw,
+import {
+  Package,
   Calendar,
-  MapPin,
-  Phone,
   CreditCard,
   Eye,
   ShoppingCart,
@@ -29,33 +21,42 @@ import {
   X,
   CalendarDays,
   ShoppingBag,
-  RotateCcw
+  RotateCcw,
+  FileText,
+  RefreshCw,
+  Scissors,
+  Truck,
+  MapPin,
+  Phone,
+  Store,
 } from 'lucide-react';
 import PageHeader from './PageHeader';
-import { useNavigation } from '@/contexts/NavigationContext';
 import ReviewModal from './ReviewModal';
 import InvoiceViewer from './InvoiceViewer';
-import { FileText } from 'lucide-react';
+import { DashboardShell } from './dashboard/DashboardShell';
+import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingBtnPrimary, landingFeatureGradients, landingHeaderActionBtn } from '@/lib/landingTheme';
+import { resolveFulfillmentMethod, fulfillmentLabel } from '@/lib/orderFulfillment';
+import { cn } from '@/lib/utils';
+import OrderItemPetsList from './OrderItemPetsList';
+import {
+  attachPetsToOrderItems,
+  fetchPetsForAppointment,
+  fetchPetsForOrderItems,
+  type OrderItemPet,
+} from '@/utils/orderItemPets';
+import { formatAppointmentTimeLabel } from '@/utils/appointmentDisplay';
+import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
+import {
+  getNotificationIdsForAppointment,
+  getNotificationIdsForOrder,
+  loadClientOrdersPageUnreadIds,
+  markClientOrderNotificationsRead,
+} from '@/utils/clientOrdersNotifications';
 
-interface Order {
-  id: string;
-  order_number: string;
-  total_amount: number;
-  delivery_fee: number;
-  grand_total: number;
-  currency: string;
-  status: string;
-  payment_method: string;
-  payment_status: string;
-  delivery_name: string;
-  delivery_phone: string;
-  delivery_address: string;
-  delivery_city: string;
-  delivery_instructions?: string;
-  created_at: string;
-  delivered_at?: string;
-  order_items: OrderItem[];
-}
+const filterPanelClass =
+  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
 
 interface OrderItem {
   id: string;
@@ -75,222 +76,757 @@ interface OrderItem {
   has_delivery: boolean;
   has_pickup: boolean;
   delivery_fee: number;
+  pets?: OrderItemPet[];
 }
+
+interface ReservationData {
+  appointment_date?: string;
+  time_slot_id?: string;
+  time_slot?: { slot_start_time?: string; slot_end_time?: string } | null;
+  notes?: string;
+  client_email?: string;
+}
+
+interface Order {
+  id: string;
+  order_number: string;
+  total_amount: number;
+  delivery_fee: number;
+  grand_total: number;
+  currency: string;
+  status: string;
+  payment_method: string;
+  payment_status: string;
+  delivery_name: string;
+  delivery_phone: string;
+  delivery_address: string;
+  delivery_city: string;
+  delivery_instructions?: string;
+  fulfillment_method?: string | null;
+  created_at: string;
+  delivered_at?: string;
+  order_items: OrderItem[];
+  reservation_data?: ReservationData;
+}
+
+type CatalogReviewRow = {
+  order_id: string | null;
+  product_id: string | null;
+  service_id: string | null;
+  item_type: string;
+};
+
+function getUniqueCatalogItems(items: OrderItem[]) {
+  const map = new Map<string, { item_type: 'product' | 'service'; item_id: string }>();
+  items.forEach((item) => {
+    if (item.item_type !== 'product' && item.item_type !== 'service') return;
+    const key = `${item.item_type}_${item.item_id}`;
+    if (!map.has(key)) {
+      map.set(key, { item_type: item.item_type, item_id: item.item_id });
+    }
+  });
+  return Array.from(map.values());
+}
+
+function catalogItemHasReview(
+  item: { item_type: 'product' | 'service'; item_id: string },
+  reviews: CatalogReviewRow[],
+) {
+  return reviews.some((review) =>
+    item.item_type === 'product'
+      ? review.product_id === item.item_id
+      : review.service_id === item.item_id,
+  );
+}
+
+async function buildProviderRefMap(providerRefs: string[]) {
+  const refToTableId = new Map<string, string>();
+  const uniqueRefs = [...new Set(providerRefs.filter(Boolean))];
+  if (uniqueRefs.length === 0) return refToTableId;
+
+  const [{ data: byId }, { data: byUserId }] = await Promise.all([
+    supabase.from('providers').select('id, user_id').in('id', uniqueRefs),
+    supabase.from('providers').select('id, user_id').in('user_id', uniqueRefs),
+  ]);
+
+  [...(byId || []), ...(byUserId || [])].forEach((provider) => {
+    refToTableId.set(provider.id, provider.id);
+    refToTableId.set(provider.user_id, provider.id);
+  });
+
+  return refToTableId;
+}
+
+interface Reservation {
+  id: string;
+  service_id: string;
+  provider_id: string;
+  client_id?: string;
+  order_id?: string | null;
+  order_item_id?: string | null;
+  status: string;
+  total_price?: number;
+  currency?: string;
+  appointment_date: string;
+  appointment_time?: string;
+  slot_end_time?: string | null;
+  created_at?: string;
+  client_name?: string;
+  client_phone?: string;
+  client_email?: string;
+  notes?: string;
+  time_slot_id?: string;
+  service_name: string;
+  provider_name: string;
+  pets?: OrderItemPet[];
+  provider_services?: {
+    description?: string;
+    service_image_url?: string;
+    providers?: { address?: string; phone?: string; business_name?: string };
+  };
+  provider_service_time_slots?: { slot_start_time?: string; slot_end_time?: string } | null;
+}
+
+type SortOption = 'newest' | 'oldest' | 'amount-high' | 'amount-low';
+
+const PEDIDO_STATUS_CHIPS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'pending', label: 'Pendiente' },
+  { id: 'in_progress', label: 'En proceso' },
+  { id: 'delivered', label: 'Entregado' },
+  { id: 'cancelled', label: 'Cancelado' },
+] as const;
+
+const RESERVA_STATUS_CHIPS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'pending', label: 'Pendiente' },
+  { id: 'confirmed', label: 'Confirmada' },
+  { id: 'completed', label: 'Completada' },
+  { id: 'cancelled', label: 'Cancelada' },
+] as const;
+
+const IN_PROGRESS_STATUSES = ['confirmed', 'processing', 'shipped'];
+
+const formatDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('es-GT', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+const formatDateShort = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+const formatPrice = (price: number | undefined | null, currency: string = 'GTQ') => {
+  if (price === undefined || price === null || Number.isNaN(price)) {
+    return `${currency === 'GTQ' ? 'Q.' : '$'}0.00`;
+  }
+  return `${currency === 'GTQ' ? 'Q.' : '$'}${price.toFixed(2)}`;
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return { text: 'Pendiente', className: 'bg-landing-tropical/30 text-landing-mango-dark' };
+    case 'confirmed':
+      return { text: 'Confirmado', className: 'bg-landing-aqua/20 text-landing-aqua-dark' };
+    case 'completed':
+      return { text: 'Completado', className: 'bg-landing-mint/20 text-landing-mint-dark' };
+    case 'processing':
+      return { text: 'Procesando', className: 'bg-landing-mango/15 text-landing-mango-dark' };
+    case 'shipped':
+      return { text: 'Enviado', className: 'bg-landing-aqua/15 text-landing-aqua-dark' };
+    case 'delivered':
+      return { text: 'Entregado', className: 'bg-landing-mint/20 text-landing-mint-dark' };
+    case 'cancelled':
+      return { text: 'Cancelado', className: 'bg-red-100 text-red-700' };
+    default:
+      return { text: status, className: 'bg-gray-100 text-gray-700' };
+  }
+};
+
+const getPaymentStatusBadge = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return { text: 'Pagado', className: 'bg-landing-mint/20 text-landing-mint-dark' };
+    case 'pending':
+      return { text: 'Pago pendiente', className: 'bg-landing-tropical/30 text-landing-mango-dark' };
+    case 'failed':
+      return { text: 'Fallido', className: 'bg-red-100 text-red-700' };
+    case 'refunded':
+      return { text: 'Reembolsado', className: 'bg-landing-aqua/20 text-landing-aqua-dark' };
+    default:
+      return { text: status, className: 'bg-gray-100 text-gray-700' };
+  }
+};
+
+const matchesPedidoStatus = (status: string, filter: string) => {
+  if (filter === 'all') return true;
+  if (filter === 'in_progress') return IN_PROGRESS_STATUSES.includes(status);
+  return status === filter;
+};
+
+const matchesDateFilter = (dateString: string, dateFilter: string) => {
+  if (dateFilter === 'all') return true;
+  const now = new Date();
+  const itemDate = new Date(dateString);
+  switch (dateFilter) {
+    case 'today':
+      return itemDate.toDateString() === now.toDateString();
+    case 'week':
+      return itemDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case 'month':
+      return itemDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case 'year':
+      return itemDate >= new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    default:
+      return true;
+  }
+};
+
+const getOrderPreviewImage = (order: Order) =>
+  order.order_items?.find((item) => item.item_image_url)?.item_image_url || null;
+
+const reservationToOrder = (reservation: Reservation): Order => {
+  const timeSlot = reservation.provider_service_time_slots;
+  return {
+    id: reservation.id,
+    order_number: `RES-${reservation.id.slice(-8).toUpperCase()}`,
+    total_amount: reservation.total_price || 0,
+    delivery_fee: 0,
+    grand_total: reservation.total_price || 0,
+    currency: reservation.currency || 'GTQ',
+    status: reservation.status || 'pending',
+    payment_method: 'service',
+    payment_status: 'completed',
+    delivery_name: reservation.client_name || '',
+    delivery_phone: reservation.client_phone || '',
+    delivery_address: reservation.provider_services?.providers?.address || '',
+    delivery_city: '',
+    delivery_instructions: reservation.notes || '',
+    created_at: reservation.created_at || reservation.appointment_date,
+    reservation_data: {
+      appointment_date: reservation.appointment_date,
+      time_slot_id: reservation.time_slot_id,
+      time_slot: timeSlot,
+      notes: reservation.notes,
+      client_email: reservation.client_email,
+    },
+    order_items: [
+      {
+        id: reservation.id,
+        item_type: 'service',
+        item_id: reservation.service_id,
+        item_name: reservation.service_name,
+        provider_id: reservation.provider_id,
+        provider_name: reservation.provider_name,
+        unit_price: reservation.total_price || 0,
+        quantity: 1,
+        total_price: reservation.total_price || 0,
+        currency: reservation.currency || 'GTQ',
+        item_description: reservation.provider_services?.description || 'Servicio reservado',
+        item_image_url: reservation.provider_services?.service_image_url || undefined,
+        provider_phone: reservation.provider_services?.providers?.phone || '',
+        provider_address: reservation.provider_services?.providers?.address || '',
+        has_delivery: false,
+        has_pickup: false,
+        delivery_fee: 0,
+        pets: reservation.pets || [],
+      },
+    ],
+  };
+};
 
 const ClientOrders: React.FC = () => {
   const { user } = useAuth();
   const { addItem } = useCart();
   const { toast } = useToast();
-  const { isMobileMenuOpen, toggleMobileMenu } = useNavigation();
-  
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [orders, setOrders] = useState<Order[]>([]);
-  const [reservations, setReservations] = useState<any[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
-  const [checkedOrders, setCheckedOrders] = useState<Set<string>>(new Set());
-  const [orderReviews, setOrderReviews] = useState<Map<string, any[]>>(new Map());
   const [showInvoice, setShowInvoice] = useState(false);
   const [invoiceOrderId, setInvoiceOrderId] = useState<string | null>(null);
-  
-  // Filter states
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showFilters, setShowFilters] = useState(false);
-  
-  // Tab state
   const [activeTab, setActiveTab] = useState('pedidos');
+  const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
 
-  // Separate orders and reservations
-  const productOrders = orders.filter(order => 
-    order.order_items && order.order_items.some(item => item.item_type === 'product')
-  );
-  
-  const serviceOrders = orders.filter(order => 
-    order.order_items && order.order_items.some(item => item.item_type === 'service')
+  const productOrders = useMemo(
+    () => orders.filter((order) => order.order_items?.some((item) => item.item_type === 'product')),
+    [orders]
   );
 
-  // Get current data based on active tab
-  const getCurrentData = () => {
-    if (activeTab === 'pedidos') {
-      return productOrders;
-    } else {
-      return reservations;
-    }
-  };
+  const fetchOrders = useCallback(async (silent = false) => {
+    if (!user) return;
 
-  // Fetch orders and reservations
-    const fetchOrders = async () => {
-      if (!user) return;
+    try {
+      if (silent) setRefreshing(true);
+      else setLoading(true);
 
-      try {
-        setLoading(true);
-      
-      // Fetch orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .eq('client_id', user.id)
-        .order('created_at', { ascending: false });
+      const [ordersResult, reservationsResult] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('*, order_items (*)')
+          .eq('client_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('service_appointments')
+          .select(`
+            *,
+            provider_services (
+              id,
+              service_name,
+              description,
+              service_image_url,
+              price,
+              currency,
+              duration_minutes,
+              provider_id,
+              providers (
+                id,
+                business_name,
+                user_id,
+                address,
+                phone
+              )
+            ),
+            provider_service_time_slots:provider_service_time_slots!service_appointments_time_slot_id_fkey (
+              slot_start_time,
+              slot_end_time
+            )
+          `)
+          .eq('client_id', user.id)
+          .order('appointment_date', { ascending: false }),
+      ]);
 
-      if (ordersError) {
-        console.error('Error fetching orders:', ordersError);
+      if (ordersResult.error) {
+        console.error('Error fetching orders:', ordersResult.error);
         setOrders([]);
-        return;
+      } else {
+        const rawOrders = (ordersResult.data || []).map((order) => ({
+          ...order,
+          order_items: order.order_items || [],
+        }));
+        const orderItemIds = rawOrders.flatMap((o) => o.order_items.map((i: { id: string }) => i.id));
+        const petsMap = await fetchPetsForOrderItems(orderItemIds);
+        setOrders(
+          rawOrders.map((order) => ({
+            ...order,
+            order_items: attachPetsToOrderItems(order.order_items, petsMap),
+          })),
+        );
       }
 
-      // Ensure each order has order_items array
-      const processedOrders = (ordersData || []).map(order => ({
-        ...order,
-        order_items: order.order_items || []
-      }));
-      
-      setOrders(processedOrders);
-
-      // Fetch reservations with service details
-      console.log('Fetching reservations for client_id:', user.id);
-      const { data: reservationsData, error: reservationsError } = await supabase
-        .from('service_appointments')
-        .select(`
-          *,
-          provider_services (
-            id,
-            service_name,
-            description,
-            price,
-            currency,
-            duration_minutes,
-            provider_id,
-            providers (
-              id,
-              business_name,
-              user_id,
-              address,
-              phone
-            )
-          ),
-          provider_service_time_slots:provider_service_time_slots!service_appointments_time_slot_id_fkey (
-            slot_start_time,
-            slot_end_time
-          )
-        `)
-        .eq('client_id', user.id)
-        .order('appointment_date', { ascending: false });
-
-      console.log('Reservations query result:', { 
-        reservationsData, 
-        reservationsError,
-        count: reservationsData?.length || 0
-      });
-
-      if (reservationsError) {
-        console.error('Error fetching reservations:', reservationsError);
+      if (reservationsResult.error) {
+        console.error('Error fetching reservations:', reservationsResult.error);
         setReservations([]);
       } else {
-        // Process reservations to ensure data structure is correct
-        const processedReservations = (reservationsData || []).map(reservation => {
-          // Get time slot information
-          const timeSlot = reservation.provider_service_time_slots;
-          let appointmentTime = '';
-          if (timeSlot?.slot_start_time && timeSlot?.slot_end_time) {
-            appointmentTime = `${timeSlot.slot_start_time.substring(0, 5)} - ${timeSlot.slot_end_time.substring(0, 5)}`;
-          } else if (reservation.appointment_time) {
-            appointmentTime = reservation.appointment_time;
-          } else if (reservation.appointment_date) {
-            // Fallback to appointment_date if time slot not available
-            const date = new Date(reservation.appointment_date);
-            appointmentTime = date.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
-          }
-          
-          return {
-            ...reservation,
-            service: reservation.provider_services || null,
-            // Ensure service name is accessible
-            service_name: reservation.provider_services?.service_name || 'Servicio desconocido',
-            provider_name: reservation.provider_services?.providers?.business_name || 'Proveedor desconocido',
-            appointment_time: appointmentTime
-          };
-        });
-        console.log('Processed reservations:', processedReservations);
-        setReservations(processedReservations);
-      }
+        const rawReservations = reservationsResult.data || [];
+        const reservationsWithPets = await Promise.all(
+          rawReservations.map(async (reservation) => {
+            const timeSlot = reservation.provider_service_time_slots;
+            const appointmentTime = formatAppointmentTimeLabel({
+              appointmentTime: reservation.appointment_time,
+              slotEndTime: reservation.slot_end_time,
+              timeSlot,
+            });
 
+            const pets = await fetchPetsForAppointment({
+              orderItemId: reservation.order_item_id,
+              orderId: reservation.order_id,
+              clientId: reservation.client_id || user.id,
+              serviceId: reservation.service_id,
+              createdAt: reservation.created_at,
+              totalPrice: reservation.total_price ?? null,
+            });
+
+            return {
+              ...reservation,
+              service_name: reservation.provider_services?.service_name || 'Servicio desconocido',
+              provider_name: reservation.provider_services?.providers?.business_name || 'Proveedor desconocido',
+              appointment_time: appointmentTime,
+              pets,
+            };
+          }),
+        );
+        setReservations(reservationsWithPets);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       setOrders([]);
       setReservations([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [user]);
+
+  const refreshUnreadIds = useCallback(async () => {
+    if (!user?.id) return;
+    const ids = await loadClientOrdersPageUnreadIds(user.id);
+    setUnreadIds(ids);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchOrders();
-  }, [user]);
+  }, [fetchOrders]);
 
-  // Check for reviews when orders change
   useEffect(() => {
-    if (orders.length > 0) {
+    refreshUnreadIds();
+  }, [refreshUnreadIds]);
+
+  useEffect(() => {
+    const onUpdate = () => {
+      void refreshUnreadIds();
+    };
+    window.addEventListener('notifications-updated', onUpdate);
+    return () => window.removeEventListener('notifications-updated', onUpdate);
+  }, [refreshUnreadIds]);
+
+  useEffect(() => {
+    const state = location.state as { tab?: string } | null;
+    if (state?.tab) {
+      setActiveTab(state.tab);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('client_orders_notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `client_id=eq.${user.id}` },
+        () => {
+          fetchOrders(true);
+          dispatchNotificationsUpdated();
+          void refreshUnreadIds();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_appointments', filter: `client_id=eq.${user.id}` },
+        () => {
+          fetchOrders(true);
+          dispatchNotificationsUpdated();
+          void refreshUnreadIds();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchOrders, refreshUnreadIds]);
+
+  const checkOrdersForReviews = useCallback(async () => {
+    if (!user?.id || (orders.length === 0 && reservations.length === 0)) return;
+
+    const reviewableOrders = orders.filter(
+      (order) =>
+        (order.status === 'delivered' || order.status === 'confirmed') &&
+        order.payment_status === 'completed',
+    );
+    const completedReservations = reservations.filter((r) => r.status === 'completed');
+    const targetIds = [
+      ...reviewableOrders.map((o) => o.id),
+      ...completedReservations.map((r) => r.id),
+    ];
+
+    if (targetIds.length === 0) return;
+
+    const providerRefs = [
+      ...reviewableOrders.flatMap((o) => o.order_items.map((i) => i.provider_id)),
+      ...completedReservations.map((r) => r.provider_id),
+    ];
+
+    const [{ data: catalogReviews }, { data: providerReviews }, refToTableId] = await Promise.all([
+      supabase
+        .from('catalog_item_reviews')
+        .select('order_id, product_id, service_id, item_type')
+        .eq('client_id', user.id)
+        .in('order_id', targetIds),
+      supabase.from('provider_reviews').select('provider_id').eq('client_id', user.id),
+      buildProviderRefMap(providerRefs),
+    ]);
+
+    const reviewsByOrderId = new Map<string, CatalogReviewRow[]>();
+    (catalogReviews || []).forEach((review) => {
+      if (!review.order_id) return;
+      const existing = reviewsByOrderId.get(review.order_id) || [];
+      existing.push(review);
+      reviewsByOrderId.set(review.order_id, existing);
+    });
+
+    const reviewedProviderIds = new Set((providerReviews || []).map((review) => review.provider_id));
+    const reviewed = new Set<string>();
+
+    for (const order of reviewableOrders) {
+      const catalogItems = getUniqueCatalogItems(order.order_items);
+      if (catalogItems.length === 0) continue;
+
+      const orderReviews = reviewsByOrderId.get(order.id) || [];
+      const itemsReviewed = catalogItems.every((item) => catalogItemHasReview(item, orderReviews));
+      if (!itemsReviewed) continue;
+
+      const providerTableIds = [
+        ...new Set(
+          order.order_items
+            .map((item) => refToTableId.get(item.provider_id))
+            .filter(Boolean) as string[],
+        ),
+      ];
+
+      if (providerTableIds.length === 0 || providerTableIds.every((id) => reviewedProviderIds.has(id))) {
+        reviewed.add(order.id);
+      }
+    }
+
+    for (const reservation of completedReservations) {
+      const orderReviews = reviewsByOrderId.get(reservation.id) || [];
+      const serviceReviewed = orderReviews.some((review) => review.service_id === reservation.service_id);
+      if (!serviceReviewed) continue;
+
+      const providerTableId = refToTableId.get(reservation.provider_id);
+      if (!providerTableId || reviewedProviderIds.has(providerTableId)) {
+        reviewed.add(reservation.id);
+      }
+    }
+
+    setReviewedOrders(reviewed);
+  }, [user?.id, orders, reservations]);
+
+  useEffect(() => {
+    if (!loading && user) {
       checkOrdersForReviews();
     }
-  }, [orders]);
+  }, [loading, user, checkOrdersForReviews]);
 
-  const checkOrdersForReviews = async () => {
-    const deliveredOrders = orders.filter(order => order.status === 'delivered');
-    
-    for (const order of deliveredOrders) {
-      if (checkedOrders.has(order.id)) continue;
-      
-      const hasReviews = await hasOrderBeenReviewed(order.id);
-      if (hasReviews) {
-        setReviewedOrders(prev => new Set([...prev, order.id]));
+  const filteredPedidos = useMemo(() => {
+    let filtered = productOrders.filter((order) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        order.order_number.toLowerCase().includes(term) ||
+        order.order_items.some(
+          (item) =>
+            item.item_name.toLowerCase().includes(term) ||
+            item.provider_name.toLowerCase().includes(term)
+        );
+      return matchesSearch && matchesPedidoStatus(order.status, statusFilter) && matchesDateFilter(order.created_at, dateFilter);
+    });
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'amount-high':
+          return (b.grand_total || 0) - (a.grand_total || 0);
+        case 'amount-low':
+          return (a.grand_total || 0) - (b.grand_total || 0);
+        case 'newest':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
-      setCheckedOrders(prev => new Set([...prev, order.id]));
-    }
+    });
+
+    return filtered;
+  }, [productOrders, searchTerm, statusFilter, dateFilter, sortBy]);
+
+  const filteredReservas = useMemo(() => {
+    let filtered = reservations.filter((reservation) => {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        reservation.service_name.toLowerCase().includes(term) ||
+        reservation.provider_name.toLowerCase().includes(term) ||
+        reservation.id.toLowerCase().includes(term);
+      const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter;
+      return matchesSearch && matchesStatus && matchesDateFilter(reservation.appointment_date, dateFilter);
+    });
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime();
+        case 'amount-high':
+          return (b.total_price || 0) - (a.total_price || 0);
+        case 'amount-low':
+          return (a.total_price || 0) - (b.total_price || 0);
+        case 'newest':
+        default:
+          return new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime();
+      }
+    });
+
+    return filtered;
+  }, [reservations, searchTerm, statusFilter, dateFilter, sortBy]);
+
+  const filteredData = activeTab === 'pedidos' ? filteredPedidos : filteredReservas;
+  const totalCount = activeTab === 'pedidos' ? productOrders.length : reservations.length;
+
+  const statusChips = activeTab === 'pedidos' ? PEDIDO_STATUS_CHIPS : RESERVA_STATUS_CHIPS;
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFilter('all');
+    setSortBy('newest');
+    setShowFilters(false);
   };
 
-  const hasOrderBeenReviewed = async (orderId: string): Promise<boolean> => {
-    try {
-      const order = orders.find(o => o.id === orderId);
-      if (!order) return false;
-
-      const providerIds = order.order_items.map(item => item.provider_id);
-      const uniqueProviderIds = [...new Set(providerIds)];
-
-      const { data: reviews, error } = await supabase
-        .from('provider_reviews')
-        .select('provider_id, rating, comment')
-        .eq('client_id', user?.id)
-        .in('provider_id', uniqueProviderIds);
-
-      if (error) {
-        console.error('Error checking reviews:', error);
-        return false;
-      }
-
-      // Store review data
-      if (reviews && reviews.length > 0) {
-        setOrderReviews(prev => new Map([...prev, [orderId, reviews]]));
-      }
-
-      return reviews && reviews.length === uniqueProviderIds.length;
-    } catch (error) {
-      console.error('Error checking reviews:', error);
-      return false;
-    }
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFilter('all');
+    setSortBy('newest');
   };
+
+  const hasActiveFilters =
+    searchTerm !== '' || statusFilter !== 'all' || dateFilter !== 'all' || sortBy !== 'newest';
+
+  const markOrderNotificationsSeen = useCallback(
+    async (orderId: string, status: string) => {
+      if (!user?.id) return;
+      const ids = getNotificationIdsForOrder(orderId, status).filter((id) => unreadIds.has(id));
+      if (!ids.length) return;
+      await markClientOrderNotificationsRead(user.id, ids);
+      setUnreadIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      dispatchNotificationsUpdated();
+    },
+    [user?.id, unreadIds],
+  );
+
+  const markReservationNotificationsSeen = useCallback(
+    async (appointmentId: string, status: string) => {
+      if (!user?.id) return;
+      const ids = getNotificationIdsForAppointment(appointmentId, status).filter((id) =>
+        unreadIds.has(id),
+      );
+      if (!ids.length) return;
+      await markClientOrderNotificationsRead(user.id, ids);
+      setUnreadIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      dispatchNotificationsUpdated();
+    },
+    [user?.id, unreadIds],
+  );
+
+  const orderHasUnread = useCallback(
+    (orderId: string, status: string) =>
+      getNotificationIdsForOrder(orderId, status).some((id) => unreadIds.has(id)),
+    [unreadIds],
+  );
+
+  const reservationHasUnread = useCallback(
+    (appointmentId: string, status: string) =>
+      getNotificationIdsForAppointment(appointmentId, status).some((id) => unreadIds.has(id)),
+    [unreadIds],
+  );
+
+  const pedidosUnreadCount = useMemo(
+    () => productOrders.filter((order) => orderHasUnread(order.id, order.status)).length,
+    [productOrders, orderHasUnread],
+  );
+
+  const reservasUnreadCount = useMemo(
+    () => reservations.filter((r) => reservationHasUnread(r.id, r.status)).length,
+    [reservations, reservationHasUnread],
+  );
+
+  const orderTabs: MobileTabItem[] = useMemo(
+    () => [
+      {
+        id: 'pedidos',
+        label: 'Mis Pedidos',
+        shortLabel: pedidosUnreadCount
+          ? `Pedidos (${productOrders.length}) · ${pedidosUnreadCount} nueva${pedidosUnreadCount !== 1 ? 's' : ''}`
+          : `Pedidos (${productOrders.length})`,
+        icon: ShoppingBag,
+        gradientIndex: 0,
+      },
+      {
+        id: 'reservas',
+        label: 'Mis Reservas',
+        shortLabel: reservasUnreadCount
+          ? `Reservas (${reservations.length}) · ${reservasUnreadCount} nueva${reservasUnreadCount !== 1 ? 's' : ''}`
+          : `Reservas (${reservations.length})`,
+        icon: CalendarDays,
+        gradientIndex: 2,
+      },
+    ],
+    [productOrders.length, reservations.length, pedidosUnreadCount, reservasUnreadCount],
+  );
 
   const handleViewDetails = (order: Order) => {
     setSelectedOrder(order);
     setShowOrderDetails(true);
+    if (order.reservation_data) {
+      void markReservationNotificationsSeen(order.id, order.status);
+    } else {
+      void markOrderNotificationsSeen(order.id, order.status);
+    }
   };
+
+  const handleViewReservation = (reservation: Reservation) => {
+    handleViewDetails(reservationToOrder(reservation));
+  };
+
+  useEffect(() => {
+    const state = location.state as { orderId?: string; appointmentId?: string; tab?: string } | null;
+    if (loading) return;
+
+    if (state?.orderId) {
+      const order = orders.find((item) => item.id === state.orderId);
+      if (order) {
+        setSelectedOrder(order);
+        setShowOrderDetails(true);
+        void markOrderNotificationsSeen(order.id, order.status);
+      }
+    } else if (state?.appointmentId) {
+      const reservation = reservations.find((item) => item.id === state.appointmentId);
+      if (reservation) {
+        setSelectedOrder(reservationToOrder(reservation));
+        setShowOrderDetails(true);
+        void markReservationNotificationsSeen(reservation.id, reservation.status);
+      }
+    }
+
+    if (state?.orderId || state?.appointmentId) {
+      navigate('/client-orders', {
+        replace: true,
+        state: state.tab ? { tab: state.tab } : undefined,
+      });
+    }
+  }, [location.state, loading, orders, reservations, navigate, markOrderNotificationsSeen, markReservationNotificationsSeen]);
 
   const handleReviewOrder = (orderId: string) => {
     setReviewOrderId(orderId);
@@ -302,17 +838,19 @@ const ClientOrders: React.FC = () => {
     setShowInvoice(true);
   };
 
-  const handleReviewSubmitted = () => {
+  const handleReviewSubmitted = async () => {
     if (reviewOrderId) {
-      setReviewedOrders(prev => new Set([...prev, reviewOrderId]));
+      setReviewedOrders((prev) => new Set([...prev, reviewOrderId]));
     }
     setShowReviewModal(false);
     setReviewOrderId(null);
-    fetchOrders(); // Refresh to get updated data
+    await fetchOrders(true);
+    await checkOrdersForReviews();
   };
 
   const handleOrderAgain = (order: Order) => {
-    order.order_items.forEach(item => {
+    let added = 0;
+    order.order_items.forEach((item) => {
       if (item.item_type === 'product') {
         addItem({
           id: item.item_id,
@@ -326,906 +864,585 @@ const ClientOrders: React.FC = () => {
           description: item.item_description,
           delivery_fee: item.delivery_fee,
           has_delivery: item.has_delivery,
-          has_pickup: item.has_pickup
+          has_pickup: item.has_pickup,
         });
+        added += 1;
       }
     });
-    
-    toast({
-      title: "Productos agregados al carrito",
-      description: "Los productos de esta orden han sido agregados a tu carrito.",
-    });
-  };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return { text: 'Pendiente', className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' };
-      case 'confirmed':
-        return { text: 'Confirmado', className: 'bg-blue-100 text-blue-800 hover:bg-blue-200' };
-      case 'completed':
-        return { text: 'Completado', className: 'bg-green-100 text-green-800 hover:bg-green-200' };
-      case 'processing':
-        return { text: 'Procesando', className: 'bg-purple-100 text-purple-800 hover:bg-purple-200' };
-      case 'shipped':
-        return { text: 'Enviado', className: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200' };
-      case 'delivered':
-        return { text: 'Entregado', className: 'bg-green-100 text-green-800 hover:bg-green-200' };
-      case 'cancelled':
-        return { text: 'Cancelado', className: 'bg-red-100 text-red-800 hover:bg-red-200' };
-      default:
-        return { text: status, className: 'bg-gray-100 text-gray-800 hover:bg-gray-200' };
-    }
-  };
-
-  const getPaymentStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return { text: 'Pagado', className: 'bg-green-100 text-green-800 hover:bg-green-200' };
-      case 'pending':
-        return { text: 'Pendiente', className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' };
-      case 'failed':
-        return { text: 'Fallido', className: 'bg-red-100 text-red-800 hover:bg-red-200' };
-      case 'refunded':
-        return { text: 'Reembolsado', className: 'bg-blue-100 text-blue-800 hover:bg-blue-200' };
-      default:
-        return { text: status, className: 'bg-gray-100 text-gray-800 hover:bg-gray-200' };
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-GT', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatPrice = (price: number | undefined | null, currency: string = 'GTQ') => {
-    if (price === undefined || price === null || isNaN(price)) {
-      return `${currency === 'GTQ' ? 'Q.' : '$'}0.00`;
-    }
-    return `${currency === 'GTQ' ? 'Q.' : '$'}${price.toFixed(2)}`;
-  };
-
-  const getFilteredData = () => {
-    const currentData = getCurrentData();
-    let filtered = currentData;
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(item => {
-        if (activeTab === 'pedidos') {
-          const order = item as Order;
-          return (
-            order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.order_items && order.order_items.some(item => 
-              item.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              item.provider_name.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-          );
-        } else {
-          const reservation = item as any;
-          return (
-            reservation.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            reservation.provider_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            reservation.service_id.toLowerCase().includes(searchTerm.toLowerCase())
-          );
-        }
+    if (added > 0) {
+      toast({
+        title: 'Productos agregados al carrito',
+        description: `${added} producto${added !== 1 ? 's' : ''} listo${added !== 1 ? 's' : ''} para comprar de nuevo.`,
       });
+      navigate('/marketplace/products');
     }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(item => {
-        if (activeTab === 'pedidos') {
-          return (item as Order).status === statusFilter;
-        } else {
-          return (item as any).status === statusFilter;
-        }
-      });
-    }
-
-    // Date filter
-    if (dateFilter !== 'all') {
-      const now = new Date();
-      filtered = filtered.filter(item => {
-        const itemDate = new Date(activeTab === 'pedidos' ? (item as Order).created_at : (item as any).appointment_date);
-        
-        switch (dateFilter) {
-          case 'today':
-            return itemDate.toDateString() === now.toDateString();
-          case 'week':
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            return itemDate >= weekAgo;
-          case 'month':
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            return itemDate >= monthAgo;
-          case 'year':
-            const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-            return itemDate >= yearAgo;
-          default:
-            return true;
-        }
-      });
-    }
-
-    return filtered;
   };
 
-  const filteredData = getFilteredData();
+  const canReviewOrder = (id: string, status: string, paymentStatus?: string) => {
+    if (activeTab === 'pedidos') {
+      return (status === 'delivered' || status === 'confirmed') && paymentStatus === 'completed' && !reviewedOrders.has(id);
+    }
+    return status === 'completed' && !reviewedOrders.has(id);
+  };
+
+  const isReviewed = (id: string) => reviewedOrders.has(id);
+
+  const renderStatusChips = () => (
+    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+      {statusChips.map((chip, index) => {
+        const active = statusFilter === chip.id;
+        const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            onClick={() => setStatusFilter(chip.id)}
+            className={cn(
+              'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all duration-200 text-center leading-tight',
+              active
+                ? `bg-gradient-to-r ${gradient} text-white shadow-md`
+                : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 hover:text-landing-aqua-dark shadow-sm'
+            )}
+          >
+            {chip.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderFiltersPanel = (searchPlaceholder: string, itemLabel: string) => (
+    <div className={filterPanelClass}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <Input
+          placeholder={searchPlaceholder}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 pr-4 min-h-[44px] rounded-xl border-gray-200/80 bg-white/90"
+        />
+      </div>
+
+      {renderStatusChips()}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setShowFilters(!showFilters)}
+          className={cn(
+            'flex items-center gap-2 min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10',
+            showFilters && 'bg-landing-aqua/10'
+          )}
+        >
+          <Filter className="w-4 h-4" />
+          Más filtros
+          {showFilters && <X className="w-4 h-4" />}
+        </Button>
+
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <SelectTrigger className="w-40 min-h-[44px] rounded-xl">
+            <SelectValue placeholder="Ordenar" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Más recientes</SelectItem>
+            <SelectItem value="oldest">Más antiguos</SelectItem>
+            <SelectItem value="amount-high">Mayor monto</SelectItem>
+            <SelectItem value="amount-low">Menor monto</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={refreshing}
+          onClick={() => fetchOrders(true)}
+          className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark"
+        >
+          <RefreshCw className={cn('w-4 h-4 mr-1', refreshing && 'animate-spin')} />
+          Actualizar
+        </Button>
+
+        {hasActiveFilters && (
+          <Button variant="ghost" onClick={clearFilters} className="text-red-600 hover:bg-red-50 min-h-[44px]">
+            <RotateCcw className="w-4 h-4 mr-1" />
+            Limpiar
+          </Button>
+        )}
+
+        <span className="text-sm font-medium text-gray-600 ml-auto bg-white/60 px-3 py-2 rounded-full whitespace-nowrap">
+          {filteredData.length} de {totalCount} {itemLabel}
+        </span>
+      </div>
+
+      {showFilters && (
+        <div className="pt-4 border-t border-gray-100/80">
+          <label className="text-sm font-medium text-gray-700 mb-2 block">Período</label>
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="min-h-[44px] rounded-xl">
+              <SelectValue placeholder="Seleccionar período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los períodos</SelectItem>
+              <SelectItem value="today">Hoy</SelectItem>
+              <SelectItem value="week">Última semana</SelectItem>
+              <SelectItem value="month">Último mes</SelectItem>
+              <SelectItem value="year">Último año</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPedidoCard = (order: Order) => {
+    const previewImage = getOrderPreviewImage(order);
+    const productCount = order.order_items?.filter((i) => i.item_type === 'product').length || 0;
+    const status = getStatusBadge(order.status);
+    const payment = getPaymentStatusBadge(order.payment_status);
+    const hasUnread = orderHasUnread(order.id, order.status);
+
+    return (
+      <MobileSectionCard
+        key={order.id}
+        className={cn('p-4', hasUnread && 'ring-2 ring-amber-300/80 ring-offset-1')}
+      >
+        <div className="flex gap-3">
+          <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-2 ring-white shadow-sm">
+            {previewImage ? (
+              <img src={previewImage} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
+                <Package className="w-7 h-7 text-landing-aqua-dark" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 truncate">Orden #{order.order_number}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{formatDateShort(order.created_at)}</p>
+                {hasUnread && (
+                  <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                    Nueva actualización
+                  </span>
+                )}
+              </div>
+              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0', status.className)}>
+                {status.text}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                <Package className="w-3.5 h-3.5" />
+                {productCount} producto{productCount !== 1 ? 's' : ''}
+              </span>
+              <span className="flex items-center gap-1 font-semibold text-gray-900">
+                <CreditCard className="w-3.5 h-3.5" />
+                {formatPrice(order.grand_total, order.currency)}
+              </span>
+              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', payment.className)}>
+                {payment.text}
+              </span>
+            </div>
+
+            {order.order_items?.[0] && (
+              <p className="text-[11px] text-gray-400 mt-1 truncate">
+                {order.order_items.slice(0, 2).map((i) => i.item_name).join(' · ')}
+                {(order.order_items.length || 0) > 2 ? '…' : ''}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewDetails(order)}
+            className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Detalles
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewInvoice(order.id)}
+            className="min-h-[40px] border-landing-mango/30 text-landing-mango-dark hover:bg-landing-mango/10"
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            Factura
+          </Button>
+          {canReviewOrder(order.id, order.status, order.payment_status) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleReviewOrder(order.id)}
+              className="min-h-[40px] col-span-2 border-landing-aqua/30 text-landing-aqua-dark"
+            >
+              <Star className="w-4 h-4 mr-1" />
+              Calificar compra
+            </Button>
+          )}
+          {isReviewed(order.id) && (
+            <div className="col-span-2 flex items-center justify-center gap-2 py-2 bg-landing-mint/15 text-landing-mint-dark rounded-xl text-xs font-medium">
+              <Star className="w-4 h-4" />
+              Ya calificaste esta compra
+            </div>
+          )}
+          {order.status === 'delivered' && (
+            <Button size="sm" onClick={() => handleOrderAgain(order)} className={cn('min-h-[40px] col-span-2', landingBtnPrimary)}>
+              <RefreshCw className="w-4 h-4 mr-1" />
+              Pedir de nuevo
+            </Button>
+          )}
+        </div>
+      </MobileSectionCard>
+    );
+  };
+
+  const renderReservaCard = (reservation: Reservation) => {
+    const status = getStatusBadge(reservation.status);
+    const serviceImage = reservation.provider_services?.service_image_url;
+    const hasUnread = reservationHasUnread(reservation.id, reservation.status);
+
+    return (
+      <MobileSectionCard
+        key={reservation.id}
+        className={cn('p-4', hasUnread && 'ring-2 ring-amber-300/80 ring-offset-1')}
+      >
+        <div className="flex gap-3">
+          <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-2 ring-white shadow-sm">
+            {serviceImage ? (
+              <img src={serviceImage} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-mango/20 to-landing-tropical/20">
+                <Scissors className="w-7 h-7 text-landing-mango-dark" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 truncate">{reservation.service_name}</h3>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">{reservation.provider_name}</p>
+                {hasUnread && (
+                  <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                    Nueva actualización
+                  </span>
+                )}
+              </div>
+              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0', status.className)}>
+                {status.text}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" />
+                {formatDateShort(reservation.appointment_date)}
+              </span>
+              {reservation.appointment_time && (
+                <span className="font-medium text-landing-aqua-dark">{reservation.appointment_time}</span>
+              )}
+              <span className="flex items-center gap-1 font-semibold text-gray-900">
+                {formatPrice(reservation.total_price || 0, reservation.currency || 'GTQ')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewReservation(reservation)}
+            className="min-h-[40px] col-span-2 border-landing-aqua/30 text-landing-aqua-dark"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Ver detalles
+          </Button>
+          {canReviewOrder(reservation.id, reservation.status) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleReviewOrder(reservation.id)}
+              className="min-h-[40px] col-span-2 border-landing-aqua/30 text-landing-aqua-dark"
+            >
+              <Star className="w-4 h-4 mr-1" />
+              Calificar servicio
+            </Button>
+          )}
+          {isReviewed(reservation.id) && (
+            <div className="col-span-2 flex items-center justify-center gap-2 py-2 bg-landing-mint/15 text-landing-mint-dark rounded-xl text-xs font-medium">
+              <Star className="w-4 h-4" />
+              Ya calificaste este servicio
+            </div>
+          )}
+        </div>
+      </MobileSectionCard>
+    );
+  };
+
+  const renderEmptyState = (type: 'pedidos' | 'reservas') => {
+    const isPedidos = type === 'pedidos';
+    const isEmpty = isPedidos ? productOrders.length === 0 : reservations.length === 0;
+    const Icon = isPedidos ? ShoppingCart : CalendarDays;
+
+    return (
+      <MobileSectionCard className="p-8 text-center">
+        <Icon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">
+          {isEmpty
+            ? isPedidos
+              ? 'No tienes pedidos aún'
+              : 'No tienes reservas aún'
+            : 'Sin resultados'}
+        </h3>
+        <p className="text-gray-500 text-sm mb-6">
+          {isEmpty
+            ? isPedidos
+              ? 'Cuando compres en el marketplace, tus pedidos aparecerán aquí.'
+              : 'Cuando reserves grooming, veterinaria u otro servicio, lo verás aquí.'
+            : 'Prueba otro filtro o término de búsqueda.'}
+        </p>
+        <Button
+          onClick={() => navigate(isPedidos ? '/marketplace/products' : '/marketplace/services')}
+          className={landingBtnPrimary}
+        >
+          {isPedidos ? 'Explorar productos' : 'Reservar servicio'}
+        </Button>
+      </MobileSectionCard>
+    );
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-500" />
-          <p className="text-gray-600">Cargando órdenes...</p>
+      <DashboardShell>
+        <div className="space-y-4 animate-pulse">
+          <div className="h-28 rounded-2xl bg-white/60" />
+          <div className="h-12 rounded-full bg-white/60" />
+          <div className="h-40 rounded-2xl bg-white/60" />
+          <div className="h-32 rounded-2xl bg-white/60" />
+          <div className="h-32 rounded-2xl bg-white/60" />
         </div>
-      </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-      {/* Header Bar */}
-      <PageHeader 
+    <DashboardShell>
+      <PageHeader
         title="Mis Órdenes"
-        subtitle="Historial de todas tus compras"
-        gradient="from-purple-600 to-pink-600"
-        showHamburgerMenu={true}
-        onToggleHamburger={toggleMobileMenu}
-        isHamburgerOpen={isMobileMenuOpen}
+        subtitle="Tus compras y reservas"
+        gradient="from-landing-aqua via-landing-mint to-landing-mango"
       >
-        <Package className="w-8 h-8" />
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => navigate('/marketplace/products')}
+            className={cn('flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm min-h-[36px]', landingHeaderActionBtn)}
+          >
+            <ShoppingBag className="w-4 h-4 shrink-0" />
+            Productos
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/marketplace/services')}
+            className={cn('flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm min-h-[36px]', landingHeaderActionBtn)}
+          >
+            <Scissors className="w-4 h-4 shrink-0" />
+            Servicios
+          </button>
+        </div>
       </PageHeader>
 
-      <div className="p-6 space-y-6">
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pedidos" className="flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4" />
-              Mis Pedidos
-            </TabsTrigger>
-            <TabsTrigger value="reservas" className="flex items-center gap-2">
-              <CalendarDays className="w-4 h-4" />
-              Mis Reservas
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pedidos" className="space-y-6">
-            {/* Filters for Orders */}
-            <div className="mb-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Buscar por número de orden, producto o proveedor..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2"
-                >
-                  <Filter className="w-4 h-4" />
-                  Filtros
-                </Button>
-              </div>
-
-              {showFilters && (
-                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Estado
-                      </label>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los estados</SelectItem>
-                          <SelectItem value="pending">Pendiente</SelectItem>
-                          <SelectItem value="confirmed">Confirmado</SelectItem>
-                          <SelectItem value="processing">Procesando</SelectItem>
-                          <SelectItem value="shipped">Enviado</SelectItem>
-                          <SelectItem value="delivered">Entregado</SelectItem>
-                          <SelectItem value="cancelled">Cancelado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Período de Tiempo
-                      </label>
-                      <Select value={dateFilter} onValueChange={setDateFilter}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar período" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los períodos</SelectItem>
-                          <SelectItem value="today">Hoy</SelectItem>
-                          <SelectItem value="week">Última semana</SelectItem>
-                          <SelectItem value="month">Último mes</SelectItem>
-                          <SelectItem value="year">Último año</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      Mostrando {filteredData.length} de {productOrders.length} órdenes
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setStatusFilter('all');
-                        setDateFilter('all');
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Limpiar Filtros
-            </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Stats Cards for Orders */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Órdenes</p>
-                      <p className="text-2xl font-bold text-gray-900">{productOrders.length}</p>
-                      </div>
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <Package className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Entregadas</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {productOrders.filter(order => order.status === 'delivered').length}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-100 rounded-full">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">En Proceso</p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {productOrders.filter(order => ['pending', 'confirmed', 'processing', 'shipped'].includes(order.status)).length}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-yellow-100 rounded-full">
-                      <Clock className="w-6 h-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Gastado</p>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {formatPrice(productOrders.length > 0 ? productOrders.reduce((sum, order) => sum + (order.grand_total || 0), 0) : 0, 'GTQ')}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <CreditCard className="w-6 h-6 text-purple-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Orders List */}
-            {filteredData.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                    {productOrders.length === 0 ? 'No tienes órdenes aún' : 'No se encontraron órdenes'}
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    {productOrders.length === 0 
-                      ? 'Cuando hagas tu primera compra, aparecerá aquí'
-                      : 'Intenta ajustar los filtros para encontrar lo que buscas'
-                    }
-                  </p>
-                  <Button onClick={() => window.location.href = '/client-dashboard'}>
-                    Ir al Marketplace
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {filteredData.map((order) => (
-                  <Card key={order.id} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-3 mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              Orden #{order.order_number}
-                            </h3>
-                            <Badge 
-                              className={`${getStatusBadge(order.status).className} flex-shrink-0`}
-                            >
-                              {getStatusBadge(order.status).text}
-                            </Badge>
-                            <Badge 
-                              className={`${getPaymentStatusBadge(order.payment_status).className} flex-shrink-0`}
-                            >
-                              {getPaymentStatusBadge(order.payment_status).text}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {formatDate(order.created_at)}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Package className="w-4 h-4" />
-                              {order.order_items?.length || 0} producto{(order.order_items?.length || 0) !== 1 ? 's' : ''}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {(() => {
-                                const hasProducts = order.order_items?.some((item: OrderItem) => item.item_type === 'product');
-                                const hasServices = order.order_items?.some((item: OrderItem) => item.item_type === 'service');
-                                const orderType = hasProducts && hasServices ? 'Mixto' : hasProducts ? 'Producto' : 'Servicio';
-                                const orderTypeColor = hasProducts && hasServices ? 'text-purple-600' : hasProducts ? 'text-blue-600' : 'text-emerald-600';
-                                const OrderTypeIcon = hasProducts && hasServices ? Package : hasProducts ? Package : Calendar;
-                                return (
-                                  <Badge variant="outline" className={`text-xs ${orderTypeColor} border-current flex items-center gap-1 flex-shrink-0`}>
-                                    <OrderTypeIcon className="w-3 h-3" />
-                                    {orderType}
-                                  </Badge>
-                                );
-                              })()}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <CreditCard className="w-4 h-4" />
-                              {formatPrice(order.grand_total, order.currency)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewDetails(order)}
-                            className="flex items-center gap-2 flex-1 sm:flex-initial"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span className="hidden sm:inline">Ver Detalles</span>
-                            <span className="sm:hidden">Detalles</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewInvoice(order.id)}
-                            className="flex items-center gap-2 flex-1 sm:flex-initial bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-                          >
-                            <FileText className="w-4 h-4" />
-                            <span className="hidden sm:inline">Factura</span>
-                            <span className="sm:hidden">Factura</span>
-                          </Button>
-                          {order.status === 'delivered' && !reviewedOrders.has(order.id) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleReviewOrder(order.id)}
-                              className="flex items-center gap-2 flex-1 sm:flex-initial"
-                            >
-                              <Star className="w-4 h-4" />
-                              <span className="hidden sm:inline">Calificar</span>
-                              <span className="sm:hidden">Calificar</span>
-                            </Button>
-                          )}
-                          {order.status === 'delivered' && reviewedOrders.has(order.id) && (
-                            <div className="flex items-center justify-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
-                              <Star className="w-4 h-4" />
-                              <span className="hidden sm:inline">Ya calificado</span>
-                              <span className="sm:hidden">Calificado</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="reservas" className="space-y-6">
-            {/* Filters for Reservations */}
-            <div className="mb-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Buscar por servicio o proveedor..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2"
-                >
-                  <Filter className="w-4 h-4" />
-                  Filtros
-                </Button>
-              </div>
-
-              {showFilters && (
-                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Estado
-                      </label>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los estados</SelectItem>
-                          <SelectItem value="pending">Pendiente</SelectItem>
-                          <SelectItem value="confirmed">Confirmado</SelectItem>
-                          <SelectItem value="cancelled">Cancelado</SelectItem>
-                          <SelectItem value="completed">Completado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Período de Tiempo
-                      </label>
-                      <Select value={dateFilter} onValueChange={setDateFilter}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar período" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los períodos</SelectItem>
-                          <SelectItem value="today">Hoy</SelectItem>
-                          <SelectItem value="week">Última semana</SelectItem>
-                          <SelectItem value="month">Último mes</SelectItem>
-                          <SelectItem value="year">Último año</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      </div>
-                      </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      Mostrando {filteredData.length} de {reservations.length} reservas
-                    </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                      onClick={() => {
-                        setSearchTerm('');
-                        setStatusFilter('all');
-                        setDateFilter('all');
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Limpiar Filtros
-                      </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Stats Cards for Reservations */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Reservas</p>
-                      <p className="text-2xl font-bold text-gray-900">{reservations.length}</p>
-                    </div>
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <CalendarDays className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Completadas</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {reservations.filter(reservation => reservation.status === 'completed').length}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-100 rounded-full">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {reservations.filter(reservation => ['pending', 'confirmed'].includes(reservation.status)).length}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-yellow-100 rounded-full">
-                      <Clock className="w-6 h-6 text-yellow-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Gastado</p>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {formatPrice(reservations.length > 0 ? reservations.reduce((sum, reservation) => sum + (reservation.total_price || 0), 0) : 0, 'GTQ')}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <CreditCard className="w-6 h-6 text-purple-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Reservations List */}
-            {filteredData.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <CalendarDays className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                    {reservations.length === 0 ? 'No tienes reservas aún' : 'No se encontraron reservas'}
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    {reservations.length === 0 
-                      ? 'Cuando hagas tu primera reserva de servicio, aparecerá aquí'
-                      : 'Intenta ajustar los filtros para encontrar lo que buscas'
-                    }
-                  </p>
-                  <Button onClick={() => window.location.href = '/client-dashboard'}>
-                    Ir al Marketplace
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {filteredData.map((reservation) => (
-                  <Card key={reservation.id} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-3 mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {reservation.service_name || reservation.service?.service_name || reservation.provider_services?.service_name || `Servicio #${reservation.id?.slice(-8) || 'N/A'}`}
-                            </h3>
-                            <Badge 
-                              className={`${getStatusBadge(reservation.status).className} flex-shrink-0`}
-                            >
-                              {getStatusBadge(reservation.status).text}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {formatDate(reservation.appointment_date)}
-                            {reservation.appointment_time && (
-                              <span className="ml-2 font-medium">
-                                • {reservation.appointment_time}
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {reservation.provider_name || reservation.service?.providers?.business_name || reservation.provider_services?.providers?.business_name || `Proveedor #${reservation.provider_id?.slice(-8) || 'N/A'}`}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <CreditCard className="w-4 h-4" />
-                              {formatPrice(reservation.total_price || 0, reservation.currency || 'GTQ')}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              // Fetch time slot details if available
-                              let timeSlotInfo = null;
-                              if (reservation.time_slot_id) {
-                                const { data: timeSlotData } = await supabase
-                                  .from('provider_service_time_slots')
-                                  .select('slot_start_time, slot_end_time')
-                                  .eq('id', reservation.time_slot_id)
-                                  .maybeSingle();
-                                
-                                if (timeSlotData) {
-                                  timeSlotInfo = timeSlotData;
-                                }
-                              }
-                              
-                              setSelectedOrder({
-                                id: reservation.id,
-                                order_number: `RES-${reservation.id?.slice(-8) || 'N/A'}`,
-                                total_amount: reservation.total_price || 0,
-                                delivery_fee: 0,
-                                grand_total: reservation.total_price || 0,
-                                currency: reservation.currency || 'GTQ',
-                                status: reservation.status || 'pending',
-                                payment_method: 'service',
-                                payment_status: 'completed',
-                                delivery_name: reservation.client_name || '',
-                                delivery_phone: reservation.client_phone || '',
-                                delivery_address: reservation.provider_services?.providers?.address || '',
-                                delivery_city: '',
-                                delivery_instructions: reservation.notes || '',
-                                created_at: reservation.created_at,
-                                reservation_data: {
-                                  appointment_date: reservation.appointment_date,
-                                  time_slot_id: reservation.time_slot_id,
-                                  time_slot: timeSlotInfo,
-                                  notes: reservation.notes,
-                                  client_email: reservation.client_email
-                                },
-                                order_items: [{
-                                  id: reservation.id,
-                                  item_type: 'service',
-                                  item_id: reservation.service_id,
-                                  item_name: reservation.service_name || reservation.service?.service_name || reservation.provider_services?.service_name || `Servicio #${reservation.id?.slice(-8) || 'N/A'}`,
-                                  provider_id: reservation.provider_id,
-                                  provider_name: reservation.provider_name || reservation.service?.providers?.business_name || reservation.provider_services?.providers?.business_name || `Proveedor #${reservation.provider_id?.slice(-8) || 'N/A'}`,
-                                  unit_price: reservation.total_price || 0,
-                                  quantity: 1,
-                                  total_price: reservation.total_price || 0,
-                                  currency: reservation.currency || 'GTQ',
-                                  item_description: reservation.provider_services?.description || 'Servicio reservado',
-                                  item_image_url: null,
-                                  provider_phone: reservation.provider_services?.providers?.phone || '',
-                                  provider_address: reservation.provider_services?.providers?.address || '',
-                                  has_delivery: false,
-                                  has_pickup: false,
-                                  delivery_fee: 0
-                                }]
-                              });
-                              setShowOrderDetails(true);
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span className="hidden sm:inline">Ver Detalles</span>
-                            <span className="sm:hidden">Detalles</span>
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+      {unreadIds.size > 0 && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200/80 px-4 py-3 text-sm text-amber-900">
+          Tienes {unreadIds.size} actualización{unreadIds.size !== 1 ? 'es' : ''} sin revisar en tus
+          pedidos y reservas.
         </div>
       )}
-          </TabsContent>
-        </Tabs>
+
+      <div className="space-y-4" data-blueprint-guided="explore-orders">
+        <MobileTabStrip tabs={orderTabs} activeTab={activeTab} onChange={handleTabChange} />
+
+        {renderFiltersPanel(
+          activeTab === 'pedidos'
+            ? 'Buscar por orden, producto o proveedor...'
+            : 'Buscar por servicio o proveedor...',
+          activeTab === 'pedidos' ? 'pedidos' : 'reservas'
+        )}
+
+        {filteredData.length === 0 ? (
+          renderEmptyState(activeTab === 'pedidos' ? 'pedidos' : 'reservas')
+        ) : (
+          <div className="space-y-3">
+            {activeTab === 'pedidos'
+              ? filteredPedidos.map(renderPedidoCard)
+              : filteredReservas.map(renderReservaCard)}
+          </div>
+        )}
       </div>
 
-      {/* Order Details Modal */}
       {selectedOrder && (
         <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="client-order-details-description">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Detalles de Orden {selectedOrder.order_number}
+          <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[90dvh] flex flex-col p-0 overflow-hidden rounded-2xl">
+            <DialogHeader className="px-4 pt-5 pb-3 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+              <DialogTitle className="flex items-center gap-2 text-lg pr-6">
+                {selectedOrder.reservation_data ? (
+                  <Scissors className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+                ) : (
+                  <Package className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+                )}
+                {selectedOrder.reservation_data ? 'Detalle de reserva' : `Orden #${selectedOrder.order_number}`}
               </DialogTitle>
-              <DialogDescription id="client-order-details-description">
-                Información completa de la orden incluyendo productos, proveedores y detalles de entrega.
+              <DialogDescription className="sr-only">
+                Detalle completo de la orden o reserva seleccionada.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6">
-              {/* Order Status */}
-              <div className="flex items-center gap-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              <div className="flex flex-wrap gap-2">
                 <Badge className={getStatusBadge(selectedOrder.status).className}>
                   {getStatusBadge(selectedOrder.status).text}
                 </Badge>
-                <Badge className={getPaymentStatusBadge(selectedOrder.payment_status).className}>
-                  {getPaymentStatusBadge(selectedOrder.payment_status).text}
-                </Badge>
-              </div>
-
-              {/* Order Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Información de la Orden</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><span className="font-medium">Fecha de orden:</span> {formatDate(selectedOrder.created_at)}</p>
-                    {(selectedOrder as any).reservation_data?.appointment_date && (
-                      <p><span className="font-medium">Fecha de cita:</span> {formatDate((selectedOrder as any).reservation_data.appointment_date)}</p>
-                    )}
-                    {(selectedOrder as any).reservation_data?.time_slot?.slot_start_time && (
-                      <p><span className="font-medium">Horario:</span> {
-                        `${(selectedOrder as any).reservation_data.time_slot.slot_start_time.substring(0, 5)} - ${(selectedOrder as any).reservation_data.time_slot.slot_end_time.substring(0, 5)}`
-                      }</p>
-                    )}
-                    <p><span className="font-medium">Total:</span> {formatPrice(selectedOrder.grand_total, selectedOrder.currency)}</p>
-                    <p><span className="font-medium">Método de Pago:</span> {selectedOrder.payment_method === 'service' ? 'Servicio' : selectedOrder.payment_method}</p>
-                    {selectedOrder.delivered_at && (
-                      <p><span className="font-medium">Entregado:</span> {formatDate(selectedOrder.delivered_at)}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    {(selectedOrder as any).reservation_data ? 'Información de Contacto' : 'Información de Entrega'}
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <p><span className="font-medium">Nombre:</span> {selectedOrder.delivery_name || 'N/A'}</p>
-                    <p><span className="font-medium">Teléfono:</span> {selectedOrder.delivery_phone || 'N/A'}</p>
-                    {(selectedOrder as any).reservation_data?.client_email && (
-                      <p><span className="font-medium">Email:</span> {(selectedOrder as any).reservation_data.client_email}</p>
-                    )}
-                    {selectedOrder.delivery_address && (
-                      <p><span className="font-medium">Dirección:</span> {selectedOrder.delivery_address}</p>
-                    )}
-                    {selectedOrder.delivery_city && (
-                      <p><span className="font-medium">Ciudad:</span> {selectedOrder.delivery_city}</p>
-                    )}
-                    {(selectedOrder.delivery_instructions || (selectedOrder as any).reservation_data?.notes) && (
-                      <p><span className="font-medium">Notas:</span> {selectedOrder.delivery_instructions || (selectedOrder as any).reservation_data?.notes}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Items */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-4">Productos y Servicios</h3>
-                <div className="space-y-4">
-                  {selectedOrder.order_items.map((item) => {
-                    // Check if this is a service item (from reservation)
-                    const isService = item.item_type === 'service';
-                    const reservationData = (selectedOrder as any).reservation_data;
-                    
-                    return (
-                      <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-4 flex-1">
-                          {item.item_image_url ? (
-                            <img 
-                              src={item.item_image_url} 
-                              alt={item.item_name}
-                              className="w-16 h-16 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                              {isService ? (
-                                <Calendar className="w-8 h-8 text-gray-400" />
-                              ) : (
-                                <Package className="w-8 h-8 text-gray-400" />
-                              )}
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900">{item.item_name}</h4>
-                            <p className="text-sm text-gray-600">{item.provider_name}</p>
-                            <p className="text-xs text-gray-500">Cantidad: {item.quantity}</p>
-                            
-                            {/* Service-specific information */}
-                            {isService && reservationData && (
-                              <div className="mt-2 space-y-1">
-                                {reservationData.appointment_date && (
-                                  <p className="text-xs text-gray-600">
-                                    <span className="font-medium">Fecha de cita:</span> {formatDate(reservationData.appointment_date)}
-                                  </p>
-                                )}
-                                {reservationData.time_slot_id && (
-                                  <p className="text-xs text-gray-600">
-                                    <span className="font-medium">Horario:</span> {(() => {
-                                      // Try to get time slot info if available
-                                      const timeSlot = reservationData.time_slot;
-                                      if (timeSlot?.slot_start_time && timeSlot?.slot_end_time) {
-                                        return `${timeSlot.slot_start_time.substring(0, 5)} - ${timeSlot.slot_end_time.substring(0, 5)}`;
-                                      }
-                                      return 'Horario confirmado';
-                                    })()}
-                                  </p>
-                                )}
-                                {reservationData.notes && (
-                                  <p className="text-xs text-gray-600">
-                                    <span className="font-medium">Notas:</span> {reservationData.notes}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                            
-                            {item.item_description && !isService && (
-                              <p className="text-xs text-gray-500 mt-1">{item.item_description}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900">
-                            {formatPrice(item.total_price, item.currency)}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {formatPrice(item.unit_price, item.currency)} c/u
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowOrderDetails(false)}
-                >
-                  Cerrar
-                </Button>
-                {selectedOrder.status === 'delivered' && (
-                <Button
-                    onClick={() => handleOrderAgain(selectedOrder)}
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Pedir de Nuevo
-                </Button>
+                {!selectedOrder.reservation_data && (
+                  <Badge className={getPaymentStatusBadge(selectedOrder.payment_status).className}>
+                    {getPaymentStatusBadge(selectedOrder.payment_status).text}
+                  </Badge>
                 )}
               </div>
+
+              <MobileSectionCard className="p-4 space-y-2 text-sm">
+                <h4 className="font-bold text-gray-900 text-sm">Resumen</h4>
+                <p><span className="text-gray-500">Fecha:</span> {formatDate(selectedOrder.created_at)}</p>
+                {selectedOrder.reservation_data?.appointment_date && (
+                  <p><span className="text-gray-500">Cita:</span> {formatDate(selectedOrder.reservation_data.appointment_date)}</p>
+                )}
+                {selectedOrder.reservation_data?.time_slot?.slot_start_time && (
+                  <p>
+                    <span className="text-gray-500">Horario:</span>{' '}
+                    {selectedOrder.reservation_data.time_slot.slot_start_time.substring(0, 5)} -{' '}
+                    {selectedOrder.reservation_data.time_slot.slot_end_time?.substring(0, 5)}
+                  </p>
+                )}
+                <p className="font-semibold text-gray-900">
+                  Total: {formatPrice(selectedOrder.grand_total, selectedOrder.currency)}
+                </p>
+                {selectedOrder.reservation_data && selectedOrder.order_items[0]?.pets?.length ? (
+                  <OrderItemPetsList pets={selectedOrder.order_items[0].pets} detailed />
+                ) : null}
+              </MobileSectionCard>
+
+              <MobileSectionCard className="p-4 space-y-2 text-sm">
+                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                  {selectedOrder.reservation_data ? (
+                    <>
+                      <Phone className="w-4 h-4 text-landing-aqua-dark" />
+                      Contacto
+                    </>
+                  ) : resolveFulfillmentMethod({
+                    fulfillment_method: selectedOrder.fulfillment_method,
+                    delivery_fee: selectedOrder.delivery_fee,
+                    delivery_address: selectedOrder.delivery_address,
+                  }) === 'pickup' ? (
+                    <>
+                      <Store className="w-4 h-4 text-landing-aqua-dark" />
+                      {fulfillmentLabel('pickup')}
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-4 h-4 text-landing-aqua-dark" />
+                      {fulfillmentLabel('delivery')}
+                    </>
+                  )}
+                </h4>
+                {selectedOrder.delivery_name && <p>{selectedOrder.delivery_name}</p>}
+                {selectedOrder.delivery_phone && (
+                  <p className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4 shrink-0" />
+                    {selectedOrder.delivery_phone}
+                  </p>
+                )}
+                {selectedOrder.delivery_address && (
+                  <p className="flex items-start gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+                    {[selectedOrder.delivery_address, selectedOrder.delivery_city].filter(Boolean).join(', ')}
+                  </p>
+                )}
+                {(selectedOrder.delivery_instructions || selectedOrder.reservation_data?.notes) && (
+                  <p className="text-gray-600 pt-1 border-t border-gray-100">
+                    {selectedOrder.delivery_instructions || selectedOrder.reservation_data?.notes}
+                  </p>
+                )}
+              </MobileSectionCard>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-gray-900 text-sm px-1">
+                  {selectedOrder.reservation_data ? 'Servicio' : 'Productos'}
+                </h4>
+                {selectedOrder.order_items.map((item) => (
+                  <MobileSectionCard key={item.id} className="p-3">
+                    <div className="flex gap-3">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                        {item.item_image_url ? (
+                          <img src={item.item_image_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            {item.item_type === 'service' ? (
+                              <Scissors className="w-6 h-6 text-gray-400" />
+                            ) : (
+                              <Package className="w-6 h-6 text-gray-400" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{item.item_name}</p>
+                        <p className="text-xs text-gray-500 truncate">{item.provider_name}</p>
+                        <p className="text-xs text-gray-400">Cantidad: {item.quantity}</p>
+                        <OrderItemPetsList pets={item.pets || []} detailed={!!selectedOrder.reservation_data} />
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-semibold text-sm">{formatPrice(item.total_price, item.currency)}</p>
+                      </div>
+                    </div>
+                  </MobileSectionCard>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
+              {!selectedOrder.reservation_data && selectedOrder.status === 'delivered' && (
+                <Button onClick={() => handleOrderAgain(selectedOrder)} className={cn('w-full min-h-[44px]', landingBtnPrimary)}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Pedir de nuevo
+                </Button>
+              )}
+              {!selectedOrder.reservation_data && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleViewInvoice(selectedOrder.id)}
+                  className="w-full min-h-[44px] border-landing-mango/30 text-landing-mango-dark"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Ver factura
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setShowOrderDetails(false)} className="w-full min-h-[44px]">
+                Cerrar
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       )}
 
-      {/* Review Modal */}
       {reviewOrderId && (
         <ReviewModal
           isOpen={showReviewModal}
@@ -1234,12 +1451,27 @@ const ClientOrders: React.FC = () => {
             setReviewOrderId(null);
           }}
           orderId={reviewOrderId}
-          orderItems={orders.find(o => o.id === reviewOrderId)?.order_items || []}
+          orderItems={
+            orders.find((o) => o.id === reviewOrderId)?.order_items ||
+            (() => {
+              const reservation = reservations.find((r) => r.id === reviewOrderId);
+              if (!reservation) return [];
+              return [
+                {
+                  id: reservation.id,
+                  item_type: 'service' as const,
+                  item_id: reservation.service_id,
+                  item_name: reservation.service_name,
+                  provider_id: reservation.provider_id,
+                  provider_name: reservation.provider_name,
+                },
+              ];
+            })()
+          }
           onReviewSubmitted={handleReviewSubmitted}
         />
       )}
 
-      {/* Invoice Viewer */}
       {invoiceOrderId && (
         <InvoiceViewer
           isOpen={showInvoice}
@@ -1250,7 +1482,7 @@ const ClientOrders: React.FC = () => {
           orderId={invoiceOrderId}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 };
 

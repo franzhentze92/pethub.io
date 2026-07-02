@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { 
-  Package, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  Truck, 
+import {
+  Package,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Truck,
   Calendar,
   MapPin,
   Phone,
@@ -26,8 +27,33 @@ import {
   CheckSquare,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Search,
+  Filter,
+  RefreshCw,
+  X,
 } from 'lucide-react';
+import { DashboardStatCard } from './dashboard/DashboardStatCard';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingFeatureGradients } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+import OrderItemPetsList from './OrderItemPetsList';
+import { attachPetsToOrderItems, fetchPetsForOrderItems, type OrderItemPet } from '@/utils/orderItemPets';
+import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
+import { markMarketplaceNotificationsRead } from '@/utils/marketplaceNotifications';
+
+const filterPanelClass =
+  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
+
+const STATUS_CHIPS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'pending', label: 'Pendiente' },
+  { id: 'confirmed', label: 'Confirmada' },
+  { id: 'processing', label: 'Proceso' },
+  { id: 'shipped', label: 'Enviada' },
+  { id: 'delivered', label: 'Entregada' },
+  { id: 'cancelled', label: 'Cancelada' },
+] as const;
 
 interface ProviderOrder {
   id: string;
@@ -66,11 +92,13 @@ interface ProviderOrderItem {
   has_pickup: boolean;
   delivery_fee: number;
   created_at: string;
+  pets?: OrderItemPet[];
 }
 
 const ProviderOrders: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
   
   const [orders, setOrders] = useState<ProviderOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +113,7 @@ const ProviderOrders: React.FC = () => {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<keyof ProviderOrder>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Fetch provider orders
   const fetchProviderOrders = async () => {
@@ -187,13 +216,20 @@ const ProviderOrders: React.FC = () => {
         });
 
         const ordersArray = Array.from(ordersMap.values());
-        console.log('Processed orders:', ordersArray.length, ordersArray.map(o => ({
+        const allItemIds = ordersArray.flatMap((o) => o.order_items.map((i) => i.id));
+        const petsMap = await fetchPetsForOrderItems(allItemIds);
+        const ordersWithPets = ordersArray.map((order) => ({
+          ...order,
+          order_items: attachPetsToOrderItems(order.order_items, petsMap),
+        }));
+
+        console.log('Processed orders:', ordersWithPets.length, ordersWithPets.map(o => ({
           id: o.id,
           order_number: o.order_number,
           status: o.status,
           created_at: o.created_at
         })));
-        setOrders(ordersArray);
+        setOrders(ordersWithPets);
       } catch (error) {
         console.error('Error fetching provider orders:', error);
         console.error('Full error object:', error);
@@ -220,82 +256,76 @@ const ProviderOrders: React.FC = () => {
     fetchProviderOrders();
   }, [user, toast]);
 
+  useEffect(() => {
+    const state = location.state as { orderId?: string } | null;
+    if (loading || !state?.orderId) return;
+
+    const order = orders.find((item) => item.id === state.orderId);
+    if (order) {
+      setSelectedOrder(order);
+      setShowOrderDetails(true);
+      if (user?.id) {
+        void markMarketplaceNotificationsRead(user.id, [`provider-order-new-${order.id}`]);
+      }
+    }
+  }, [location.state, loading, orders, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('provider_orders_notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'order_items', filter: `provider_id=eq.${user.id}` },
+        () => {
+          fetchProviderOrders();
+          dispatchNotificationsUpdated();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_appointments', filter: `provider_id=eq.${user.id}` },
+        () => {
+          fetchProviderOrders();
+          dispatchNotificationsUpdated();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   // Get status badge variant with distinct colors
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return { 
-          variant: 'secondary' as const, 
-          icon: Clock, 
-          label: 'Pendiente',
-          className: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200'
-        };
+        return { variant: 'secondary' as const, icon: Clock, label: 'Pendiente', className: 'bg-landing-tropical/30 text-landing-mango-dark' };
       case 'confirmed':
-        return { 
-          variant: 'default' as const, 
-          icon: CheckCircle, 
-          label: 'Confirmada',
-          className: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200'
-        };
+        return { variant: 'default' as const, icon: CheckCircle, label: 'Confirmada', className: 'bg-landing-aqua/20 text-landing-aqua-dark' };
       case 'processing':
-        return { 
-          variant: 'default' as const, 
-          icon: Package, 
-          label: 'Procesando',
-          className: 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200'
-        };
+        return { variant: 'default' as const, icon: Package, label: 'Procesando', className: 'bg-landing-mango/15 text-landing-mango-dark' };
       case 'shipped':
-        return { 
-          variant: 'default' as const, 
-          icon: Truck, 
-          label: 'Enviada',
-          className: 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200'
-        };
+        return { variant: 'default' as const, icon: Truck, label: 'Enviada', className: 'bg-landing-aqua/15 text-landing-aqua-dark' };
       case 'delivered':
-        return { 
-          variant: 'default' as const, 
-          icon: CheckCircle, 
-          label: 'Entregada',
-          className: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
-        };
+        return { variant: 'default' as const, icon: CheckCircle, label: 'Entregada', className: 'bg-landing-mint/20 text-landing-mint-dark' };
       case 'cancelled':
-        return { 
-          variant: 'destructive' as const, 
-          icon: XCircle, 
-          label: 'Cancelada',
-          className: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200'
-        };
+        return { variant: 'destructive' as const, icon: XCircle, label: 'Cancelada', className: 'bg-red-100 text-red-700' };
       default:
-        return { 
-          variant: 'secondary' as const, 
-          icon: Clock, 
-          label: status,
-          className: 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'
-        };
+        return { variant: 'secondary' as const, icon: Clock, label: status, className: 'bg-gray-100 text-gray-700' };
     }
   };
 
-  // Get payment status badge with distinct colors
   const getPaymentStatusBadge = (paymentStatus: string) => {
     switch (paymentStatus) {
       case 'completed':
-        return { 
-          variant: 'default' as const, 
-          label: 'Pagado',
-          className: 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200'
-        };
+        return { variant: 'default' as const, label: 'Pagado', className: 'bg-landing-mint/20 text-landing-mint-dark' };
       case 'pending':
-        return { 
-          variant: 'secondary' as const, 
-          label: 'Pendiente',
-          className: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200'
-        };
+        return { variant: 'secondary' as const, label: 'Pendiente', className: 'bg-landing-tropical/30 text-landing-mango-dark' };
       case 'failed':
-        return { 
-          variant: 'destructive' as const, 
-          label: 'Falló',
-          className: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200'
-        };
+        return { variant: 'destructive' as const, label: 'Falló', className: 'bg-red-100 text-red-700' };
       case 'refunded':
         return { 
           variant: 'outline' as const, 
@@ -415,6 +445,8 @@ const ProviderOrders: React.FC = () => {
         duration: 4000,
       });
 
+      dispatchNotificationsUpdated();
+
     } catch (error) {
       console.error('Error updating order status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
@@ -463,6 +495,62 @@ const ProviderOrders: React.FC = () => {
     setSelectedOrder(order);
     setShowOrderDetails(true);
   };
+
+  const formatDateShort = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+  const getOrderPreviewImage = (order: ProviderOrder) =>
+    order.order_items.find((item) => item.item_image_url)?.item_image_url;
+
+  const hasActiveFilters =
+    statusFilter !== 'all' ||
+    paymentStatusFilter !== 'all' ||
+    dateRangeFilter !== 'all' ||
+    searchQuery.trim() !== '';
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setPaymentStatusFilter('all');
+    setDateRangeFilter('all');
+    setSearchQuery('');
+    setShowFilters(false);
+  };
+
+  const handleSortPreset = (preset: string) => {
+    switch (preset) {
+      case 'newest':
+        setSortColumn('created_at');
+        setSortDirection('desc');
+        break;
+      case 'oldest':
+        setSortColumn('created_at');
+        setSortDirection('asc');
+        break;
+      case 'amount-high':
+        setSortColumn('grand_total');
+        setSortDirection('desc');
+        break;
+      case 'amount-low':
+        setSortColumn('grand_total');
+        setSortDirection('asc');
+        break;
+    }
+  };
+
+  const sortPreset =
+    sortColumn === 'created_at' && sortDirection === 'desc'
+      ? 'newest'
+      : sortColumn === 'created_at' && sortDirection === 'asc'
+        ? 'oldest'
+        : sortColumn === 'grand_total' && sortDirection === 'desc'
+          ? 'amount-high'
+          : sortColumn === 'grand_total' && sortDirection === 'asc'
+            ? 'amount-low'
+            : 'newest';
 
   // Filter orders
   const filteredOrders = orders.filter(order => {
@@ -628,323 +716,273 @@ const ProviderOrders: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
+      <div className="space-y-4 animate-pulse">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 rounded-2xl bg-white/60" />
+          ))}
+        </div>
+        <div className="h-40 rounded-2xl bg-white/60" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 rounded-2xl bg-white/60" />
+          ))}
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Órdenes Recibidas</h1>
-        <p className="text-gray-600">Gestiona las órdenes de tus productos y servicios</p>
-      </div>
+  const renderOrderCard = (order: ProviderOrder) => {
+    const statusBadge = getStatusBadge(order.status);
+    const paymentBadge = getPaymentStatusBadge(order.payment_status);
+    const providerTotal = order.order_items.reduce((sum, item) => sum + item.total_price, 0);
+    const previewImage = getOrderPreviewImage(order);
+    const totalItems = order.order_items.reduce((sum, item) => sum + item.quantity, 0);
 
-      {/* Enhanced Stats Cards - All Status KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ingresos Totales</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">Q.{totalRevenue.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">Este mes: Q.{monthlyRevenue.toFixed(2)}</p>
+    return (
+      <MobileSectionCard key={order.id} className="p-4">
+        <div className="flex gap-3">
+          <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-2 ring-white shadow-sm">
+            {previewImage ? (
+              <img src={previewImage} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
+                <Package className="w-7 h-7 text-landing-aqua-dark" />
               </div>
-              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
-                <Coins className="w-7 h-7 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-yellow-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pendientes</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{pendingOrders}</p>
-                <p className="text-xs text-yellow-600 mt-1">
-                  {totalOrders > 0 ? ((pendingOrders / totalOrders) * 100).toFixed(0) : 0}% del total
-                </p>
-              </div>
-              <div className="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center">
-                <Clock className="w-7 h-7 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Confirmadas</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{confirmedOrders}</p>
-                <p className="text-xs text-blue-600 mt-1">
-                  {totalOrders > 0 ? ((confirmedOrders / totalOrders) * 100).toFixed(0) : 0}% del total
-                </p>
-              </div>
-              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
-                <CheckCircle className="w-7 h-7 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Procesando</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{processingOrders}</p>
-                <p className="text-xs text-purple-600 mt-1">
-                  {totalOrders > 0 ? ((processingOrders / totalOrders) * 100).toFixed(0) : 0}% del total
-                </p>
-              </div>
-              <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Play className="w-7 h-7 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Enviadas</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{shippedOrders}</p>
-                <p className="text-xs text-indigo-600 mt-1">
-                  {totalOrders > 0 ? ((shippedOrders / totalOrders) * 100).toFixed(0) : 0}% del total
-                </p>
-              </div>
-              <div className="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <Truck className="w-7 h-7 text-indigo-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-emerald-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Entregadas</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{deliveredOrders}</p>
-                <p className="text-xs text-emerald-600 mt-1">
-                  {totalOrders > 0 ? ((deliveredOrders / totalOrders) * 100).toFixed(0) : 0}% del total
-                </p>
-              </div>
-              <div className="w-14 h-14 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <CheckSquare className="w-7 h-7 text-emerald-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Additional KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Órdenes</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{totalOrders}</p>
-                <p className="text-xs text-gray-500 mt-1">Promedio: Q.{averageOrderValue.toFixed(2)}</p>
-              </div>
-              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Package className="w-7 h-7 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-red-500 hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Canceladas</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{cancelledOrders}</p>
-                <p className="text-xs text-red-600 mt-1">
-                  {totalOrders > 0 ? ((cancelledOrders / totalOrders) * 100).toFixed(0) : 0}% del total
-                </p>
-              </div>
-              <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center">
-                <XCircle className="w-7 h-7 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Enhanced Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Search */}
-            <div className="lg:col-span-2">
-              <label className="text-xs font-medium text-gray-700 mb-1 block">Buscar</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Orden, cliente, email, teléfono..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm pl-9 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-                <Package className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="text-xs font-medium text-gray-700 mb-1 block">Estado</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="all">Todos</option>
-                <option value="pending">Pendientes</option>
-                <option value="confirmed">Confirmadas</option>
-                <option value="processing">Procesando</option>
-                <option value="shipped">Enviadas</option>
-                <option value="delivered">Entregadas</option>
-                <option value="cancelled">Canceladas</option>
-              </select>
-            </div>
-
-            {/* Payment Status Filter */}
-            <div>
-              <label className="text-xs font-medium text-gray-700 mb-1 block">Pago</label>
-              <select
-                value={paymentStatusFilter}
-                onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="all">Todos</option>
-                <option value="completed">Pagado</option>
-                <option value="pending">Pendiente</option>
-                <option value="failed">Fallido</option>
-                <option value="refunded">Reembolsado</option>
-              </select>
-            </div>
-
-            {/* Date Range Filter */}
-            <div>
-              <label className="text-xs font-medium text-gray-700 mb-1 block">Período</label>
-              <select
-                value={dateRangeFilter}
-                onChange={(e) => setDateRangeFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="all">Todos</option>
-                <option value="today">Hoy</option>
-                <option value="week">Última semana</option>
-                <option value="month">Último mes</option>
-                <option value="year">Último año</option>
-              </select>
-            </div>
+            )}
           </div>
 
-          {/* Active Filters Badges */}
-          {(statusFilter !== 'all' || paymentStatusFilter !== 'all' || dateRangeFilter !== 'all' || searchQuery.trim() !== '') && (
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-              <span className="text-xs font-medium text-gray-600">Filtros activos:</span>
-              {statusFilter !== 'all' && (
-                <Badge variant="secondary" className="text-xs">
-                  Estado: {getStatusLabel(statusFilter)}
-                  <button
-                    onClick={() => setStatusFilter('all')}
-                    className="ml-2 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {paymentStatusFilter !== 'all' && (
-                <Badge variant="secondary" className="text-xs">
-                  Pago: {paymentStatusFilter === 'completed' ? 'Pagado' : paymentStatusFilter === 'pending' ? 'Pendiente' : paymentStatusFilter}
-                  <button
-                    onClick={() => setPaymentStatusFilter('all')}
-                    className="ml-2 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {dateRangeFilter !== 'all' && (
-                <Badge variant="secondary" className="text-xs">
-                  {dateRangeFilter === 'today' ? 'Hoy' : dateRangeFilter === 'week' ? 'Última semana' : dateRangeFilter === 'month' ? 'Último mes' : 'Último año'}
-                  <button
-                    onClick={() => setDateRangeFilter('all')}
-                    className="ml-2 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              )}
-              {searchQuery.trim() !== '' && (
-                <Badge variant="secondary" className="text-xs">
-                  Buscar: "{searchQuery}"
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="ml-2 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              )}
-              <button
-                onClick={() => {
-                  setStatusFilter('all');
-                  setPaymentStatusFilter('all');
-                  setDateRangeFilter('all');
-                  setSearchQuery('');
-                }}
-                className="text-xs text-gray-600 hover:text-gray-900 underline ml-2"
-              >
-                Limpiar todos
-              </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 truncate">Orden #{order.order_number}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{formatDateShort(order.created_at)}</p>
+              </div>
+              <Badge variant={statusBadge.variant} className={cn('shrink-0 text-[10px]', statusBadge.className)}>
+                {statusBadge.label}
+              </Badge>
             </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Orders Table */}
-      {sortedOrders.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-16">
-            <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {orders.length === 0 ? 'No tienes órdenes aún' : 'No hay órdenes con este filtro'}
-            </h3>
-            <p className="text-gray-600">
-              {orders.length === 0 
-                ? 'Cuando los clientes compren tus productos o servicios, aparecerán aquí'
-                : 'Intenta cambiar el filtro para ver más órdenes'
-              }
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                <User className="w-3.5 h-3.5" />
+                {order.delivery_name || 'Cliente'}
+              </span>
+              <span className="flex items-center gap-1 font-semibold text-gray-900">
+                <Coins className="w-3.5 h-3.5" />
+                Q.{providerTotal.toFixed(2)}
+              </span>
+              <Badge variant={paymentBadge.variant} className={cn('text-[10px]', paymentBadge.className)}>
+                {paymentBadge.label}
+              </Badge>
+            </div>
+
+            <p className="text-[11px] text-gray-400 mt-1 truncate">
+              {totalItems} {totalItems === 1 ? 'item' : 'items'} ·{' '}
+              {order.order_items.slice(0, 2).map((i) => i.item_name).join(' · ')}
+              {order.order_items.length > 2 ? '…' : ''}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewDetails(order)}
+            className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Detalles
+          </Button>
+          <Select
+            value={order.status}
+            onValueChange={(newStatus) => {
+              if (newStatus !== order.status) updateOrderStatus(order.id, newStatus);
+            }}
+            disabled={updatingStatus === order.id}
+          >
+            <SelectTrigger className="min-h-[40px] rounded-xl text-xs border-landing-mango/30">
+              <SelectValue>
+                {updatingStatus === order.id ? 'Actualizando…' : getStatusLabel(order.status)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="z-[10000]">
+              {getAllStatusOptions().map((option) => {
+                const IconComponent = option.icon;
+                return (
+                  <SelectItem key={option.value} value={option.value} disabled={option.value === order.status}>
+                    <div className="flex items-center gap-2">
+                      <IconComponent className="w-3 h-3" />
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+      </MobileSectionCard>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <DashboardStatCard
+          label="Ingresos"
+          value={`Q.${totalRevenue.toFixed(0)}`}
+          footer={`Este mes: Q.${monthlyRevenue.toFixed(0)}`}
+          icon={Coins}
+          gradientIndex={0}
+        />
+        <DashboardStatCard
+          label="Órdenes"
+          value={String(totalOrders)}
+          footer={`Promedio Q.${averageOrderValue.toFixed(0)}`}
+          icon={Package}
+          gradientIndex={1}
+        />
+        <DashboardStatCard
+          label="Pendientes"
+          value={String(pendingOrders)}
+          footer={totalOrders > 0 ? `${((pendingOrders / totalOrders) * 100).toFixed(0)}% del total` : undefined}
+          icon={Clock}
+          gradientIndex={2}
+        />
+        <DashboardStatCard
+          label="Entregadas"
+          value={String(deliveredOrders)}
+          footer={paidRevenue > 0 ? `Pagado: Q.${paidRevenue.toFixed(0)}` : undefined}
+          icon={CheckSquare}
+          gradientIndex={3}
+        />
+      </div>
+
+      <div className={filterPanelClass}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Orden, cliente, email, teléfono…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 min-h-[44px] rounded-xl border-gray-200/80 bg-white/90"
+          />
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          {STATUS_CHIPS.map((chip, index) => {
+            const active = statusFilter === chip.id;
+            const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setStatusFilter(chip.id)}
+                className={cn(
+                  'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all duration-200 text-center leading-tight',
+                  active
+                    ? `bg-gradient-to-r ${gradient} text-white shadow-md`
+                    : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 hover:text-landing-aqua-dark shadow-sm'
+                )}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              'flex items-center gap-2 min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10',
+              showFilters && 'bg-landing-aqua/10'
+            )}
+          >
+            <Filter className="w-4 h-4" />
+            Más filtros
+            {showFilters && <X className="w-4 h-4" />}
+          </Button>
+
+          <Select value={sortPreset} onValueChange={handleSortPreset}>
+            <SelectTrigger className="w-40 min-h-[44px] rounded-xl">
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Más recientes</SelectItem>
+              <SelectItem value="oldest">Más antiguos</SelectItem>
+              <SelectItem value="amount-high">Mayor monto</SelectItem>
+              <SelectItem value="amount-low">Menor monto</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" onClick={clearFilters} className="text-red-600 hover:bg-red-50 min-h-[44px]">
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Limpiar
+            </Button>
+          )}
+
+          <span className="text-sm font-medium text-gray-600 ml-auto bg-white/60 px-3 py-2 rounded-full whitespace-nowrap">
+            {sortedOrders.length} de {totalOrders} órdenes
+          </span>
+        </div>
+
+        {showFilters && (
+          <div className="pt-4 border-t border-gray-100/80 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Estado de pago</label>
+              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                <SelectTrigger className="min-h-[44px] rounded-xl">
+                  <SelectValue placeholder="Pago" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="completed">Pagado</SelectItem>
+                  <SelectItem value="pending">Pendiente</SelectItem>
+                  <SelectItem value="failed">Fallido</SelectItem>
+                  <SelectItem value="refunded">Reembolsado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Período</label>
+              <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+                <SelectTrigger className="min-h-[44px] rounded-xl">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los períodos</SelectItem>
+                  <SelectItem value="today">Hoy</SelectItem>
+                  <SelectItem value="week">Última semana</SelectItem>
+                  <SelectItem value="month">Último mes</SelectItem>
+                  <SelectItem value="year">Último año</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {sortedOrders.length === 0 ? (
+        <MobileSectionCard className="p-8 text-center">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">
+            {orders.length === 0 ? 'No tienes órdenes aún' : 'No hay órdenes con este filtro'}
+          </h3>
+          <p className="text-sm text-gray-500">
+            {orders.length === 0
+              ? 'Cuando los clientes compren tus productos o servicios, aparecerán aquí.'
+              : 'Prueba cambiar los filtros para ver más resultados.'}
+          </p>
+        </MobileSectionCard>
       ) : (
-        <Card>
-          <CardContent className="p-0">
+        <>
+          <div className="space-y-3 lg:hidden">{sortedOrders.map(renderOrderCard)}</div>
+
+          <div className="hidden lg:block rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -1148,14 +1186,14 @@ const ProviderOrders: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </>
       )}
 
       {/* Order Details Modal */}
       {selectedOrder && (
         <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="order-details-description">
+          <DialogContent className="max-w-lg sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6" aria-describedby="order-details-description">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
@@ -1163,133 +1201,81 @@ const ProviderOrders: React.FC = () => {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-6" id="order-details-description">
-              {/* Order Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Información de la Orden</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Estado:</span>
-                      <Badge variant={getStatusBadge(selectedOrder.status).variant} className={getStatusBadge(selectedOrder.status).className}>
-                        {getStatusBadge(selectedOrder.status).label}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Pago:</span>
-                      <Badge variant={getPaymentStatusBadge(selectedOrder.payment_status).variant} className={getPaymentStatusBadge(selectedOrder.payment_status).className}>
-                        {getPaymentStatusBadge(selectedOrder.payment_status).label}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Fecha:</span>
-                      <span>{formatDate(selectedOrder.created_at)}</span>
-                    </div>
-                    {selectedOrder.delivered_at && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Entregado:</span>
-                        <span>{formatDate(selectedOrder.delivered_at)}</span>
-                      </div>
-                    )}
-                  </div>
+            <div className="space-y-4" id="order-details-description">
+              <MobileSectionCard className="p-4 space-y-2 text-sm">
+                <h4 className="font-bold text-gray-900 text-sm">Información de la orden</h4>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Estado</span>
+                  <Badge variant={getStatusBadge(selectedOrder.status).variant} className={getStatusBadge(selectedOrder.status).className}>
+                    {getStatusBadge(selectedOrder.status).label}
+                  </Badge>
                 </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Información del Cliente</h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">Nombre:</span>
-                      <p>{selectedOrder.delivery_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Email:</span>
-                      <p>{selectedOrder.client_email}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Teléfono:</span>
-                      <p>{selectedOrder.delivery_phone}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Dirección:</span>
-                      <p>{selectedOrder.delivery_address}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Ciudad:</span>
-                      <p>{selectedOrder.delivery_city}</p>
-                    </div>
-                    {selectedOrder.delivery_instructions && (
-                      <div>
-                        <span className="text-gray-600">Instrucciones:</span>
-                        <p>{selectedOrder.delivery_instructions}</p>
-                      </div>
-                    )}
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Pago</span>
+                  <Badge variant={getPaymentStatusBadge(selectedOrder.payment_status).variant} className={getPaymentStatusBadge(selectedOrder.payment_status).className}>
+                    {getPaymentStatusBadge(selectedOrder.payment_status).label}
+                  </Badge>
                 </div>
-              </div>
+                <p><span className="text-gray-500">Fecha:</span> {formatDate(selectedOrder.created_at)}</p>
+                {selectedOrder.delivered_at && (
+                  <p><span className="text-gray-500">Entregado:</span> {formatDate(selectedOrder.delivered_at)}</p>
+                )}
+              </MobileSectionCard>
 
-              {/* Provider's Order Items */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Tus Productos en esta Orden</h3>
-                <div className="space-y-3">
-                  {selectedOrder.order_items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className="w-16 h-16 rounded-md overflow-hidden border bg-gray-100 flex items-center justify-center">
+              <MobileSectionCard className="p-4 space-y-2 text-sm">
+                <h4 className="font-bold text-gray-900 text-sm">Cliente</h4>
+                <p><span className="text-gray-500">Nombre:</span> {selectedOrder.delivery_name}</p>
+                <p><span className="text-gray-500">Email:</span> {selectedOrder.client_email}</p>
+                <p className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-gray-400" /> {selectedOrder.delivery_phone}</p>
+                <p className="flex items-start gap-1"><MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" /> {selectedOrder.delivery_address}, {selectedOrder.delivery_city}</p>
+                {selectedOrder.delivery_instructions && (
+                  <p><span className="text-gray-500">Instrucciones:</span> {selectedOrder.delivery_instructions}</p>
+                )}
+              </MobileSectionCard>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-gray-900 text-sm px-1">Tus productos en esta orden</h4>
+                {selectedOrder.order_items.map((item) => (
+                  <MobileSectionCard key={item.id} className="p-3">
+                    <div className="flex gap-3">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-gray-100">
                         {item.item_image_url ? (
-                          <img 
-                            src={item.item_image_url} 
-                            alt={item.item_name}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={item.item_image_url} alt={item.item_name} className="w-full h-full object-cover" />
                         ) : (
-                          <Package className="w-6 h-6 text-gray-400" />
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-5 h-5 text-gray-400" />
+                          </div>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{item.item_name}</h4>
-                        {item.item_description && (
-                          <p className="text-sm text-gray-500 mt-1">{item.item_description}</p>
-                        )}
-                        <div className="flex items-center gap-4 mt-2">
-                          <Badge variant="outline">
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-medium text-gray-900 truncate">{item.item_name}</h5>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <Badge variant="outline" className="text-[10px]">
                             {item.item_type === 'product' ? 'Producto' : 'Servicio'}
                           </Badge>
-                          {item.has_delivery && (
-                            <Badge variant="secondary">🚚 Entrega</Badge>
-                          )}
-                          {item.has_pickup && (
-                            <Badge variant="secondary">🏪 Recogida</Badge>
-                          )}
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-900">
-                          {item.quantity}x Q.{item.unit_price}
+                        <p className="text-sm font-semibold text-gray-900 mt-1">
+                          {item.quantity}x Q.{item.unit_price} = Q.{item.total_price}
                         </p>
-                        <p className="text-lg font-bold text-gray-900">
-                          Q.{item.total_price}
-                        </p>
+                        <OrderItemPetsList pets={item.pets || []} />
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </MobileSectionCard>
+                ))}
               </div>
 
-              {/* Provider's Earnings */}
-              <div className="border-t pt-4">
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-semibold text-green-900 mb-2">Tus Ganancias</h3>
-                  <div className="text-2xl font-bold text-green-900">
-                    Q.{selectedOrder.order_items.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}
-                  </div>
-                  <p className="text-sm text-green-700 mt-1">
-                    Por {selectedOrder.order_items.length} {selectedOrder.order_items.length === 1 ? 'producto' : 'productos'}
-                  </p>
-                </div>
-              </div>
+              <MobileSectionCard className="p-4 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10">
+                <h4 className="font-bold text-landing-aqua-dark text-sm mb-1">Tus ganancias</h4>
+                <p className="text-2xl font-bold text-gray-900">
+                  Q.{selectedOrder.order_items.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Por {selectedOrder.order_items.length} {selectedOrder.order_items.length === 1 ? 'item' : 'items'}
+                </p>
+              </MobileSectionCard>
 
-              {/* Status Update Actions */}
-              <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold mb-3">Cambiar Estado</h3>
+              <MobileSectionCard className="p-4">
+                <h4 className="font-bold text-gray-900 text-sm mb-3">Cambiar estado</h4>
                 <div className="flex items-center gap-3">
                   <Select
                     value={selectedOrder.status}
@@ -1324,10 +1310,9 @@ const ProviderOrders: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
+              </MobileSectionCard>
 
-              {/* Modal Actions */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <Button
                   variant="outline"
                   onClick={() => setShowOrderDetails(false)}

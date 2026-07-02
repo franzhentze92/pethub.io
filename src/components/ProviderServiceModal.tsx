@@ -7,12 +7,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar, DollarSign, Info, AlertCircle } from 'lucide-react';
+import { Calendar, DollarSign, Info, AlertCircle, Star, Loader2, Sparkles } from 'lucide-react';
 import { ProviderService, ProviderServiceAvailability, ProviderServiceTimeSlot } from '@/hooks/useProvider';
 import { getServicePricingConfig, hasServiceSizePricing } from '@/config/servicePricing';
-import { ServiceImageUpload } from './ServiceImageUpload';
+import { ProductMultipleImagesUpload } from './ProductMultipleImagesUpload';
+import { generateCatalogImage } from '@/lib/generateCatalogImage';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AvailabilityScheduleEditor,
+  type ScheduleAvailabilityRow,
+  type ScheduleTimeSlotRow,
+} from '@/components/availability/AvailabilityScheduleEditor';
+import { cn } from '@/lib/utils';
+import { landingBtnPrimary } from '@/lib/landingTheme';
+import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
+
+const modalTabListClass =
+  'grid w-full bg-landing-aqua/10 p-1 rounded-xl border border-landing-aqua/15 h-auto gap-1';
+const modalTabTriggerClass =
+  'rounded-lg text-gray-600 data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm py-2.5 text-xs sm:text-sm';
+const modalOutlineBtnClass =
+  'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
 
 interface ProviderServiceModalProps {
   isOpen: boolean;
@@ -35,22 +51,6 @@ const SERVICE_CATEGORIES = [
   { value: 'fisioterapia', label: 'Fisioterapia', icon: '💆' },
   { value: 'nutricion', label: 'Nutrición', icon: '🥩' },
   { value: 'otro', label: 'Otro', icon: '🔧' }
-];
-
-const DAYS_OF_WEEK = [
-  { value: 0, label: 'Domingo', short: 'Dom' },
-  { value: 1, label: 'Lunes', short: 'Lun' },
-  { value: 2, label: 'Martes', short: 'Mar' },
-  { value: 3, label: 'Miércoles', short: 'Mié' },
-  { value: 4, label: 'Jueves', short: 'Jue' },
-  { value: 5, label: 'Viernes', short: 'Vie' },
-  { value: 6, label: 'Sábado', short: 'Sáb' }
-];
-
-const TIME_SLOTS = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
 ];
 
 const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
@@ -83,11 +83,21 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
     min_advance_booking_hours: '2',
     is_active: true,
     service_image_url: '',
+    secondary_images: [] as string[],
   });
 
-  const [availability, setAvailability] = useState<ProviderServiceAvailability[]>([]);
-  const [timeSlots, setTimeSlots] = useState<ProviderServiceTimeSlot[]>([]);
+  const [availability, setAvailability] = useState<ScheduleAvailabilityRow[]>([]);
+  const [timeSlots, setTimeSlots] = useState<ScheduleTimeSlotRow[]>([]);
+  const [useCustomAvailability, setUseCustomAvailability] = useState(false);
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [pendingSave, setPendingSave] = useState<{
+    service: Omit<ProviderService, 'id' | 'provider_id' | 'created_at' | 'updated_at'>;
+    availability: Omit<ProviderServiceAvailability, 'id' | 'service_id' | 'created_at'>[];
+    timeSlots: Omit<ProviderServiceTimeSlot, 'id' | 'service_id' | 'created_at'>[];
+  } | null>(null);
 
   useEffect(() => {
     if (service && isEditing) {
@@ -109,7 +119,10 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
         min_advance_booking_hours: service.min_advance_booking_hours?.toString() || '2',
         is_active: service.is_active,
         service_image_url: service.service_image_url || '',
+        secondary_images: service.secondary_images || [],
       });
+
+      setUseCustomAvailability(Boolean(service.uses_custom_availability));
 
       // Load availability and time slots for existing service (only if functions are provided)
       if (onFetchAvailability && onFetchTimeSlots && typeof onFetchAvailability === 'function' && typeof onFetchTimeSlots === 'function') {
@@ -119,30 +132,32 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
               onFetchAvailability(service.id),
               onFetchTimeSlots(service.id)
             ]);
-            // Convert time format from HH:MM:SS to HH:MM for UI
-            const formattedAvailability = (availabilityData || []).map(item => ({
-              ...item,
-              start_time: item.start_time ? item.start_time.substring(0, 5) : '09:00',
-              end_time: item.end_time ? item.end_time.substring(0, 5) : '17:00'
-            }));
-            
-            const formattedTimeSlots = (timeSlotsData || []).map(item => ({
-              ...item,
-              slot_start_time: item.slot_start_time ? item.slot_start_time.substring(0, 5) : '09:00',
-              slot_end_time: item.slot_end_time ? item.slot_end_time.substring(0, 5) : '10:00'
-            }));
-            
-            setAvailability(formattedAvailability);
-            setTimeSlots(formattedTimeSlots);
+            setAvailability(
+              (availabilityData || []).map((item, index) => ({
+                id: item.id || `avail-${index}`,
+                day_of_week: item.day_of_week,
+                start_time: item.start_time ? item.start_time.substring(0, 5) : '09:00',
+                end_time: item.end_time ? item.end_time.substring(0, 5) : '17:00',
+                is_available: item.is_available !== false,
+              }))
+            );
+            setTimeSlots(
+              (timeSlotsData || []).map((item, index) => ({
+                id: item.id || `slot-${index}`,
+                day_of_week: item.day_of_week,
+                slot_start_time: item.slot_start_time ? item.slot_start_time.substring(0, 5) : '09:00',
+                slot_end_time: item.slot_end_time ? item.slot_end_time.substring(0, 5) : '10:00',
+                is_available: item.is_available !== false,
+                max_bookings_per_slot: item.max_bookings_per_slot || 1,
+              }))
+            );
           } catch (error) {
-            // Set empty arrays on error to prevent crashes
             setAvailability([]);
             setTimeSlots([]);
           }
         };
         loadAvailabilityData();
       } else {
-        // If functions are not provided, set empty arrays
         setAvailability([]);
         setTimeSlots([]);
       }
@@ -165,9 +180,11 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
         min_advance_booking_hours: '2',
         is_active: true,
         service_image_url: '',
+        secondary_images: [],
       });
       setAvailability([]);
       setTimeSlots([]);
+      setUseCustomAvailability(false);
     }
   }, [service, isEditing, onFetchAvailability, onFetchTimeSlots]);
 
@@ -206,65 +223,29 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
         }
       }
 
-      // Transform availability data to remove id, service_id, and created_at
-      // Ensure day_of_week is a number and times are in correct format
-      const availabilityData = availability.map(item => {
-        const dayOfWeek = typeof item.day_of_week === 'string' ? parseInt(item.day_of_week, 10) : item.day_of_week;
-        const startTime = item.start_time ? item.start_time.substring(0, 5) : '09:00';
-        const endTime = item.end_time ? item.end_time.substring(0, 5) : '17:00';
-        
-        return {
-          day_of_week: dayOfWeek,
-          start_time: startTime,
-          end_time: endTime,
-          is_available: item.is_available !== false // Default to true if not set
-        };
-      });
+      const availabilityData = useCustomAvailability
+        ? availability.map((item) => ({
+            day_of_week: item.day_of_week,
+            start_time: item.start_time.substring(0, 5),
+            end_time: item.end_time.substring(0, 5),
+            is_available: item.is_available !== false,
+          }))
+        : [];
 
-      // Transform time slots data to remove id, service_id, and created_at
-      // Ensure day_of_week is a number and times are in correct format
-      const timeSlotsData = timeSlots.map(item => {
-        const dayOfWeek = typeof item.day_of_week === 'string' ? parseInt(item.day_of_week, 10) : item.day_of_week;
-        const slotStartTime = item.slot_start_time ? item.slot_start_time.substring(0, 5) : '09:00';
-        const slotEndTime = item.slot_end_time ? item.slot_end_time.substring(0, 5) : '10:00';
-        
-        return {
-          day_of_week: dayOfWeek,
-          slot_start_time: slotStartTime,
-          slot_end_time: slotEndTime,
-          is_available: item.is_available !== false, // Default to true if not set
-          max_bookings_per_slot: item.max_bookings_per_slot || 1
-        };
-      });
+      const timeSlotsData = useCustomAvailability
+        ? timeSlots.map((item) => ({
+            day_of_week: item.day_of_week,
+            slot_start_time: item.slot_start_time.substring(0, 5),
+            slot_end_time: item.slot_end_time.substring(0, 5),
+            is_available: item.is_available !== false,
+            max_bookings_per_slot: item.max_bookings_per_slot || 1,
+          }))
+        : [];
 
-      console.log('=== SAVING SERVICE AVAILABILITY ===');
-      console.log('Raw availability state:', availability);
-      console.log('Raw availability length:', availability.length);
-      console.log('Transformed availability data:', availabilityData);
-      console.log('Transformed availability length:', availabilityData.length);
-      console.log('Raw time slots state:', timeSlots);
-      console.log('Raw time slots length:', timeSlots.length);
-      console.log('Transformed time slots data:', timeSlotsData);
-      console.log('Transformed time slots length:', timeSlotsData.length);
-      console.log('===================================');
-
-      // Validate that we have data to save
-      if (availability.length === 0 && timeSlots.length === 0) {
-        console.warn('⚠️ WARNING: No availability or time slots configured for this service!');
+      if (useCustomAvailability && availabilityData.length === 0 && timeSlotsData.length === 0) {
+        throw new Error('Agrega al menos un horario o desactiva el horario personalizado');
       }
-
-      // Save the service
-      console.log('Calling onSave with:', {
-        serviceData: {
-          service_name: formData.service_name,
-          service_category: formData.service_category,
-          // ... other fields
-        },
-        availability: availabilityData,
-        timeSlots: timeSlotsData
-      });
-      
-      await onSave({
+      const servicePayload = {
         service_name: formData.service_name,
         service_category: formData.service_category,
         description: formData.description,
@@ -281,22 +262,77 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
         max_advance_booking_days: parseInt(formData.max_advance_booking_days) || 30,
         min_advance_booking_hours: parseInt(formData.min_advance_booking_hours) || 2,
         is_active: formData.is_active,
+        uses_custom_availability: useCustomAvailability,
         service_image_url: formData.service_image_url || undefined,
-      }, availabilityData, timeSlotsData);
-      
-      // Success - modal will close and parent will show success toast
-      onClose();
+        secondary_images: formData.secondary_images,
+      };
+
+      setPendingSave({
+        service: servicePayload,
+        availability: availabilityData,
+        timeSlots: timeSlotsData,
+      });
+      setShowSaveConfirm(true);
     } catch (error) {
       console.error('Error saving service:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      
-      // Show error toast (this will be handled by the parent component)
       console.error('Service validation/save error:', errorMessage);
-      
-      // Re-throw the error so the parent component can handle it
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const confirmSave = async () => {
+    if (!pendingSave) return;
+    setShowSaveConfirm(false);
+    setLoading(true);
+    try {
+      await onSave(pendingSave.service, pendingSave.availability, pendingSave.timeSlots);
+      onClose();
+    } catch (error) {
+      console.error('Error saving service:', error);
+    } finally {
+      setLoading(false);
+      setPendingSave(null);
+    }
+  };
+
+  const handleGenerateServiceImage = async () => {
+    if (!service?.id) {
+      toast({
+        title: 'Guarda el servicio primero',
+        description: 'La imagen con IA se puede generar después de crear el servicio.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setGeneratingImage(true);
+    try {
+      const result = await generateCatalogImage({
+        type: 'service',
+        id: service.id,
+        force: Boolean(formData.service_image_url),
+      });
+
+      if (result.imageUrl) {
+        handleInputChange('service_image_url', result.imageUrl);
+        toast({
+          title: result.skipped ? 'Ya tenía imagen' : 'Imagen generada',
+          description: result.skipped
+            ? 'Este servicio ya tenía una imagen principal.'
+            : `Se creó una imagen para "${result.name ?? formData.service_name}".`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'No se pudo generar la imagen',
+        description: error instanceof Error ? error.message : 'Error desconocido',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingImage(false);
     }
   };
 
@@ -307,71 +343,29 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
     }));
   };
 
-  const addAvailability = (dayOfWeek: number) => {
-    const newAvailability: ProviderServiceAvailability = {
-      id: `temp-${Date.now()}`,
-      service_id: service?.id || '',
-      day_of_week: dayOfWeek,
-      start_time: '09:00',
-      end_time: '17:00',
-      is_available: true,
-      created_at: new Date().toISOString()
-    };
-    setAvailability(prev => [...prev, newAvailability]);
-  };
-
-  const removeAvailability = (id: string) => {
-    setAvailability(prev => prev.filter(item => item.id !== id));
-  };
-
-  const updateAvailability = (id: string, field: string, value: string | boolean) => {
-    setAvailability(prev => prev.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
-  };
-
-  const addTimeSlot = (dayOfWeek: number) => {
-    const newTimeSlot: ProviderServiceTimeSlot = {
-      id: `temp-${Date.now()}`,
-      service_id: service?.id || '',
-      day_of_week: dayOfWeek,
-      slot_start_time: '09:00',
-      slot_end_time: '10:00',
-      is_available: true,
-      max_bookings_per_slot: 1,
-      created_at: new Date().toISOString()
-    };
-    setTimeSlots(prev => [...prev, newTimeSlot]);
-  };
-
-  const removeTimeSlot = (id: string) => {
-    setTimeSlots(prev => prev.filter(item => item.id !== id));
-  };
-
-  const updateTimeSlot = (id: string, field: string, value: string | number | boolean) => {
-    setTimeSlots(prev => prev.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
-  };
-
-
-  
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto" aria-describedby="service-modal-description">
-        <DialogHeader>
-          <DialogTitle className="text-xl">
+      <DialogContent
+        className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0"
+        aria-describedby="service-modal-description"
+      >
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+          <DialogTitle className="text-xl flex items-center gap-2 text-gray-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+              <Star className="w-5 h-5" />
+            </span>
             {isEditing ? 'Editar Servicio' : 'Agregar Nuevo Servicio'}
           </DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6" id="service-modal-description">
+
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5" id="service-modal-description">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Información Básica</TabsTrigger>
-              <TabsTrigger value="details">Detalles</TabsTrigger>
-              <TabsTrigger value="availability">Disponibilidad</TabsTrigger>
-              <TabsTrigger value="policies">Políticas</TabsTrigger>
+            <TabsList className={cn(modalTabListClass, 'grid-cols-2 sm:grid-cols-4')}>
+              <TabsTrigger value="basic" className={modalTabTriggerClass}>Información Básica</TabsTrigger>
+              <TabsTrigger value="details" className={modalTabTriggerClass}>Detalles</TabsTrigger>
+              <TabsTrigger value="availability" className={modalTabTriggerClass}>Disponibilidad</TabsTrigger>
+              <TabsTrigger value="policies" className={modalTabTriggerClass}>Políticas</TabsTrigger>
             </TabsList>
 
             {/* Basic Information Tab */}
@@ -406,12 +400,43 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
                 </div>
               </div>
 
-              <div>
-                <ServiceImageUpload
-                  imageUrl={formData.service_image_url}
-                  onImageUpload={(url) => handleInputChange('service_image_url', url || '')}
-                  disabled={loading}
+              <div className="rounded-xl border border-landing-aqua/15 bg-landing-aqua/5 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-base font-semibold">Imágenes del servicio</Label>
+                  {isEditing && service?.id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={modalOutlineBtnClass}
+                      disabled={loading || generatingImage}
+                      onClick={handleGenerateServiceImage}
+                    >
+                      {generatingImage ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                      )}
+                      {formData.service_image_url ? 'Regenerar con IA' : 'Generar con IA'}
+                    </Button>
+                  )}
+                </div>
+                <ProductMultipleImagesUpload
+                  mainImageUrl={formData.service_image_url}
+                  secondaryImages={formData.secondary_images}
+                  onMainImageUpload={(url) => handleInputChange('service_image_url', url || '')}
+                  onSecondaryImagesChange={(urls) =>
+                    setFormData((prev) => ({ ...prev, secondary_images: urls }))
+                  }
+                  disabled={loading || generatingImage}
+                  storageBucket="service-images"
+                  storageFolder="service-images"
+                  mainLabel="servicio"
+                  entityLabel="servicio"
                 />
+                <p className="text-xs text-gray-500">
+                  Sube una imagen principal y hasta 5 fotos adicionales del servicio
+                </p>
               </div>
 
               <div>
@@ -585,150 +610,48 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
 
             {/* Availability Tab */}
             <TabsContent value="availability" className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-                <div className="flex items-center gap-2 text-blue-800">
-                  <Info className="w-5 h-5" />
-                  <span className="font-medium">Configuración de Disponibilidad</span>
+              <div className="rounded-xl border border-landing-aqua/20 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 p-4">
+                <div className="flex items-start gap-2 text-landing-aqua-dark">
+                  <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="text-sm space-y-1">
+                    <p className="font-medium">Horario del negocio por defecto</p>
+                    <p className="text-gray-600">
+                      Este servicio usa el horario general configurado en tu perfil (pestaña Perfil).
+                      Activa la opción de abajo solo si este servicio necesita horarios distintos.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-blue-700 text-sm mt-1">
-                  Esta funcionalidad permite configurar horarios de disponibilidad y franjas horarias específicas para cada servicio.
-                  Los clientes podrán ver estos horarios al reservar citas.
-                </p>
               </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    Horarios de Disponibilidad
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {DAYS_OF_WEEK.map((day) => (
-                    <div key={day.value} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">{day.label}</h4>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addAvailability(day.value)}
-                        >
-                          Agregar Horario
-                        </Button>
-                      </div>
-                      
-                      {availability
-                        .filter(a => a.day_of_week === day.value)
-                        .map((avail) => (
-                          <div key={avail.id} className="flex items-center gap-2 mb-2">
-                            <Select value={avail.start_time} onValueChange={(value) => updateAvailability(avail.id, 'start_time', value)}>
-                              <SelectTrigger className="w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="z-[10000]">
-                                {TIME_SLOTS.map((time) => (
-                                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <span>a</span>
-                            <Select value={avail.end_time} onValueChange={(value) => updateAvailability(avail.id, 'end_time', value)}>
-                              <SelectTrigger className="w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="z-[10000]">
-                                {TIME_SLOTS.map((time) => (
-                                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeAvailability(avail.id)}
-                              className="text-red-600"
-                            >
-                              Eliminar
-                            </Button>
-                          </div>
-                        ))}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Franjas Horarias Específicas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {DAYS_OF_WEEK.map((day) => (
-                    <div key={day.value} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">{day.label}</h4>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addTimeSlot(day.value)}
-                        >
-                          Agregar Franja
-                        </Button>
-                      </div>
-                      
-                      {timeSlots
-                        .filter(t => t.day_of_week === day.value)
-                        .map((slot) => (
-                          <div key={slot.id} className="flex items-center gap-2 mb-2">
-                            <Select value={slot.slot_start_time} onValueChange={(value) => updateTimeSlot(slot.id, 'slot_start_time', value)}>
-                              <SelectTrigger className="w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="z-[10000]">
-                                {TIME_SLOTS.map((time) => (
-                                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <span>a</span>
-                            <Select value={slot.slot_end_time} onValueChange={(value) => updateTimeSlot(slot.id, 'slot_end_time', value)}>
-                              <SelectTrigger className="w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="z-[10000]">
-                                {TIME_SLOTS.map((time) => (
-                                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={slot.max_bookings_per_slot}
-                              onChange={(e) => updateTimeSlot(slot.id, 'max_bookings_per_slot', parseInt(e.target.value) || 1)}
-                              className="w-20"
-                              placeholder="Max"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeTimeSlot(slot.id)}
-                              className="text-red-600"
-                            >
-                              Eliminar
-                            </Button>
-                          </div>
-                        ))}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-between rounded-xl border border-landing-aqua/15 p-4">
+                <div>
+                  <Label htmlFor="custom-availability" className="font-medium text-gray-800">
+                    Horario personalizado para este servicio
+                  </Label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Desactivado = hereda el horario del negocio
+                  </p>
+                </div>
+                <Switch
+                  id="custom-availability"
+                  checked={useCustomAvailability}
+                  onCheckedChange={setUseCustomAvailability}
+                />
+              </div>
+
+              {useCustomAvailability ? (
+                <AvailabilityScheduleEditor
+                  availability={availability}
+                  timeSlots={timeSlots}
+                  onAvailabilityChange={setAvailability}
+                  onTimeSlotsChange={setTimeSlots}
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed border-landing-aqua/25 bg-landing-aqua/5 p-6 text-center text-sm text-gray-600">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-landing-aqua" />
+                  Los clientes verán el horario del negocio al reservar este servicio.
+                </div>
+              )}
             </TabsContent>
 
             {/* Policies Tab */}
@@ -783,14 +706,14 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end gap-3 pt-6">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+          <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-3 px-6 py-4 border-t border-landing-aqua/10 bg-gray-50/80">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className={modalOutlineBtnClass}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} data-blueprint-guided="save-service" className={cn(landingBtnPrimary, 'border-0 min-w-[160px]')}>
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {isEditing ? 'Actualizando...' : 'Creando...'}
                 </>
               ) : (
@@ -801,6 +724,32 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
         </form>
       </DialogContent>
     </Dialog>
+
+    <ActionConfirmDialog
+      open={showSaveConfirm}
+      onOpenChange={setShowSaveConfirm}
+      title={isEditing ? 'Confirmar actualización de servicio' : 'Confirmar creación de servicio'}
+      description="Revisa los datos del servicio antes de guardar."
+      confirmLabel={isEditing ? 'Actualizar' : 'Crear servicio'}
+      fields={
+        pendingSave
+          ? [
+              { label: 'Nombre', value: pendingSave.service.service_name },
+              { label: 'Categoría', value: pendingSave.service.service_category },
+              { label: 'Precio', value: `Q${pendingSave.service.price}` },
+              { label: 'Duración', value: `${pendingSave.service.duration_minutes} min` },
+              { label: 'Activo', value: pendingSave.service.is_active ? 'Sí' : 'No' },
+              ...(pendingSave.availability.length > 0
+                ? [{ label: 'Horarios personalizados', value: `${pendingSave.availability.length} bloques` }]
+                : []),
+            ]
+          : []
+      }
+      onConfirm={confirmSave}
+      loading={loading}
+      onEdit={() => setShowSaveConfirm(false)}
+    />
+    </>
   );
 };
 

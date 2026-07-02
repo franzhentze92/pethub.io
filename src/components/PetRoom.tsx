@@ -5,9 +5,11 @@ import QuickActions from './QuickActions';
 import FeedingNotification from './FeedingNotification';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { formatSpeciesLabel } from '@/utils/petLabels';
 // Icons removed from this page to avoid unused imports; QuickActions handles its own icons
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import PageLoader from '@/components/PageLoader';
+import { PetAvatar } from '@/components/PetAvatar';
 
 interface Pet {
   id: string;
@@ -94,23 +96,14 @@ const PetRoom: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando tu mascota...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PageLoader variant="inline" message="Cargando tu mascota…" />;
   }
 
   if (!selectedPet) {
     return (
       <div className="p-6">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🐾</div>
+          <div className="text-center">
+          <PetAvatar pet={null} size="2xl" className="mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
             ¡No tienes mascotas aún!
           </h2>
@@ -139,11 +132,7 @@ const PetRoom: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Upcoming meals (real) */}
-      <FeedingNotification />
-
-      {/* Welcome Message */
-      }
+      {/* Welcome Message */}
       <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 shadow-xl">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
@@ -183,10 +172,8 @@ const PetRoom: React.FC = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">
-                    {selectedPet?.name?.charAt(0) || '🐾'}
-                  </span>
+                <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+                  <PetAvatar pet={selectedPet} size="md" className="w-10 h-10" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Seleccionar Mascota</h3>
@@ -207,14 +194,10 @@ const PetRoom: React.FC = () => {
                   {pets.map((pet) => (
                     <SelectItem key={pet.id} value={pet.id}>
                       <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">
-                            {pet.name.charAt(0)}
-                          </span>
-                        </div>
+                        <PetAvatar pet={pet} size="xs" />
                         <span>{pet.name}</span>
                         <Badge variant="outline" className="text-xs">
-                          {pet.species}
+                          {formatSpeciesLabel(pet.species)}
                         </Badge>
                       </div>
                     </SelectItem>
@@ -231,25 +214,21 @@ const PetRoom: React.FC = () => {
       {/* Pet summary */}
       <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-0 shadow-xl">
         <CardContent className="p-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">
-                  {selectedPet?.name?.charAt(0) || '🐾'}
-                </span>
+          <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+            <PetAvatar pet={selectedPet} size="room" ring className="shadow-xl" />
+            <div className="flex-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-between gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-gray-900">{selectedPet?.name}</h2>
+                {pets && pets.length > 1 && (
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-800 shrink-0">
+                    {pets.findIndex((p) => p.id === selectedPet?.id) + 1} de {pets.length}
+                  </Badge>
+                )}
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{selectedPet?.name}</h2>
-                <p className="text-sm text-gray-600">{selectedPet?.species} • {selectedPet?.breed}</p>
-              </div>
+              <p className="text-sm text-gray-600">{formatSpeciesLabel(selectedPet?.species)} • {selectedPet?.breed}</p>
             </div>
-            {pets && pets.length > 1 && (
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                {pets.findIndex(p => p.id === selectedPet?.id) + 1} de {pets.length}
-              </Badge>
-            )}
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex justify-center sm:justify-start">
             <Button variant="outline" onClick={handlePetClick}>Interactuar</Button>
           </div>
         </CardContent>
@@ -276,6 +255,9 @@ const PetRoom: React.FC = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Upcoming meals (real) - Moved here to avoid taking too much space at the top */}
+      <FeedingNotification />
 
       {/* Removed mocked Recent Activity and Achievements */}
     </div>

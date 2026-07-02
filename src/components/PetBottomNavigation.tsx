@@ -18,12 +18,8 @@ const PetBottomNavigation: React.FC<PetBottomNavigationProps> = ({ userRole = 'c
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('home');
 
-  // Debug: Log the user role
-  console.log('PetBottomNavigation - userRole:', userRole);
-
   // Only show for Pet Owners (clients)
   if (userRole !== 'client') {
-    console.log('PetBottomNavigation - Not showing for userRole:', userRole);
     return null;
   }
 
@@ -48,7 +44,7 @@ const PetBottomNavigation: React.FC<PetBottomNavigationProps> = ({ userRole = 'c
       id: 'social',
       label: 'Social',
       icon: Users,
-      path: '/social-hub',
+      path: '/adopcion',
       color: 'text-blue-600',
       activeColor: 'bg-blue-100 text-blue-700'
     },
@@ -56,7 +52,7 @@ const PetBottomNavigation: React.FC<PetBottomNavigationProps> = ({ userRole = 'c
       id: 'shop',
       label: 'Tienda',
       icon: ShoppingBag,
-      path: '/pet-shop',
+      path: '/marketplace',
       color: 'text-orange-600',
       activeColor: 'bg-orange-100 text-orange-700'
     },
@@ -86,22 +82,20 @@ const PetBottomNavigation: React.FC<PetBottomNavigationProps> = ({ userRole = 'c
                currentPath.includes('/adventure-log') || 
                currentPath.includes('/health-journal') ||
                currentPath.includes('/pet-reminders') ||
+               currentPath.includes('/recordatorios') ||
                currentPath === '/care-hub';
       case 'social':
         return currentPath.includes('/adopcion') || 
                currentPath.includes('/parejas') || 
-               currentPath.includes('/mascotas-perdidas') ||
-               currentPath === '/social-hub';
+               currentPath.includes('/mascotas-perdidas');
       case 'shop':
-        return currentPath === '/pet-shop' || currentPath === '/deliveries' || currentPath.includes('/orders');
+        return currentPath === '/marketplace' || currentPath === '/client-orders' || currentPath.includes('/orders') || currentPath === '/cart';
       case 'profile':
         return currentPath.includes('/ajustes') || currentPath === '/profile';
       default:
         return false;
     }
   };
-
-  console.log('PetBottomNavigation - Rendering navigation bar');
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-2xl">

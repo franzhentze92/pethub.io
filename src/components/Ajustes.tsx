@@ -1,49 +1,65 @@
-import React, { useState } from 'react';
-import { User, Dog, Edit, Plus, Trash2, Heart, HeartOff, Calendar, MapPin, CreditCard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Dog, Edit, Plus, Trash2, Calendar, MapPin, Home, LogOut, CreditCard, Eye, Shield, Sparkles, ChevronRight, Bell } from 'lucide-react';
+import { isPetHubAdminUser } from '@/lib/pethubAdminAccess';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useUserProfile, usePets } from '@/hooks/useSettings';
 import EditProfileModal from './EditProfileModal';
 import PetModal from './PetModal';
 import DeletePetDialog from './DeletePetDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import PageHeader from './PageHeader';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
 import AddressesAndCardsTab from './AddressesAndCardsTab';
+import { DashboardShell } from './dashboard/DashboardShell';
+import { MobileTabStrip } from './mobile/MobileTabStrip';
+import { MobileInfoRow, MobileSectionCard, MobileFab } from './mobile/MobileUi';
+import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { getPetImageUrls } from '@/utils/petImages';
+import { PetAvatar } from '@/components/PetAvatar';
+import { formatSpeciesLabel } from '@/utils/petLabels';
+import PetDetailsModal from './PetDetailsModal';
+import NotificationPreferencesSettings from './NotificationPreferencesSettings';
+import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 
 const Ajustes: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('perfil');
+  const location = useLocation();
+  const initialTab = (location.state as { activeTab?: string } | null)?.activeTab;
+  const [activeTab, setActiveTab] = useState(initialTab || 'perfil');
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [petModalOpen, setPetModalOpen] = useState(false);
   const [editingPet, setEditingPet] = useState<any>(null);
   const [deletePetDialog, setDeletePetDialog] = useState<{ open: boolean; pet: any }>({ open: false, pet: null });
+  const [viewingPet, setViewingPet] = useState<any>(null);
 
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch user profile and pets
   const { data: userProfile, isLoading: profileLoading } = useUserProfile(user?.id);
   const { data: pets, isLoading: petsLoading } = usePets(user?.id);
+  const guidedTour = useBlueprintGuidedTourOptional();
+
+  useEffect(() => {
+    const tab = (location.state as { activeTab?: string } | null)?.activeTab;
+    if (tab) setActiveTab(tab);
+  }, [location.state]);
+
+  useEffect(() => {
+    if (guidedTour?.isActive && guidedTour.currentStep?.ajustesTab) {
+      setActiveTab(guidedTour.currentStep.ajustesTab);
+    }
+  }, [guidedTour?.isActive, guidedTour?.currentStep?.ajustesTab]);
 
   const tabs = [
-    { id: 'perfil', label: 'Mi Perfil', icon: User, color: 'from-blue-500 to-cyan-500' },
-    { id: 'perros', label: 'Mis Perros', icon: Dog, color: 'from-green-500 to-emerald-500' },
-    { id: 'direcciones', label: 'Direcciones y Tarjetas', icon: MapPin, color: 'from-orange-500 to-red-500' },
+    { id: 'perfil', label: 'Mi Perfil', shortLabel: 'Perfil', icon: User, gradientIndex: 0 },
+    { id: 'perros', label: 'Mis Mascotas', shortLabel: 'Mascotas', icon: Dog, gradientIndex: 1 },
+    { id: 'direcciones', label: 'Direcciones', shortLabel: 'Direcciones', icon: MapPin, gradientIndex: 2 },
+    { id: 'tarjetas', label: 'Tarjetas', shortLabel: 'Tarjetas', icon: CreditCard, gradientIndex: 3 },
+    { id: 'notificaciones', label: 'Notificaciones', shortLabel: 'Avisos', icon: Bell, gradientIndex: 4 },
   ];
 
-
   const handleEditProfile = () => {
-    console.log('Edit profile clicked!')
-    console.log('User profile:', userProfile)
-    console.log('User:', user)
-    if (userProfile) {
-      console.log('Opening edit profile modal...')
-      setEditProfileOpen(true);
-    } else {
-      console.log('No user profile found, cannot edit')
-    }
+    if (userProfile) setEditProfileOpen(true);
   };
 
   const handleAddPet = () => {
@@ -60,14 +76,17 @@ const Ajustes: React.FC = () => {
     setDeletePetDialog({ open: true, pet });
   };
 
-  const getPetEmoji = (species: string) => {
-    switch (species.toLowerCase()) {
-      case 'dog': return '🐕';
-      case 'cat': return '🐱';
-      case 'bird': return '🐦';
-      case 'fish': return '🐠';
-      default: return '🐾';
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success('Sesión cerrada correctamente');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('is_new_user');
+      toast.success('Sesión cerrada');
     }
+    navigate('/login');
   };
 
   const formatDate = (dateString: string) => {
@@ -76,253 +95,344 @@ const Ajustes: React.FC = () => {
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  return (
-    <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-      <PageHeader 
-        title="Ajustes"
-        subtitle="Gestiona tu perfil y configuraciones"
-        gradient="from-purple-600 to-pink-600"
-      />
+  const initials = (userProfile?.full_name || user?.email || 'U')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
-      {/* Tabs */}
-      <div className="flex space-x-2 bg-gray-100 p-2 rounded-xl">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`
-              flex-1 flex items-center justify-center space-x-2 p-3 rounded-lg transition-all duration-200
-              ${activeTab === tab.id 
-                ? `bg-gradient-to-r ${tab.color} text-white shadow-lg` 
-                : 'text-gray-600 hover:bg-white'
-              }
-            `}
-          >
-            <tab.icon size={18} />
-            <span className="font-medium">{tab.label}</span>
-          </button>
-        ))}
+  return (
+    <DashboardShell>
+      {/* Mobile-first page title */}
+      <div className="space-y-1 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900">Ajustes</h1>
+        <p className="text-sm text-gray-500">Perfil, mascotas, pagos y notificaciones</p>
       </div>
 
-      {/* Content */}
+      <MobileTabStrip tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+
+      <MobileSectionCard className="p-4">
+        <button
+          type="button"
+          onClick={() => navigate('/pet-hub-blueprint')}
+          className="w-full flex items-center gap-3 text-left group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-landing-mango to-landing-tropical text-white shadow-sm">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 group-hover:text-landing-aqua-dark transition-colors">
+              PetHub Blueprint
+            </h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Conecta tu ecosistema y guía a Atis paso a paso
+            </p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 group-hover:text-landing-aqua-dark transition-colors" />
+        </button>
+      </MobileSectionCard>
+
+      {/* ——— Perfil ——— */}
       {activeTab === 'perfil' && (
-        <div className="space-y-6">
-          {/* User Profile */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-800">Información Personal</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleEditProfile}
-                disabled={profileLoading}
-                className="text-purple-600 hover:text-purple-700"
-              >
-                <Edit size={20} />
-              </Button>
-            </div>
-            
+        <div className="space-y-4">
+          <MobileSectionCard>
             {profileLoading ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <Skeleton className="w-20 h-20 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-6 w-32" />
-                    <Skeleton className="h-4 w-48" />
-                  </div>
+              <div className="p-5 space-y-4">
+                <div className="flex flex-col items-center">
+                  <Skeleton className="w-24 h-24 rounded-full" />
+                  <Skeleton className="h-6 w-32 mt-3" />
+                  <Skeleton className="h-4 w-40 mt-2" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full md:col-span-2" />
-                </div>
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
               </div>
             ) : (
               <>
-                <div className="flex items-center space-x-4 mb-6">
+                <div className="px-5 pt-6 pb-4 text-center bg-gradient-to-b from-landing-aqua/10 to-transparent">
                   {userProfile?.avatar_url ? (
                     <img
                       src={userProfile.avatar_url}
-                      alt="Profile"
-                      className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                      alt="Perfil"
+                      className="w-24 h-24 mx-auto rounded-full object-cover ring-4 ring-white shadow-lg"
                     />
                   ) : (
-                    <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                      {(userProfile?.full_name || user?.email || 'U').split(' ').map(n => n[0]).join('').toUpperCase()}
+                    <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-landing-aqua to-landing-mango flex items-center justify-center text-white text-2xl font-bold shadow-lg ring-4 ring-white">
+                      {initials}
                     </div>
                   )}
-                  <div>
-                    <h4 className="text-xl font-bold text-gray-800">
-                      {userProfile?.full_name || 'Usuario'}
-                    </h4>
-                    <p className="text-gray-600">
-                      Miembro desde {userProfile?.created_at ? formatDate(userProfile.created_at) : 'Enero 2024'}
-                    </p>
-                  </div>
+                  <h2 className="mt-3 text-xl font-bold text-gray-900">
+                    {userProfile?.full_name || 'Usuario'}
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Miembro desde {userProfile?.created_at ? formatDate(userProfile.created_at) : '—'}
+                  </p>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-500">Email</label>
-                    <p className="font-medium text-gray-800">{user?.email || 'usuario@email.com'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-500">Teléfono</label>
-                    <p className="font-medium text-gray-800">{userProfile?.phone || 'No especificado'}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="text-sm text-gray-500">Dirección</label>
-                    <p className="font-medium text-gray-800">{userProfile?.address || 'No especificada'}</p>
-                  </div>
+
+                <div className="px-5 pb-2">
+                  <MobileInfoRow label="Email" value={user?.email || '—'} />
+                  <MobileInfoRow label="Teléfono" value={userProfile?.phone || 'No especificado'} />
+                  <MobileInfoRow label="Dirección" value={userProfile?.address || 'No especificada'} last />
+                </div>
+
+                <div className="p-4 pt-2 border-t border-gray-100">
+                  <Button
+                    data-blueprint-guided="edit-profile"
+                    onClick={handleEditProfile}
+                    disabled={profileLoading}
+                    className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+                  >
+                    <Edit size={18} className="mr-2" />
+                    Editar perfil
+                  </Button>
                 </div>
               </>
             )}
+          </MobileSectionCard>
+
+          {/* Quick stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <MobileSectionCard className="p-4 text-center">
+              <Dog className="w-6 h-6 mx-auto text-landing-mint-dark mb-1" />
+              <p className="text-2xl font-bold text-gray-900">{pets?.length ?? 0}</p>
+              <p className="text-xs text-gray-500">Mascotas</p>
+            </MobileSectionCard>
+            <MobileSectionCard className="p-4 text-center">
+              <MapPin className="w-6 h-6 mx-auto text-landing-mango-dark mb-1" />
+              <p className="text-sm font-semibold text-gray-900 mt-1">Direcciones</p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('direcciones')}
+                className="text-xs text-landing-aqua-dark font-medium mt-1"
+              >
+                Gestionar →
+              </button>
+            </MobileSectionCard>
+            <MobileSectionCard className="p-4 text-center">
+              <CreditCard className="w-6 h-6 mx-auto text-landing-aqua-dark mb-1" />
+              <p className="text-sm font-semibold text-gray-900 mt-1">Tarjetas</p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('tarjetas')}
+                className="text-xs text-landing-aqua-dark font-medium mt-1"
+              >
+                Gestionar →
+              </button>
+            </MobileSectionCard>
           </div>
+
+          {isPetHubAdminUser(user?.email) && (
+            <MobileSectionCard className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900">PetHub Admin</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Consulta datos de productos, órdenes, usuarios y más.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => navigate('/pethub-admin')}
+                    className={`mt-3 min-h-[44px] ${landingBtnPrimary}`}
+                  >
+                    Abrir panel
+                  </Button>
+                </div>
+              </div>
+            </MobileSectionCard>
+          )}
+
+          <MobileSectionCard className="p-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSignOut}
+              className="w-full min-h-[48px] text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            >
+              <LogOut size={18} className="mr-2" />
+              Cerrar sesión
+            </Button>
+          </MobileSectionCard>
         </div>
       )}
 
-      {activeTab === 'direcciones' && (
-        <AddressesAndCardsTab userId={user?.id || ''} />
+      {/* ——— Notificaciones ——— */}
+      {activeTab === 'notificaciones' && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Notificaciones</h2>
+            <p className="text-sm text-gray-500">
+              Controla qué avisos ves en la app y cuáles llegan a tu dispositivo
+            </p>
+          </div>
+          <NotificationPreferencesSettings />
+        </div>
       )}
 
+      {/* ——— Direcciones ——— */}
+      {activeTab === 'direcciones' && (
+        <AddressesAndCardsTab userId={user?.id || ''} section="addresses" />
+      )}
+
+      {/* ——— Tarjetas ——— */}
+      {activeTab === 'tarjetas' && (
+        <AddressesAndCardsTab userId={user?.id || ''} section="cards" />
+      )}
+
+      {/* ——— Mascotas ——— */}
       {activeTab === 'perros' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-800">Mis Mascotas</h3>
-            <Button
-              onClick={handleAddPet}
-              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:from-green-600 hover:to-emerald-600"
-            >
-              <Plus size={16} />
-              <span>Agregar Mascota</span>
-            </Button>
+        <div className="space-y-4 pb-16">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Mis mascotas</h2>
+              <p className="text-sm text-gray-500">
+                {petsLoading ? '…' : `${pets?.length ?? 0} registrada${(pets?.length ?? 0) !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+            {!petsLoading && pets && pets.length > 0 && (
+              <Button
+                data-blueprint-guided="add-pet"
+                onClick={handleAddPet}
+                className={`hidden md:flex shrink-0 min-h-[44px] ${landingBtnPrimary}`}
+              >
+                <Plus size={18} className="mr-2" />
+                Agregar mascota
+              </Button>
+            )}
           </div>
 
           {petsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
               {[1, 2].map((i) => (
-                <div key={i} className="bg-white rounded-2xl p-6 shadow-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-4">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-5 w-24" />
-                        <Skeleton className="h-4 w-32" />
-                      </div>
+                <MobileSectionCard key={i} className="p-4">
+                  <div className="flex gap-3">
+                    <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-28" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {[1, 2, 3, 4].map((j) => (
-                      <Skeleton key={j} className="h-4 w-full" />
-                    ))}
-                  </div>
-                </div>
+                </MobileSectionCard>
               ))}
             </div>
           ) : pets && pets.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {pets.map((pet) => (
-                <div key={pet.id} className="bg-white rounded-2xl p-6 shadow-lg">
-                                     <div className="flex items-center justify-between mb-4">
-                     <div className="flex items-center space-x-4">
-                       {pet.image_url ? (
-                         <img
-                           src={pet.image_url}
-                           alt={pet.name}
-                           className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
-                         />
-                       ) : (
-                         <div className="text-4xl">{getPetEmoji(pet.species)}</div>
-                       )}
-                       <div>
-                         <h4 className="text-xl font-bold text-gray-800">{pet.name}</h4>
-                         <p className="text-gray-600">{pet.breed || pet.species}</p>
-                       </div>
-                     </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/pet-journey/${pet.id}`)}
-                        className="text-blue-600 hover:text-blue-700"
-                        title="Ver historial completo"
+            <div className="space-y-3">
+              {pets.map((pet, index) => {
+                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                const photoCount = getPetImageUrls(pet).length;
+                return (
+                  <MobileSectionCard key={pet.id} className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => setViewingPet(pet)}
+                      className="w-full flex gap-3 text-left active:opacity-80 transition-opacity"
+                    >
+                      <div className="relative shrink-0">
+                        <PetAvatar
+                          pet={pet}
+                          size="2xl"
+                          rounded="2xl"
+                          ring
+                          className="w-[72px] h-[72px] shadow-md"
+                        />
+                        {photoCount > 1 && (
+                          <span className="absolute -bottom-1 -right-1 bg-black/70 text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full">
+                            {photoCount}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 text-lg truncate">{pet.name}</h3>
+                        <p className="text-sm text-gray-500 truncate">
+                          {pet.breed || formatSpeciesLabel(pet.species)}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {pet.age != null && (
+                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                              {pet.age} años
+                            </span>
+                          )}
+                          {pet.weight != null && (
+                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                              {pet.weight} kg
+                            </span>
+                          )}
+                          {pet.available_for_breeding && (
+                            <span className="text-xs bg-landing-mint/15 text-landing-mint-dark px-2 py-0.5 rounded-full">
+                              Reproducción
+                            </span>
+                          )}
+                        </div>
+                        {pet.microchip && (
+                          <p className="text-xs text-gray-500 mt-1.5 truncate">
+                            Microchip: <span className="text-gray-700 font-medium">{pet.microchip}</span>
+                          </p>
+                        )}
+                      </div>
+                    </button>
+
+                    <div className="grid grid-cols-4 gap-1 mt-4 pt-3 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => setViewingPet(pet)}
+                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-landing-aqua-dark hover:bg-landing-aqua/10 active:bg-landing-aqua/15 min-h-[56px] justify-center"
                       >
-                        <Calendar size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditPet(pet)}
-                        className="text-purple-600 hover:text-purple-700"
-                      >
-                        <Edit size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeletePet(pet)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </Button>
+                        <Eye size={20} />
+                        <span className="text-[10px] font-medium">Ver</span>
+                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEditPet(pet)}
+                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[56px] justify-center"
+                        >
+                          <Edit size={20} />
+                          <span className="text-[10px] font-medium">Editar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePet(pet)}
+                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-red-500 hover:bg-red-50 active:bg-red-100 min-h-[56px] justify-center"
+                        >
+                          <Trash2 size={20} />
+                          <span className="text-[10px] font-medium">Eliminar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/pet-journey/${pet.id}`)}
+                          className={`flex flex-col items-center gap-1 py-2 rounded-xl text-white bg-gradient-to-r ${gradient} shadow-sm min-h-[56px] justify-center`}
+                        >
+                          <Home size={20} />
+                          <span className="text-[10px] font-medium">Journey</span>
+                        </button>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Edad:</span>
-                      <p className="font-medium text-gray-800">
-                        {pet.age ? `${pet.age} años` : 'No especificada'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Peso:</span>
-                      <p className="font-medium text-gray-800">
-                        {pet.weight ? `${pet.weight} kg` : 'No especificado'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Microchip:</span>
-                      <p className="font-medium text-gray-800">
-                        {pet.microchip || 'No especificado'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Reproducción:</span>
-                      <p className={`font-medium ${pet.available_for_breeding ? 'text-green-600' : 'text-gray-600'}`}>
-                        {pet.available_for_breeding ? 'Disponible' : 'No disponible'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    onClick={() => navigate(`/pet-journey/${pet.id}`)}
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 mt-4"
-                  >
-                    <Calendar size={16} className="mr-2" />
-                    Ver Historial Completo (My Pet Journey)
-                  </Button>
-                </div>
-              ))}
+                  </MobileSectionCard>
+                );
+              })}
             </div>
           ) : (
-            <div className="bg-white rounded-2xl p-12 shadow-lg text-center">
-              <div className="text-6xl mb-4">🐾</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">No tienes mascotas registradas</h3>
-              <p className="text-gray-600 mb-6">Comienza agregando tu primera mascota para gestionar su información</p>
-              <Button
-                onClick={handleAddPet}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-lg flex items-center space-x-2 mx-auto hover:from-green-600 hover:to-emerald-600"
-              >
-                <Plus size={20} />
-                <span>Agregar Primera Mascota</span>
+            <MobileSectionCard className="p-8 text-center">
+              <div className="text-5xl mb-3">🐾</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Sin mascotas aún</h3>
+              <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
+                Agrega tu primera mascota para gestionar su salud, nutrición y más
+              </p>
+              <Button data-blueprint-guided="add-pet" onClick={handleAddPet} className={`min-h-[48px] ${landingBtnPrimary}`}>
+                <Plus size={18} className="mr-2" />
+                Agregar mascota
               </Button>
-            </div>
+            </MobileSectionCard>
+          )}
+
+          {pets && pets.length > 0 && (
+            <MobileFab onClick={handleAddPet} label="Agregar" icon={<Plus size={20} />} className="md:hidden" data-blueprint-guided="add-pet" />
           )}
         </div>
       )}
 
-      {/* Modals */}
       {userProfile && (
         <EditProfileModal
           isOpen={editProfileOpen}
@@ -341,13 +451,22 @@ const Ajustes: React.FC = () => {
         ownerId={user?.id || ''}
       />
 
+      <PetDetailsModal
+        pet={viewingPet}
+        open={!!viewingPet}
+        onClose={() => setViewingPet(null)}
+        onEdit={handleEditPet}
+        onDelete={handleDeletePet}
+        onJourney={(petId) => navigate(`/pet-journey/${petId}`)}
+      />
+
       <DeletePetDialog
         isOpen={deletePetDialog.open}
         onClose={() => setDeletePetDialog({ open: false, pet: null })}
         petName={deletePetDialog.pet?.name || ''}
         petId={deletePetDialog.pet?.id || ''}
       />
-    </div>
+    </DashboardShell>
   );
 };
 

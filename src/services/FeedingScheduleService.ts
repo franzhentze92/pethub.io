@@ -1,4 +1,12 @@
 import { supabase } from '../lib/supabase';
+import {
+  autoCompleteOverdueMealsForUser,
+  generateMealsForSchedules,
+} from '../utils/feedingScheduleAutomation';
+import {
+  buildNutritionSessionInsertRow,
+  normalizeMealType,
+} from '../utils/nutritionSession';
 
 export interface FeedingSchedule {
   id: string;
@@ -72,14 +80,19 @@ export interface PetFood {
 
 export class FeedingScheduleService {
   // Generate meals for a specific date from all active schedules
-  static async generateMealsForDate(date: string): Promise<number> {
+  static async generateMealsForDate(date: string, userId?: string): Promise<number> {
     try {
       const { data, error } = await supabase.rpc('generate_daily_meals_from_schedules', {
         target_date: date
       });
 
-      if (error) throw error;
-      return data || 0;
+      if (!error) return data || 0;
+
+      if (!userId) throw error;
+
+      const schedules = await this.getFeedingSchedules(userId);
+      const target = new Date(`${date}T12:00:00`);
+      return generateMealsForSchedules(userId, schedules, 1, target);
     } catch (error) {
       console.error('Error generating meals for date:', error);
       throw error;
@@ -208,32 +221,16 @@ export class FeedingScheduleService {
         .from('automated_meals')
         .select(`
           *,
-          pet_foods!automated_meals_food_id_fkey (calories_per_100g, protein_per_100g, fat_per_100g, fiber_per_100g, ash_per_100g, moisture_per_100g)
+          pet_foods!automated_meals_food_id_fkey (*)
         `)
         .eq('id', mealId)
         .single();
 
       if (fetchError) throw fetchError;
 
-      // Calculate nutritional values
       const foodData = mealData.pet_foods;
       const quantity = actualData?.quantity_grams || mealData.quantity_grams;
-      const multiplier = quantity / 100; // Convert to per 100g basis
 
-      const nutritionalValues = {
-        calories_per_100g: foodData.calories_per_100g,
-        protein_per_100g: foodData.protein_per_100g,
-        fat_per_100g: foodData.fat_per_100g,
-        fiber_per_100g: foodData.fiber_per_100g,
-        carbs_per_100g: 100 - foodData.protein_per_100g - foodData.fat_per_100g - foodData.fiber_per_100g - foodData.ash_per_100g - foodData.moisture_per_100g,
-        total_calories: Math.round(foodData.calories_per_100g * multiplier),
-        total_protein: Math.round(foodData.protein_per_100g * multiplier * 10) / 10,
-        total_fat: Math.round(foodData.fat_per_100g * multiplier * 10) / 10,
-        total_carbs: Math.round((100 - foodData.protein_per_100g - foodData.fat_per_100g - foodData.fiber_per_100g - foodData.ash_per_100g - foodData.moisture_per_100g) * multiplier * 10) / 10,
-        total_fiber: Math.round(foodData.fiber_per_100g * multiplier * 10) / 10
-      };
-
-      // Update the meal
       const { data, error } = await supabase
         .from('automated_meals')
         .update({
@@ -244,7 +241,6 @@ export class FeedingScheduleService {
           actual_food_id: actualData?.food_id,
           actual_meal_type: actualData?.meal_type,
           actual_notes: actualData?.notes,
-          ...nutritionalValues
         })
         .eq('id', mealId)
         .select()
@@ -252,8 +248,7 @@ export class FeedingScheduleService {
 
       if (error) throw error;
 
-      // Also insert into nutrition_sessions for tracking
-      await this.insertIntoNutritionSessions(mealData, actualData, nutritionalValues);
+      await this.insertIntoNutritionSessions(mealData, actualData, foodData, quantity);
 
       return data;
     } catch (error) {
@@ -264,39 +259,27 @@ export class FeedingScheduleService {
 
   // Insert completed meal into nutrition_sessions for analytics
   private static async insertIntoNutritionSessions(
-    mealData: any, 
-    actualData: any, 
-    nutritionalValues: any
+    mealData: { owner_id: string; pet_id: string; scheduled_date: string; scheduled_time: string; meal_type: string; schedule_id: string },
+    actualData: { quantity_grams?: number; meal_type?: string; notes?: string } | undefined,
+    foodData: { name: string; brand?: string | null; food_type?: string | null; calories_per_100g?: number | null; protein_per_100g?: number | null; fat_per_100g?: number | null; carbs_per_100g?: number | null; fiber_per_100g?: number | null },
+    quantity: number,
   ): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('nutrition_sessions')
-        .insert({
-          owner_id: mealData.owner_id,
-          pet_id: mealData.pet_id,
-          date: mealData.scheduled_date,
-          meal_type: actualData?.meal_type || mealData.meal_type,
-          food_name: mealData.pet_foods?.name || '',
-          food_category: mealData.pet_foods?.food_type || 'dry_food',
-          quantity_grams: actualData?.quantity_grams || mealData.quantity_grams,
-          calories_per_100g: nutritionalValues.calories_per_100g,
-          protein_per_100g: nutritionalValues.protein_per_100g,
-          fat_per_100g: nutritionalValues.fat_per_100g,
-          carbs_per_100g: nutritionalValues.carbs_per_100g,
-          fiber_per_100g: nutritionalValues.fiber_per_100g,
-          total_calories: nutritionalValues.total_calories,
-          total_protein: nutritionalValues.total_protein,
-          total_fat: nutritionalValues.total_fat,
-          total_carbs: nutritionalValues.total_carbs,
-          total_fiber: nutritionalValues.total_fiber,
-          notes: actualData?.notes || `Comida automática - ${mealData.schedule_id}`,
-          feeding_time: mealData.scheduled_time
-        });
+      const payload = buildNutritionSessionInsertRow({
+        petId: mealData.pet_id,
+        ownerId: mealData.owner_id,
+        food: foodData,
+        quantityGrams: quantity,
+        date: mealData.scheduled_date,
+        feedingTime: mealData.scheduled_time,
+        mealType: normalizeMealType(actualData?.meal_type || mealData.meal_type),
+        notes: actualData?.notes || `Comida automática — horario ${mealData.schedule_id}`,
+      });
 
+      const { error } = await supabase.from('nutrition_sessions').insert(payload);
       if (error) throw error;
     } catch (error) {
       console.error('Error inserting into nutrition_sessions:', error);
-      // Don't throw here as this is supplementary data
     }
   }
 
@@ -324,6 +307,39 @@ export class FeedingScheduleService {
   }
 
   // Get upcoming meals for notifications
+  static async getScheduledMealsInRange(
+    userId: string,
+    daysAhead = 7,
+    petId?: string,
+  ): Promise<Array<AutomatedMeal & { pets?: { name?: string }; pet_foods?: { name?: string; brand?: string }; pet_feeding_schedules?: { schedule_name?: string } }>> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    end.setDate(end.getDate() + Math.max(1, daysAhead));
+
+    let query = supabase
+      .from('automated_meals')
+      .select(`
+        *,
+        pets (name),
+        pet_foods!automated_meals_food_id_fkey (name, brand),
+        pet_feeding_schedules (schedule_name)
+      `)
+      .eq('owner_id', userId)
+      .eq('status', 'scheduled')
+      .gte('scheduled_date', today.toISOString().split('T')[0])
+      .lte('scheduled_date', end.toISOString().split('T')[0])
+      .order('scheduled_date')
+      .order('scheduled_time');
+
+    if (petId) query = query.eq('pet_id', petId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Get upcoming meals for notifications
   static async getUpcomingMeals(userId: string, hoursAhead: number = 24): Promise<AutomatedMeal[]> {
     try {
       const now = new Date();
@@ -335,7 +351,7 @@ export class FeedingScheduleService {
           *,
           pets (name),
           pet_foods!automated_meals_food_id_fkey (name, brand),
-          pet_feeding_schedules (schedule_name, send_notifications, notification_minutes_before)
+          pet_feeding_schedules (schedule_name, send_notifications, notification_minutes_before, auto_complete_enabled, auto_complete_minutes_after)
         `)
         .eq('owner_id', userId)
         .eq('status', 'scheduled')
@@ -397,13 +413,93 @@ export class FeedingScheduleService {
     }
   }
 
+  // Mark multiple scheduled meals as completed (bulk)
+  static async completeScheduledMeals(
+    userId: string,
+    filters: {
+      date?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      petId?: string;
+      daysAhead?: number;
+    },
+  ): Promise<{
+    completed: number;
+    errors: string[];
+    meals: Array<{ id: string; pet_name: string; scheduled_date: string; scheduled_time: string }>;
+  }> {
+    let query = supabase
+      .from('automated_meals')
+      .select(`
+        id,
+        scheduled_date,
+        scheduled_time,
+        pets (name)
+      `)
+      .eq('owner_id', userId)
+      .eq('status', 'scheduled')
+      .order('scheduled_date')
+      .order('scheduled_time');
+
+    if (filters.date) {
+      query = query.eq('scheduled_date', filters.date);
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const from = filters.dateFrom ?? today.toISOString().split('T')[0];
+      query = query.gte('scheduled_date', from);
+
+      if (filters.dateTo) {
+        query = query.lte('scheduled_date', filters.dateTo);
+      } else if (filters.daysAhead) {
+        const end = new Date(today);
+        end.setDate(end.getDate() + Math.max(1, filters.daysAhead));
+        query = query.lte('scheduled_date', end.toISOString().split('T')[0]);
+      }
+    }
+
+    if (filters.petId) query = query.eq('pet_id', filters.petId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const rows = data ?? [];
+    const completed: Array<{
+      id: string;
+      pet_name: string;
+      scheduled_date: string;
+      scheduled_time: string;
+    }> = [];
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      try {
+        await this.markMealAsCompleted(row.id, userId, { notes: 'Completada desde Pet Buddy' });
+        completed.push({
+          id: row.id,
+          pet_name: (row.pets as { name?: string } | null)?.name ?? 'Mascota',
+          scheduled_date: row.scheduled_date,
+          scheduled_time: String(row.scheduled_time).slice(0, 5),
+        });
+      } catch (err) {
+        errors.push(
+          `${row.id}: ${err instanceof Error ? err.message : 'no se pudo completar'}`,
+        );
+      }
+    }
+
+    return { completed: completed.length, errors, meals: completed };
+  }
+
   // Auto-complete overdue meals
-  static async autoCompleteOverdueMeals(): Promise<number> {
+  static async autoCompleteOverdueMeals(userId?: string): Promise<number> {
     try {
       const { data, error } = await supabase.rpc('auto_complete_overdue_meals');
 
-      if (error) throw error;
-      return data || 0;
+      if (!error) return data || 0;
+
+      if (!userId) throw error;
+      return autoCompleteOverdueMealsForUser(userId);
     } catch (error) {
       console.error('Error auto-completing overdue meals:', error);
       throw error;

@@ -38,7 +38,7 @@ export const Pricing: React.FC = () => {
         'Exportación de datos'
       ],
       popular: true,
-      color: 'from-blue-500 to-cyan-500'
+      color: 'from-landing-aqua to-landing-mint'
     },
     {
       name: 'Profesional',
@@ -56,7 +56,7 @@ export const Pricing: React.FC = () => {
         'White-label disponible'
       ],
       popular: false,
-      color: 'from-purple-500 to-indigo-500'
+      color: 'from-landing-aqua to-landing-mint'
     }
   ];
 
@@ -96,12 +96,12 @@ export const Pricing: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-cyan-600 py-20">
+      <section className="bg-gradient-to-r from-landing-aqua to-landing-mint py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Planes y Precios
           </h1>
-          <p className="text-xl text-blue-100 max-w-2xl mx-auto">
+          <p className="text-xl text-white/80 max-w-2xl mx-auto">
             Elige el plan que mejor se adapte a tus necesidades. 
             Todos los planes incluyen acceso completo a la plataforma.
           </p>
@@ -125,12 +125,12 @@ export const Pricing: React.FC = () => {
               <Card 
                 key={index} 
                 className={`relative border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 ${
-                  plan.popular ? 'ring-2 ring-blue-500 scale-105' : ''
+                  plan.popular ? 'ring-2 ring-landing-aqua scale-105' : ''
                 }`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-2">
+                    <Badge className="bg-gradient-to-r from-landing-aqua to-landing-mint text-white px-4 py-2">
                       Más Popular
                     </Badge>
                   </div>
@@ -151,7 +151,7 @@ export const Pricing: React.FC = () => {
                   <ul className="space-y-3">
                     {plan.features.map((feature, idx) => (
                       <li key={idx} className="flex items-center text-sm">
-                        <Check className="w-4 h-4 text-green-500 mr-3 flex-shrink-0" />
+                        <Check className="w-4 h-4 text-landing-mint-dark mr-3 flex-shrink-0" />
                         <span className="text-gray-700">{feature}</span>
                       </li>
                     ))}
@@ -160,7 +160,7 @@ export const Pricing: React.FC = () => {
                   <div className="pt-6">
                                          <Link to={plan.name === 'Gratuito' ? '/app' : '/contact'}>
                        <Button 
-                         className="w-full bg-[#8cb43a] hover:bg-[#7aa32f] text-white text-lg py-3"
+                         className="w-full bg-landing-aqua-dark hover:bg-landing-aqua text-white text-lg py-3"
                        >
                          {plan.name === 'Gratuito' ? 'Comenzar Gratis' : 'Elegir Plan'}
                          <ArrowRight className="ml-2 w-4 h-4" />
@@ -246,11 +246,11 @@ export const Pricing: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  ¿Hay un período de prueba?
+                  ¿La plataforma es gratis?
                 </h3>
                 <p className="text-gray-600">
-                  Ofrecemos 14 días de prueba gratuita para todos los planes premium. 
-                  Sin compromisos, puedes cancelar en cualquier momento.
+                  Sí. PetHub es gratis para registrarte y usar. No hay período de prueba ni tarjeta
+                  de crédito requerida para empezar.
                 </p>
               </div>
             </div>
@@ -280,24 +280,24 @@ export const Pricing: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-cyan-600">
+      <section className="py-20 bg-gradient-to-r from-landing-aqua to-landing-mint">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-6">
             ¿Listo para Comenzar?
           </h2>
-          <p className="text-xl text-blue-100 mb-8">
+          <p className="text-xl text-white/80 mb-8">
             Únete a miles de familias que ya confían en PetHub para 
             el cuidado de sus mascotas.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
                          <Link to="/register">
-               <Button size="lg" className="bg-white text-[#8cb43a] hover:bg-gray-100 text-lg px-8 py-3">
+               <Button size="lg" className="bg-white text-landing-aqua-dark hover:bg-gray-100 text-lg px-8 py-3">
                  Crear Cuenta Gratis
                  <ArrowRight className="ml-2 w-5 h-5" />
                </Button>
              </Link>
             <Link to="/contact">
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-[#8cb43a] text-lg px-8 py-3">
+              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-landing-aqua-dark text-lg px-8 py-3">
                 Contactar Ventas
               </Button>
             </Link>

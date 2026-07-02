@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SectionLoader } from '@/components/PageLoader';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -37,16 +38,58 @@ interface Pet {
 interface Adventure {
   id: string;
   pet_id: string;
-  activity_type: 'walk' | 'play' | 'run' | 'hike' | 'swim';
+  activity_type: string;
   duration_minutes: number;
-  distance_km?: number;
   calories_burned: number;
   adventure_date: string;
   notes?: string;
-  energy_level: number;
-  xp_earned: number;
-  weather?: string;
   location?: string;
+}
+
+const ACTIVITY_TO_EXERCISE: Record<string, string> = {
+  walk: 'walk',
+  play: 'play',
+  run: 'run',
+  hike: 'hiking',
+  swim: 'swimming',
+};
+
+const EXERCISE_TO_ACTIVITY: Record<string, string> = {
+  walk: 'walk',
+  play: 'play',
+  run: 'run',
+  hiking: 'hike',
+  swimming: 'swim',
+};
+
+function computeDayStreak(dates: string[]): number {
+  if (dates.length === 0) return 0;
+  const days = new Set(dates.map((d) => (d.includes('T') ? d.split('T')[0] : d)));
+  const cursor = new Date();
+  cursor.setHours(12, 0, 0, 0);
+  const todayKey = cursor.toISOString().split('T')[0];
+  if (!days.has(todayKey)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  let streak = 0;
+  while (days.has(cursor.toISOString().split('T')[0])) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function estimateCalories(activityType: string, durationMinutes: number): number {
+  const rates: Record<string, number> = {
+    walk: 4,
+    play: 6,
+    run: 8,
+    hike: 10,
+    hiking: 10,
+    swim: 12,
+    swimming: 12,
+  };
+  return Math.round(durationMinutes * (rates[activityType] ?? 5));
 }
 
 const AdventureLog: React.FC = () => {
@@ -57,11 +100,11 @@ const AdventureLog: React.FC = () => {
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [loading, setLoading] = useState(false);
-  const [petEnergy, setPetEnergy] = useState(75);
-  const [petLevel, setPetLevel] = useState(1);
-  const [exerciseStreak, setExerciseStreak] = useState(2);
-  const [weeklyGoal, setWeeklyGoal] = useState(300); // minutes
-  const [weeklyProgress, setWeeklyProgress] = useState(180);
+  const [exerciseStreak, setExerciseStreak] = useState(0);
+  const [weeklyGoal] = useState(300);
+  const [weeklyProgress, setWeeklyProgress] = useState(0);
+  const [weekCalories, setWeekCalories] = useState(0);
+  const [todaySessions, setTodaySessions] = useState(0);
   
   // Quick adventure form
   const [quickAdventureForm, setQuickAdventureForm] = useState({
@@ -103,145 +146,144 @@ const AdventureLog: React.FC = () => {
   };
 
   const loadAdventures = async () => {
-    if (!selectedPet) return;
-    
+    if (!selectedPet || !user?.id) return;
+
     try {
       setLoading(true);
-      // Mock data for demonstration
-      const mockAdventures: Adventure[] = [
-        {
-          id: '1',
-          pet_id: selectedPet.id,
-          activity_type: 'walk',
-          duration_minutes: 30,
-          distance_km: 2.5,
-          calories_burned: 120,
-          adventure_date: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
-          notes: '¡Paseo muy divertido por el parque!',
-          energy_level: 85,
-          xp_earned: 10,
-          weather: 'Soleado',
-          location: 'Parque Central'
-        },
-        {
-          id: '2',
-          pet_id: selectedPet.id,
-          activity_type: 'play',
-          duration_minutes: 45,
-          calories_burned: 200,
-          adventure_date: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // Yesterday
-          notes: 'Jugamos con la pelota en el jardín',
-          energy_level: 90,
-          xp_earned: 15,
-          weather: 'Parcialmente nublado',
-          location: 'Casa'
-        }
-      ];
-      setAdventures(mockAdventures);
-      
+      const { data, error } = await supabase
+        .from('exercise_sessions')
+        .select('id, pet_id, exercise_type, duration_minutes, calories_burned, date, notes, created_at')
+        .eq('owner_id', user.id)
+        .eq('pet_id', selectedPet.id)
+        .order('date', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const mapped: Adventure[] = (data ?? []).map((row) => ({
+        id: row.id,
+        pet_id: row.pet_id,
+        activity_type: EXERCISE_TO_ACTIVITY[row.exercise_type] ?? row.exercise_type,
+        duration_minutes: row.duration_minutes,
+        calories_burned: row.calories_burned ?? estimateCalories(row.exercise_type, row.duration_minutes),
+        adventure_date: row.created_at ?? row.date,
+        notes: row.notes ?? undefined,
+      }));
+
+      setAdventures(mapped);
+      applyAdventureStats(mapped);
     } catch (error) {
       console.error('Error loading adventures:', error);
+      setAdventures([]);
+      applyAdventureStats([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculatePetStats = () => {
-    // Calculate weekly progress
+  const applyAdventureStats = (records: Adventure[]) => {
     const weekStart = new Date();
+    weekStart.setHours(0, 0, 0, 0);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    
-    const weeklyAdventures = adventures.filter(adv => 
-      new Date(adv.adventure_date) >= weekStart
-    );
-    
-    const weeklyMinutes = weeklyAdventures.reduce((total, adv) => total + adv.duration_minutes, 0);
-    setWeeklyProgress(weeklyMinutes);
-    
-    // Calculate energy and level based on recent activity
-    const recentActivity = adventures.filter(adv => 
-      new Date(adv.adventure_date) >= new Date(Date.now() - 24 * 60 * 60 * 1000)
-    );
-    
-    setPetEnergy(Math.min(100, 75 + (recentActivity.length * 5)));
-    setPetLevel(Math.floor(weeklyMinutes / 150) + 1);
+
+    const todayKey = new Date().toISOString().split('T')[0];
+    const weeklyRecords = records.filter((adv) => new Date(adv.adventure_date) >= weekStart);
+    const todayRecords = records.filter((adv) => {
+      const day = adv.adventure_date.includes('T') ? adv.adventure_date.split('T')[0] : adv.adventure_date;
+      return day === todayKey;
+    });
+
+    setWeeklyProgress(weeklyRecords.reduce((sum, adv) => sum + adv.duration_minutes, 0));
+    setWeekCalories(weeklyRecords.reduce((sum, adv) => sum + adv.calories_burned, 0));
+    setTodaySessions(todayRecords.length);
+    setExerciseStreak(computeDayStreak(records.map((adv) => adv.adventure_date)));
+  };
+
+  const calculatePetStats = () => {
+    applyAdventureStats(adventures);
   };
 
   const handleQuickAdventure = async () => {
-    if (!selectedPet || !quickAdventureForm.duration_minutes) {
+    if (!selectedPet || !user?.id || !quickAdventureForm.duration_minutes) {
       toast({
-        title: "Error",
-        description: "Por favor completa todos los campos requeridos",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Por favor completa todos los campos requeridos',
+        variant: 'destructive',
       });
       return;
     }
 
     try {
-      const duration = parseInt(quickAdventureForm.duration_minutes);
-      const distance = quickAdventureForm.distance_km ? parseFloat(quickAdventureForm.distance_km) : undefined;
-      
-      // Calculate calories based on activity type and duration
-      const caloriesPerMinute = {
-        walk: 4,
-        play: 6,
-        run: 8,
-        hike: 10,
-        swim: 12
-      };
-      
-      const calories = duration * caloriesPerMinute[quickAdventureForm.activity_type as keyof typeof caloriesPerMinute];
-      const xp = Math.floor(calories / 10) + (distance ? Math.floor(distance * 2) : 0);
+      setLoading(true);
+      const duration = parseInt(quickAdventureForm.duration_minutes, 10);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        toast({ title: 'Error', description: 'Duración inválida', variant: 'destructive' });
+        return;
+      }
 
-      const newAdventure: Adventure = {
-        id: Date.now().toString(),
+      const exerciseType =
+        ACTIVITY_TO_EXERCISE[quickAdventureForm.activity_type] ?? quickAdventureForm.activity_type;
+      const calories = estimateCalories(quickAdventureForm.activity_type, duration);
+      const today = new Date().toISOString().split('T')[0];
+      const notes = [
+        quickAdventureForm.notes?.trim(),
+        quickAdventureForm.location?.trim() ? `Lugar: ${quickAdventureForm.location.trim()}` : null,
+        quickAdventureForm.distance_km?.trim() ? `Distancia: ${quickAdventureForm.distance_km.trim()} km` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      const exerciseData = {
         pet_id: selectedPet.id,
-        activity_type: quickAdventureForm.activity_type as any,
+        owner_id: user.id,
+        exercise_type: exerciseType,
         duration_minutes: duration,
-        distance_km: distance,
+        intensity: 'medium',
+        date: today,
+        notes: notes || null,
         calories_burned: calories,
-        adventure_date: new Date().toISOString(),
-        notes: quickAdventureForm.notes,
-        energy_level: petEnergy + 10,
-        xp_earned: xp,
-        location: quickAdventureForm.location || 'Casa'
       };
 
-      setAdventures(prev => [newAdventure, ...prev]);
-      setPetEnergy(prev => Math.min(100, prev + 10));
-      setWeeklyProgress(prev => prev + duration);
-      setExerciseStreak(prev => prev + 1);
+      const { error } = await supabase.from('exercise_sessions').insert([exerciseData]);
+      if (error) throw error;
+
+      await loadAdventures();
 
       toast({
-        title: "¡Aventura completada! 🏃",
-        description: `${selectedPet.name} se divirtió mucho. +${xp} XP ganado!`,
+        title: 'Ejercicio registrado',
+        description: `Se guardó la sesión de ${selectedPet.name}.`,
       });
 
-      // Reset form
       setQuickAdventureForm({
         activity_type: 'walk',
         duration_minutes: '',
         distance_km: '',
         location: '',
-        notes: ''
+        notes: '',
       });
-
     } catch (error) {
       console.error('Error recording adventure:', error);
       toast({
-        title: "Error",
-        description: "No se pudo registrar la aventura",
-        variant: "destructive"
+        title: 'Error',
+        description: 'No se pudo registrar la aventura',
+        variant: 'destructive',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const getPetMood = () => {
-    if (petEnergy >= 90) return { mood: 'energetic', message: '¡Estoy súper energético!', icon: '⚡', color: 'text-yellow-500' };
-    if (petEnergy >= 70) return { mood: 'active', message: 'Me siento muy activo', icon: '🏃', color: 'text-green-500' };
-    if (petEnergy >= 50) return { mood: 'normal', message: 'Estoy listo para jugar', icon: '😊', color: 'text-blue-500' };
-    if (petEnergy >= 30) return { mood: 'tired', message: 'Estoy un poco cansado', icon: '😴', color: 'text-orange-500' };
-    return { mood: 'exhausted', message: 'Necesito descansar', icon: '😵', color: 'text-red-500' };
+    const progressPct = weeklyGoal > 0 ? (weeklyProgress / weeklyGoal) * 100 : 0;
+    if (progressPct >= 100)
+      return { message: 'Meta semanal cumplida', icon: '⚡', color: 'text-yellow-500' };
+    if (todaySessions > 0)
+      return { message: 'Actividad registrada hoy', icon: '🏃', color: 'text-green-500' };
+    if (progressPct >= 50)
+      return { message: 'Buen progreso esta semana', icon: '😊', color: 'text-blue-500' };
+    if (exerciseStreak > 0)
+      return { message: 'Sin ejercicio hoy aún', icon: '😐', color: 'text-orange-500' };
+    return { message: 'Registra la primera sesión', icon: '🏃', color: 'text-gray-600' };
   };
 
   const getActivityIcon = (activityType: string) => {
@@ -307,7 +349,7 @@ const AdventureLog: React.FC = () => {
                   </div>
                 )}
                 <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-yellow-800">{petLevel}</span>
+                  <span className="text-xs font-bold text-yellow-800">{todaySessions}</span>
                 </div>
               </div>
               <div>
@@ -320,21 +362,21 @@ const AdventureLog: React.FC = () => {
             </div>
             
             <div className="text-right">
-              <div className="flex items-center space-x-4 mb-2">
+              <div className="flex items-center space-x-4 mb-2 justify-end">
                 <div className="flex items-center space-x-1">
-                  <Zap className="w-5 h-5 text-yellow-500" />
-                  <span className="font-bold text-gray-900">{petEnergy}%</span>
+                  <Timer className="w-5 h-5 text-blue-500" />
+                  <span className="font-bold text-gray-900">{weeklyProgress} min</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Flame className="w-5 h-5 text-orange-500" />
                   <span className="font-bold text-gray-900">{exerciseStreak} días</span>
                 </div>
               </div>
-              <div className="w-32 bg-gray-200 rounded-full h-2">
-                <div 
+              <div className="w-32 bg-gray-200 rounded-full h-2 ml-auto">
+                <div
                   className="bg-gradient-to-r from-yellow-400 to-green-500 h-2 rounded-full transition-all duration-1000"
-                  style={{ width: `${petEnergy}%` }}
-                ></div>
+                  style={{ width: `${Math.min(100, weeklyGoal > 0 ? (weeklyProgress / weeklyGoal) * 100 : 0)}%` }}
+                />
               </div>
             </div>
           </div>
@@ -346,7 +388,7 @@ const AdventureLog: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-gray-900">
             <Target className="w-6 h-6 text-blue-600" />
-            🎯 Meta Semanal de Ejercicio
+            🎯 Meta semanal sugerida ({weeklyGoal} min)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -461,7 +503,7 @@ const AdventureLog: React.FC = () => {
           <CardContent className="p-4 text-center">
             <Activity className="w-6 h-6 mx-auto mb-2" />
             <div className="text-2xl font-bold">{adventures.length}</div>
-            <div className="text-sm opacity-90">Aventuras</div>
+            <div className="text-sm opacity-90">Sesiones totales</div>
           </CardContent>
         </Card>
         
@@ -483,9 +525,9 @@ const AdventureLog: React.FC = () => {
         
         <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
           <CardContent className="p-4 text-center">
-            <Trophy className="w-6 h-6 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{petLevel}</div>
-            <div className="text-sm opacity-90">Nivel</div>
+            <Flame className="w-6 h-6 mx-auto mb-2" />
+            <div className="text-2xl font-bold">{weekCalories}</div>
+            <div className="text-sm opacity-90">Calorías semana</div>
           </CardContent>
         </Card>
       </div>
@@ -500,10 +542,7 @@ const AdventureLog: React.FC = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Cargando aventuras...</p>
-            </div>
+            <SectionLoader message="Cargando aventuras…" />
           ) : adventures.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-4xl mb-4">🏃</div>
@@ -522,33 +561,21 @@ const AdventureLog: React.FC = () => {
                         <Badge variant="secondary" className="bg-green-100 text-green-800">
                           {adventure.duration_minutes} min
                         </Badge>
-                        {adventure.distance_km && (
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                            {adventure.distance_km} km
-                          </Badge>
-                        )}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {new Date(adventure.adventure_date).toLocaleString()}
-                        {adventure.location && ` • ${adventure.location}`}
+                        {new Date(adventure.adventure_date).toLocaleString('es-GT')}
                       </div>
                       {adventure.notes && (
                         <div className="text-sm text-gray-600 mt-1">
-                          💬 {adventure.notes}
+                          {adventure.notes}
                         </div>
                       )}
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-gray-700">+{adventure.xp_earned} XP</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Zap className="w-4 h-4 text-yellow-500" />
-                      <span className="text-sm text-gray-600">{adventure.calories_burned} cal</span>
-                    </div>
+
+                  <div className="flex items-center space-x-1 shrink-0">
+                    <Flame className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm text-gray-600">{adventure.calories_burned} kcal</span>
                   </div>
                 </div>
               ))}
@@ -565,10 +592,10 @@ const AdventureLog: React.FC = () => {
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Consejos para aventuras con {selectedPet.name}</h3>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Ejercita a {selectedPet.name} regularmente para mantener su energía alta</li>
-                <li>• Cada aventura aumenta su energía y te da puntos de experiencia</li>
-                <li>• ¡Mantén la racha de ejercicio para ganar logros especiales!</li>
-                <li>• Las actividades más intensas dan más XP y calorías quemadas</li>
+                <li>• Registra cada paseo o juego para ver minutos y calorías reales</li>
+                <li>• La meta de {weeklyGoal} min/semana es una referencia general</li>
+                <li>• La racha cuenta días consecutivos con al menos una sesión</li>
+                <li>• También puedes registrar ejercicio desde Trazabilidad en Cuidado</li>
               </ul>
             </div>
           </div>

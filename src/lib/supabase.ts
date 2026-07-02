@@ -31,7 +31,7 @@ export interface Database {
           phone: string | null
           address: string | null
           avatar_url: string | null
-          role: 'client' | 'provider' | 'shelter' | null
+          role: 'client' | 'provider' | 'shelter' | 'admin' | 'delivery' | null
           created_at: string
           updated_at: string
         }
@@ -100,6 +100,35 @@ export interface Database {
           owner_id?: string
           created_at?: string
           updated_at?: string
+        }
+      }
+      pet_images: {
+        Row: {
+          id: string
+          pet_id: string | null
+          adoption_pet_id: string | null
+          lost_pet_id: string | null
+          image_url: string
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id?: string | null
+          adoption_pet_id?: string | null
+          lost_pet_id?: string | null
+          image_url: string
+          display_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string | null
+          adoption_pet_id?: string | null
+          lost_pet_id?: string | null
+          image_url?: string
+          display_order?: number
+          created_at?: string
         }
       }
       shelters: {
@@ -221,6 +250,7 @@ export interface Database {
           id: string
           owner_id: string
           shelter_id: string | null
+          pet_id: string | null
           name: string
           species: string
           breed: string | null
@@ -250,6 +280,7 @@ export interface Database {
           id?: string
           owner_id: string
           shelter_id?: string | null
+          pet_id?: string | null
           name: string
           species?: string
           breed?: string | null
@@ -279,6 +310,7 @@ export interface Database {
           id?: string
           owner_id?: string
           shelter_id?: string | null
+          pet_id?: string | null
           name?: string
           species?: string
           breed?: string | null
@@ -398,6 +430,380 @@ export interface Database {
           shelter_id?: string
           user_id?: string
           created_at?: string
+        }
+      }
+      veterinary_sessions: {
+        Row: {
+          id: string
+          pet_id: string
+          owner_id: string
+          appointment_type: string
+          date: string
+          veterinarian_name: string
+          veterinary_clinic: string | null
+          diagnosis: string
+          treatment: string | null
+          notes: string | null
+          prescription: string | null
+          follow_up_date: string | null
+          follow_up_completed_at: string | null
+          cost: number | null
+          pdf_url: string | null
+          invoice_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          owner_id: string
+          appointment_type: string
+          date: string
+          veterinarian_name: string
+          veterinary_clinic?: string | null
+          diagnosis?: string
+          treatment?: string | null
+          notes?: string | null
+          prescription?: string | null
+          follow_up_date?: string | null
+          follow_up_completed_at?: string | null
+          cost?: number | null
+          pdf_url?: string | null
+          invoice_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          owner_id?: string
+          appointment_type?: string
+          date?: string
+          veterinarian_name?: string
+          veterinary_clinic?: string | null
+          diagnosis?: string
+          treatment?: string | null
+          notes?: string | null
+          prescription?: string | null
+          follow_up_date?: string | null
+          follow_up_completed_at?: string | null
+          cost?: number | null
+          pdf_url?: string | null
+          invoice_url?: string | null
+          created_at?: string
+        }
+      }
+      vet_document_extractions: {
+        Row: {
+          id: string
+          session_id: string
+          owner_id: string
+          document_url: string
+          document_type: string
+          raw_text: string | null
+          structured_data: Record<string, unknown> | null
+          summary: string | null
+          parse_status: string
+          parse_error: string | null
+          parsed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          owner_id: string
+          document_url: string
+          document_type?: string
+          raw_text?: string | null
+          structured_data?: Record<string, unknown> | null
+          summary?: string | null
+          parse_status?: string
+          parse_error?: string | null
+          parsed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          owner_id?: string
+          document_url?: string
+          document_type?: string
+          raw_text?: string | null
+          structured_data?: Record<string, unknown> | null
+          summary?: string | null
+          parse_status?: string
+          parse_error?: string | null
+          parsed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      health_records: {
+        Row: {
+          id: string
+          pet_id: string
+          visit_type: string
+          date: string
+          veterinarian: string | null
+          clinic: string | null
+          diagnosis: string | null
+          treatment: string | null
+          medications: string | null
+          notes: string | null
+          cost: number | null
+          follow_up_date: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          visit_type: string
+          date: string
+          veterinarian?: string | null
+          clinic?: string | null
+          diagnosis?: string | null
+          treatment?: string | null
+          medications?: string | null
+          notes?: string | null
+          cost?: number | null
+          follow_up_date?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          visit_type?: string
+          date?: string
+          veterinarian?: string | null
+          clinic?: string | null
+          diagnosis?: string | null
+          treatment?: string | null
+          medications?: string | null
+          notes?: string | null
+          cost?: number | null
+          follow_up_date?: string | null
+          created_at?: string
+        }
+      }
+      vaccine_catalog: {
+        Row: {
+          slug: string
+          name: string
+          species: string[]
+          interval_months: number
+          description: string | null
+          is_core: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          slug: string
+          name: string
+          species: string[]
+          interval_months?: number
+          description?: string | null
+          is_core?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          slug?: string
+          name?: string
+          species?: string[]
+          interval_months?: number
+          description?: string | null
+          is_core?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      pet_vaccinations: {
+        Row: {
+          id: string
+          pet_id: string
+          owner_id: string
+          vaccine_slug: string | null
+          vaccine_name: string
+          administered_at: string
+          next_due_date: string | null
+          batch_number: string | null
+          veterinarian_name: string | null
+          veterinary_clinic: string | null
+          session_id: string | null
+          notes: string | null
+          reminder_completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          owner_id: string
+          vaccine_slug?: string | null
+          vaccine_name: string
+          administered_at: string
+          next_due_date?: string | null
+          batch_number?: string | null
+          veterinarian_name?: string | null
+          veterinary_clinic?: string | null
+          session_id?: string | null
+          notes?: string | null
+          reminder_completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          owner_id?: string
+          vaccine_slug?: string | null
+          vaccine_name?: string
+          administered_at?: string
+          next_due_date?: string | null
+          batch_number?: string | null
+          veterinarian_name?: string | null
+          veterinary_clinic?: string | null
+          session_id?: string | null
+          notes?: string | null
+          reminder_completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      pet_reminders: {
+        Row: {
+          id: string
+          pet_id: string
+          owner_id: string | null
+          reminder_type: string
+          title: string | null
+          description: string | null
+          due_date: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          frequency: string
+          is_active: boolean
+          is_completed: boolean
+          priority: string
+          completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          owner_id?: string | null
+          reminder_type: string
+          title?: string | null
+          description?: string | null
+          due_date?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          frequency?: string
+          is_active?: boolean
+          is_completed?: boolean
+          priority?: string
+          completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          owner_id?: string | null
+          reminder_type?: string
+          title?: string | null
+          description?: string | null
+          due_date?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          frequency?: string
+          is_active?: boolean
+          is_completed?: boolean
+          priority?: string
+          completed_at?: string | null
+          created_at?: string
+        }
+      }
+      user_notification_preferences: {
+        Row: {
+          user_id: string
+          notify_feeding: boolean
+          notify_exercise: boolean
+          notify_breeding: boolean
+          notify_adoption: boolean
+          notify_lost_pets: boolean
+          notify_orders: boolean
+          notify_vet: boolean
+          notify_account: boolean
+          push_feeding: boolean
+          push_exercise: boolean
+          push_orders: boolean
+          push_breeding: boolean
+          push_adoption: boolean
+          push_lost_pets: boolean
+          push_vet: boolean
+          dismissed_account_prompts: string[]
+          read_adoption_notifications: string[]
+          read_breeding_notifications: string[]
+          read_lost_pet_notifications: string[]
+          read_order_notifications: string[]
+          read_exercise_notifications: string[]
+          read_vet_notifications: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          notify_feeding?: boolean
+          notify_exercise?: boolean
+          notify_breeding?: boolean
+          notify_adoption?: boolean
+          notify_lost_pets?: boolean
+          notify_orders?: boolean
+          notify_vet?: boolean
+          notify_account?: boolean
+          push_feeding?: boolean
+          push_exercise?: boolean
+          push_orders?: boolean
+          push_breeding?: boolean
+          push_adoption?: boolean
+          push_lost_pets?: boolean
+          push_vet?: boolean
+          dismissed_account_prompts?: string[]
+          read_adoption_notifications?: string[]
+          read_breeding_notifications?: string[]
+          read_lost_pet_notifications?: string[]
+          read_order_notifications?: string[]
+          read_exercise_notifications?: string[]
+          read_vet_notifications?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          notify_feeding?: boolean
+          notify_exercise?: boolean
+          notify_breeding?: boolean
+          notify_adoption?: boolean
+          notify_lost_pets?: boolean
+          notify_orders?: boolean
+          notify_vet?: boolean
+          notify_account?: boolean
+          push_feeding?: boolean
+          push_exercise?: boolean
+          push_orders?: boolean
+          push_breeding?: boolean
+          push_adoption?: boolean
+          push_lost_pets?: boolean
+          push_vet?: boolean
+          dismissed_account_prompts?: string[]
+          read_adoption_notifications?: string[]
+          read_breeding_notifications?: string[]
+          read_lost_pet_notifications?: string[]
+          read_order_notifications?: string[]
+          read_exercise_notifications?: string[]
+          read_vet_notifications?: string[]
+          created_at?: string
+          updated_at?: string
         }
       }
     }

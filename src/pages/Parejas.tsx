@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -22,15 +23,33 @@ import {
   Clock,
   Users,
   Send,
-  RefreshCw
+  RefreshCw,
+  MessagesSquare,
+  Inbox,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import BreedingFilters from '@/components/BreedingFilters';
 import BreedingChatModal from '@/components/BreedingChatModal';
-import PageHeader from '@/components/PageHeader';
-import { useNavigation } from '@/contexts/NavigationContext';
-
+import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { MobileTabStrip, type MobileTabItem } from '@/components/mobile/MobileTabStrip';
+import { MobileSectionCard } from '@/components/mobile/MobileUi';
+import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PetPhotoCarousel, PetPhotoThumbnails } from '@/components/mobile/PetPhotoCarousel';
+import { getPrimaryPetImageUrl, getPetImageUrls, type PetImageRow } from '@/utils/petImages';
+import {
+  formatSpeciesLabel,
+  formatGenderLabel,
+  formatPetAge,
+  formatPetWeight,
+  isMaleGender,
+} from '@/utils/petLabels';
+import { cn } from '@/lib/utils';
+import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
+import type { CarouselApi } from '@/components/ui/carousel';
 interface Pet {
   id: string;
   name: string;
@@ -41,6 +60,7 @@ interface Pet {
   gender: string;
   color: string;
   image_url?: string;
+  pet_images?: PetImageRow[] | null;
   owner_id: string;
   available_for_breeding?: boolean;
   owner?: {
@@ -66,22 +86,42 @@ interface BreedingMatch {
     full_name: string;
     phone: string;
   };
+  requester_owner?: {
+    id: string;
+    full_name: string;
+    phone: string;
+  };
+}
+
+interface BreedingChatRoomSummary {
+  id: string;
+  breeding_match_id: string;
+  updated_at: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
 }
 
 const Parejas: React.FC = () => {
   const { user } = useAuth();
-  const { isMobileMenuOpen, toggleMobileMenu } = useNavigation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const guidedTour = useBlueprintGuidedTourOptional();
   const [myPets, setMyPets] = useState<Pet[]>([]);
   const [availablePets, setAvailablePets] = useState<Pet[]>([]);
   const [myMatches, setMyMatches] = useState<BreedingMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterSpecies, setFilterSpecies] = useState<string>('all');
-  const [filterBreed, setFilterBreed] = useState<string>('all');
-  const [filterGender, setFilterGender] = useState<string>('all');
-  const [filterAge, setFilterAge] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    search: '',
+    species: 'all',
+    breed: 'all',
+    gender: 'all',
+    age: 'all'
+  });
   const [selectedPetDetails, setSelectedPetDetails] = useState<Pet | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailCarouselApi, setDetailCarouselApi] = useState<CarouselApi>();
+  const [detailPhotoIndex, setDetailPhotoIndex] = useState(0);
   const [isViewingFromRequest, setIsViewingFromRequest] = useState(false);
   const [receivedRequests, setReceivedRequests] = useState<BreedingMatch[]>([]);
   const [sentRequests, setSentRequests] = useState<BreedingMatch[]>([]);
@@ -97,12 +137,59 @@ const Parejas: React.FC = () => {
   const [receivedRequestsFilter, setReceivedRequestsFilter] = useState<string>('all');
   const [matchesSearch, setMatchesSearch] = useState('all');
   const [matchesFilter, setMatchesFilter] = useState<string>('all');
+  const [chatRoomsByMatchId, setChatRoomsByMatchId] = useState<Record<string, BreedingChatRoomSummary>>({});
+
+  useEffect(() => {
+    const tab = (location.state as { tab?: string } | null)?.tab;
+    if (
+      tab &&
+      ['pet-tinder', 'solicitudes-enviadas', 'solicitudes-recibidas', 'chats'].includes(tab)
+    ) {
+      setActiveTab(tab);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    const state = location.state as {
+      breedingMatchId?: string;
+      openChat?: boolean;
+      tab?: string;
+    } | null;
+    if (!state?.breedingMatchId || loading) return;
+
+    const match = myMatches.find((item) => item.id === state.breedingMatchId);
+    if (!match) return;
+
+    if (state.openChat && (match.status === 'accepted' || match.status === 'matched')) {
+      setSelectedMatchForChat(match);
+      setShowChatModal(true);
+    }
+
+    navigate('/parejas', {
+      replace: true,
+      state: { tab: state.tab ?? activeTab },
+    });
+  }, [location.state, myMatches, loading, activeTab, navigate]);
 
   useEffect(() => {
     if (user) {
       loadData();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!detailCarouselApi) return;
+    const onSelect = () => setDetailPhotoIndex(detailCarouselApi.selectedScrollSnap());
+    onSelect();
+    detailCarouselApi.on('select', onSelect);
+    return () => {
+      detailCarouselApi.off('select', onSelect);
+    };
+  }, [detailCarouselApi]);
+
+  useEffect(() => {
+    if (showDetailsModal) setDetailPhotoIndex(0);
+  }, [showDetailsModal, selectedPetDetails?.id]);
 
   // Subscribe to real-time updates for breeding_matches
   useEffect(() => {
@@ -125,6 +212,7 @@ const Parejas: React.FC = () => {
         (payload) => {
           console.log('Breeding match changed (owner):', payload);
           loadData();
+          dispatchNotificationsUpdated();
         }
       )
       .subscribe();
@@ -142,6 +230,7 @@ const Parejas: React.FC = () => {
         (payload) => {
           console.log('Breeding match changed (partner):', payload);
           loadData();
+          dispatchNotificationsUpdated();
         }
       )
       .subscribe();
@@ -186,7 +275,7 @@ const Parejas: React.FC = () => {
       // Load my pets
       const { data: petsData, error: petsError } = await supabase
         .from('pets')
-        .select('*')
+        .select('*, pet_images(image_url, display_order)')
         .eq('owner_id', user?.id);
 
       if (petsError) throw petsError;
@@ -253,7 +342,7 @@ const Parejas: React.FC = () => {
           // Try the standard query first
           const result1 = await supabase
             .from('pets')
-            .select('*')
+            .select('*, pet_images(image_url, display_order)')
             .eq('available_for_breeding', true)
             .neq('owner_id', user.id);
           
@@ -267,7 +356,7 @@ const Parejas: React.FC = () => {
             // Try querying all pets first, then filter in JavaScript
             const allPetsResult = await supabase
               .from('pets')
-              .select('*');
+              .select('*, pet_images(image_url, display_order)');
             
             console.log('All pets query result:', allPetsResult.data);
             console.log('All pets query error:', allPetsResult.error);
@@ -319,8 +408,8 @@ const Parejas: React.FC = () => {
         .from('breeding_matches')
         .select(`
           *,
-          pet:pets!breeding_matches_pet_id_fkey(*),
-          potential_partner:pets!breeding_matches_potential_partner_id_fkey(*)
+          pet:pets!breeding_matches_pet_id_fkey(*, pet_images(image_url, display_order)),
+          potential_partner:pets!breeding_matches_potential_partner_id_fkey(*, pet_images(image_url, display_order))
         `)
         .or(`owner_id.eq.${user?.id},partner_owner_id.eq.${user?.id}`);
 
@@ -332,28 +421,43 @@ const Parejas: React.FC = () => {
       } else {
         const allMatches = matchesData || [];
         
-        // Get user profiles for partner owners
-        const partnerOwnerIds = [...new Set(allMatches.map(match => match.partner_owner_id))];
-        let partnerProfiles = {};
+        const profileUserIds = [...new Set([
+          ...allMatches.map((match) => match.partner_owner_id),
+          ...allMatches.map((match) => match.owner_id),
+        ])].filter(Boolean);
+
+        let profilesByUserId: Record<string, { full_name: string; phone: string | null }> = {};
         
-        if (partnerOwnerIds.length > 0) {
+        if (profileUserIds.length > 0) {
           const { data: profilesData } = await supabase
             .from('user_profiles')
             .select('user_id, full_name, phone')
-            .in('user_id', partnerOwnerIds);
+            .in('user_id', profileUserIds);
           
           if (profilesData) {
-            partnerProfiles = profilesData.reduce((acc, profile) => {
+            profilesByUserId = profilesData.reduce((acc, profile) => {
               acc[profile.user_id] = profile;
               return acc;
-            }, {});
+            }, {} as Record<string, { full_name: string; phone: string | null }>);
           }
         }
         
-        // Add partner profiles to matches
-        const enrichedMatches = allMatches.map(match => ({
+        const enrichedMatches = allMatches.map((match) => ({
           ...match,
-          partner_owner: partnerProfiles[match.partner_owner_id]
+          partner_owner: profilesByUserId[match.partner_owner_id]
+            ? {
+                id: match.partner_owner_id,
+                full_name: profilesByUserId[match.partner_owner_id].full_name,
+                phone: profilesByUserId[match.partner_owner_id].phone ?? '',
+              }
+            : undefined,
+          requester_owner: profilesByUserId[match.owner_id]
+            ? {
+                id: match.owner_id,
+                full_name: profilesByUserId[match.owner_id].full_name,
+                phone: profilesByUserId[match.owner_id].phone ?? '',
+              }
+            : undefined,
         }));
         
         setMyMatches(enrichedMatches);
@@ -364,6 +468,8 @@ const Parejas: React.FC = () => {
         
         setReceivedRequests(received);
         setSentRequests(sent);
+
+        await loadBreedingChatRooms(enrichedMatches);
       }
 
     } catch (error) {
@@ -371,6 +477,70 @@ const Parejas: React.FC = () => {
       toast.error('Error al cargar los datos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBreedingChatRooms = async (matches: BreedingMatch[]) => {
+    const chatEligible = matches.filter(
+      (match) => match.status === 'accepted' || match.status === 'matched'
+    );
+
+    if (chatEligible.length === 0) {
+      setChatRoomsByMatchId({});
+      return;
+    }
+
+    try {
+      const matchIds = chatEligible.map((match) => match.id);
+      const { data: rooms, error: roomsError } = await supabase
+        .from('chat_rooms')
+        .select('id, breeding_match_id, updated_at')
+        .in('breeding_match_id', matchIds);
+
+      if (roomsError) {
+        console.error('Error loading breeding chat rooms:', roomsError);
+        setChatRoomsByMatchId({});
+        return;
+      }
+
+      if (!rooms?.length) {
+        setChatRoomsByMatchId({});
+        return;
+      }
+
+      const roomIds = rooms.map((room) => room.id);
+      const { data: messages } = await supabase
+        .from('chat_messages')
+        .select('chat_room_id, message, created_at')
+        .in('chat_room_id', roomIds)
+        .order('created_at', { ascending: false });
+
+      const lastMessageByRoomId: Record<string, { message: string; created_at: string }> = {};
+      for (const message of messages ?? []) {
+        if (!lastMessageByRoomId[message.chat_room_id]) {
+          lastMessageByRoomId[message.chat_room_id] = {
+            message: message.message,
+            created_at: message.created_at,
+          };
+        }
+      }
+
+      const summaryByMatchId = rooms.reduce((acc, room) => {
+        const lastMessage = lastMessageByRoomId[room.id];
+        acc[room.breeding_match_id] = {
+          id: room.id,
+          breeding_match_id: room.breeding_match_id,
+          updated_at: room.updated_at,
+          lastMessage: lastMessage?.message,
+          lastMessageAt: lastMessage?.created_at,
+        };
+        return acc;
+      }, {} as Record<string, BreedingChatRoomSummary>);
+
+      setChatRoomsByMatchId(summaryByMatchId);
+    } catch (error) {
+      console.error('Error loading breeding chat rooms:', error);
+      setChatRoomsByMatchId({});
     }
   };
 
@@ -443,6 +613,8 @@ const Parejas: React.FC = () => {
         setAvailablePets(prev => prev.filter(p => p.id !== targetPet.id));
         // Reload data to update requests
         await loadData();
+        dispatchNotificationsUpdated();
+        void guidedTour?.notifySectionSaved('breeding');
       }
     } catch (error: any) {
       console.error('Error sending love request:', error);
@@ -464,21 +636,49 @@ const Parejas: React.FC = () => {
     setShowDetailsModal(true);
   };
 
-  const handleViewRequestDetails = (request: BreedingMatch) => {
-    // Prepare the pet with owner information from the request
-    if (request.potential_partner) {
+  const handleViewRequestDetails = (request: BreedingMatch, type: 'received' | 'sent' = 'received') => {
+    const targetPet = type === 'received' ? request.pet : request.potential_partner;
+    const ownerInfo = type === 'received' ? request.requester_owner : request.partner_owner;
+
+    if (targetPet) {
       const petWithOwner: Pet = {
-        ...request.potential_partner,
-        owner: request.partner_owner ? {
-          id: request.partner_owner.id,
-          full_name: request.partner_owner.full_name,
-          phone: request.partner_owner.phone
-        } : request.potential_partner.owner
+        ...targetPet,
+        owner: ownerInfo
+          ? {
+              id: ownerInfo.id,
+              full_name: ownerInfo.full_name,
+              phone: ownerInfo.phone,
+            }
+          : targetPet.owner,
       };
       setSelectedPetDetails(petWithOwner);
       setIsViewingFromRequest(true);
       setShowDetailsModal(true);
     }
+  };
+
+  const handleViewMatchPetDetails = (
+    match: BreedingMatch,
+    petKey: 'pet' | 'potential_partner'
+  ) => {
+    const targetPet = petKey === 'pet' ? match.pet : match.potential_partner;
+    const ownerInfo = petKey === 'pet' ? match.requester_owner : match.partner_owner;
+
+    if (!targetPet) return;
+
+    const petWithOwner: Pet = {
+      ...targetPet,
+      owner: ownerInfo
+        ? {
+            id: ownerInfo.id,
+            full_name: ownerInfo.full_name,
+            phone: ownerInfo.phone,
+          }
+        : targetPet.owner,
+    };
+    setSelectedPetDetails(petWithOwner);
+    setIsViewingFromRequest(true);
+    setShowDetailsModal(true);
   };
 
 
@@ -492,10 +692,12 @@ const Parejas: React.FC = () => {
       if (error) throw error;
 
       toast.success('💕 Solicitud de amor aceptada!', {
-        description: '¡Felicidades! La solicitud de amor ha sido aceptada. Puedes contactar al dueño para coordinar.',
+        description: '¡Felicidades! Puedes chatear con el dueño en la pestaña Chats.',
         duration: 5000,
       });
+      setActiveTab('chats');
       loadData();
+      dispatchNotificationsUpdated();
     } catch (error) {
       console.error('Error accepting match:', error);
       toast.error('❌ Error al aceptar la solicitud', {
@@ -519,6 +721,7 @@ const Parejas: React.FC = () => {
         duration: 4000,
       });
       loadData();
+      dispatchNotificationsUpdated();
     } catch (error) {
       console.error('Error rejecting match:', error);
       toast.error('Error al rechazar la solicitud');
@@ -530,7 +733,34 @@ const Parejas: React.FC = () => {
     setShowChatModal(true);
   };
 
-  // Show all available pets without filters for now (as requested)
+  const getOtherOwner = (match: BreedingMatch) => {
+    if (!user) return null;
+    const isRequester = user.id === match.owner_id;
+    return isRequester ? match.partner_owner : match.requester_owner;
+  };
+
+  const activeChatMatches = myMatches.filter(
+    (match) => match.status === 'accepted' || match.status === 'matched'
+  );
+
+  const filteredAndSortedActiveChats = activeChatMatches
+    .filter((match) => {
+      const matchesPetFilter =
+        matchesSearch === 'all' ||
+        match.pet?.name === matchesSearch ||
+        match.potential_partner?.name === matchesSearch;
+
+      return matchesPetFilter;
+    })
+    .sort((a, b) => {
+      const aRoom = chatRoomsByMatchId[a.id];
+      const bRoom = chatRoomsByMatchId[b.id];
+      const aDate = new Date(aRoom?.lastMessageAt ?? aRoom?.updated_at ?? a.updated_at).getTime();
+      const bDate = new Date(bRoom?.lastMessageAt ?? bRoom?.updated_at ?? b.updated_at).getTime();
+      return bDate - aDate;
+    });
+
+  // Filter available pets based on filters
   const filteredPets = availablePets.filter(pet => {
     // Always exclude user's own pets (double check)
     if (pet.owner_id === user?.id) {
@@ -538,20 +768,22 @@ const Parejas: React.FC = () => {
       return false;
     }
     
-    // Apply filters only if they are not 'all'
-    const matchesSearch = !searchTerm || 
-                         pet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         pet.breed.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSpecies = filterSpecies === 'all' || pet.species === filterSpecies;
-    const matchesBreed = filterBreed === 'all' || pet.breed === filterBreed;
-    const matchesGender = filterGender === 'all' || pet.gender === filterGender;
-    const matchesAge = filterAge === 'all' || 
-                      (filterAge === 'young' && pet.age <= 2) ||
-                      (filterAge === 'adult' && pet.age > 2 && pet.age <= 6) ||
-                      (filterAge === 'senior' && pet.age > 6);
+    // Apply filters
+    const matchesSearch = !filters.search || 
+                         pet.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+                         pet.breed?.toLowerCase().includes(filters.search.toLowerCase());
+    const matchesSpecies = filters.species === 'all' || pet.species === filters.species;
+    const matchesBreed = filters.breed === 'all' || pet.breed === filters.breed;
+    const matchesGender = filters.gender === 'all' || pet.gender === filters.gender;
+    const matchesAge = filters.age === 'all' || 
+                      (filters.age === 'young' && pet.age <= 2) ||
+                      (filters.age === 'adult' && pet.age > 2 && pet.age <= 6) ||
+                      (filters.age === 'senior' && pet.age > 6);
 
     return matchesSearch && matchesSpecies && matchesBreed && matchesGender && matchesAge;
   });
+
+  const blueprintBreedingPetId = filteredPets[0]?.id;
   
   console.log('Filtered pets count:', filteredPets.length);
   console.log('Available pets count:', availablePets.length);
@@ -601,9 +833,9 @@ const Parejas: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'accepted': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-landing-mango/15 text-landing-mango-dark border-landing-mango/30';
+      case 'accepted': return 'bg-landing-mint/15 text-landing-mint-dark border-landing-mint/30';
+      case 'rejected': return 'bg-red-50 text-red-700 border-red-100';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -612,253 +844,172 @@ const Parejas: React.FC = () => {
     switch (status) {
       case 'pending': return 'Pendiente';
       case 'accepted': return 'Aceptado';
+      case 'matched': return 'Match';
       case 'rejected': return 'Rechazado';
       default: return 'Desconocido';
     }
   };
 
+  const parejasTabs: MobileTabItem[] = [
+    { id: 'pet-tinder', label: 'Catálogo', shortLabel: 'Catálogo', icon: Heart, gradientIndex: 1 },
+    { id: 'solicitudes-enviadas', label: 'Enviadas', shortLabel: 'Enviadas', icon: Send, gradientIndex: 0 },
+    { id: 'solicitudes-recibidas', label: 'Recibidas', shortLabel: 'Recibidas', icon: Inbox, gradientIndex: 2 },
+    { id: 'chats', label: 'Chats', shortLabel: 'Chats', icon: MessagesSquare, gradientIndex: 3 },
+  ];
+
+  const petCardClass = 'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden';
+
+  const renderPetInfoCell = (label: string, value: string) => (
+    <div className="min-w-0">
+      <p className="text-[9px] uppercase tracking-wide text-gray-400 leading-none">{label}</p>
+      <p className="text-[11px] font-semibold text-gray-800 truncate mt-0.5">{value}</p>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-64 bg-gray-200 rounded"></div>
-            ))}
-          </div>
+      <DashboardShell>
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-10 w-full rounded-full" />
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-48 rounded-2xl" />
+          ))}
         </div>
-      </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 pb-40 md:pb-6">
-      {/* Header */}
-      <PageHeader 
-        title="Parejas"
-        subtitle="Encuentra la pareja perfecta para tu mascota"
-        gradient="from-pink-500 to-purple-600"
-        showHamburgerMenu={true}
-        onToggleHamburger={toggleMobileMenu}
-        isHamburgerOpen={isMobileMenuOpen}
-      />
+    <DashboardShell>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold text-gray-900">Parejas</h1>
+        <p className="text-sm text-gray-500">Encuentra la pareja perfecta para tu mascota</p>
+      </div>
 
+      <MobileTabStrip tabs={parejasTabs} activeTab={activeTab} onChange={setActiveTab} />
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-wrap gap-2 mb-6">
-          {[
-            { id: 'pet-tinder', label: 'Catálogo', icon: Heart, color: 'from-pink-500 to-rose-500' },
-            { id: 'solicitudes-enviadas', label: 'Enviadas', icon: Send, color: 'from-blue-500 to-cyan-500' },
-            { id: 'solicitudes-recibidas', label: 'Recibidas', icon: MessageCircle, color: 'from-green-500 to-emerald-500' },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  activeTab === tab.id
-                    ? `bg-gradient-to-r ${tab.color} text-white shadow-lg` 
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Tab Content */}
+      <div className="space-y-4">
         {activeTab === 'pet-tinder' && (
-          <div className="space-y-6" style={{ paddingBottom: '100px' }}>
-          {/* Filters */}
-          <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Filter className="w-5 h-5 mr-2" />
-                    Filtros
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div>
-                      <Label htmlFor="search">Buscar</Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="search"
-                          placeholder="Buscar mascotas..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="species">Especie</Label>
-                      <Select value={filterSpecies} onValueChange={setFilterSpecies}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          <SelectItem value="Perro">Perro</SelectItem>
-                          <SelectItem value="Gato">Gato</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="breed">Raza</Label>
-                      <Select value={filterBreed} onValueChange={setFilterBreed}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          {Array.from(new Set(availablePets.map(p => p.breed))).map(breed => (
-                            <SelectItem key={breed} value={breed}>{breed}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="gender">Género</Label>
-                      <Select value={filterGender} onValueChange={setFilterGender}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="macho">Macho</SelectItem>
-                          <SelectItem value="hembra">Hembra</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="age">Edad</Label>
-                      <Select value={filterAge} onValueChange={setFilterAge}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          <SelectItem value="young">Joven (≤2 años)</SelectItem>
-                          <SelectItem value="adult">Adulto (3-6 años)</SelectItem>
-                            <SelectItem value="senior">Senior (&gt;6 años)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 flex-1 sm:flex-initial min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10 ${showFilters ? 'bg-landing-aqua/10' : ''}`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="text-sm">Filtros</span>
+              </Button>
+              <span className="text-sm font-medium text-gray-600 whitespace-nowrap bg-white/60 px-3 py-2 rounded-full">
+                {filteredPets.length} disponible{filteredPets.length !== 1 ? 's' : ''}
+              </span>
+            </div>
 
-              {/* Pet Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredPets.map((pet) => (
-                  <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-[4/3] bg-gray-200 relative">
-                      {pet.image_url ? (
+            {showFilters && (
+              <BreedingFilters
+                onFiltersChange={setFilters}
+                availableBreeds={Array.from(new Set(availablePets.map(p => p.breed).filter(Boolean)))}
+              />
+            )}
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {filteredPets.map((pet, index) => {
+                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                return (
+                  <div key={pet.id} className={petCardClass}>
+                    <div className="relative aspect-[4/3] overflow-hidden">
+                      {getPrimaryPetImageUrl(pet) ? (
                         <img
-                          src={pet.image_url}
+                          src={getPrimaryPetImageUrl(pet)!}
                           alt={pet.name}
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <PawPrint className="w-12 h-12 text-gray-400" />
+                        <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                          <PawPrint className="w-10 h-10 text-white/80" />
                         </div>
                       )}
-                      <div className="absolute top-2 right-2">
-                        <Badge className="bg-white text-gray-800 text-xs px-2 py-1 shadow-sm">
-                          {pet.age} años
-                        </Badge>
+                      <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1 pointer-events-none">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm',
+                            !pet.gender
+                              ? 'bg-white/95 text-gray-600'
+                              : isMaleGender(pet.gender)
+                                ? 'bg-sky-100/95 text-sky-800'
+                                : 'bg-pink-100/95 text-pink-800',
+                          )}
+                        >
+                          {formatGenderLabel(pet.gender)}
+                        </span>
+                        <span className="text-[10px] font-semibold bg-white/95 text-gray-800 px-2 py-0.5 rounded-full shadow-sm shrink-0">
+                          {formatPetAge(pet.age)}
+                        </span>
                       </div>
                     </div>
-                    
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">{pet.name}</h3>
-                        <Badge variant="outline" className="text-xs">
-                          {pet.gender === 'macho' ? 'Macho' : 'Hembra'}
-                        </Badge>
+
+                    <div className="p-3 space-y-2">
+                      <h3 className="text-sm font-bold text-gray-900 truncate">{pet.name}</h3>
+
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl bg-gray-50/80 border border-gray-100 p-2">
+                        {renderPetInfoCell('Especie', formatSpeciesLabel(pet.species))}
+                        {renderPetInfoCell('Peso', formatPetWeight(pet.weight))}
+                        <div className="col-span-2">
+                          {renderPetInfoCell('Raza', pet.breed || '—')}
+                        </div>
                       </div>
-                      
-                      <div className="space-y-1">
-                        <p className="text-gray-600 text-sm font-medium">{pet.breed}</p>
-                        <p className="text-gray-500 text-sm">{pet.color}</p>
-                      </div>
-                      
-                      <div className="flex items-center text-sm text-gray-500">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        <span>Ubicación disponible</span>
-                      </div>
-                      
-                      <div className="flex flex-col space-y-2 pt-2">
+
+                      <div className="flex flex-col gap-1.5 pt-0.5">
                         <Button
                           type="button"
                           variant="outline"
+                          size="sm"
                           onClick={() => handleViewDetails(pet)}
-                          className="w-full text-sm py-2"
+                          className="w-full min-h-[36px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
                         >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Ver Detalles
+                          <Eye className="w-3.5 h-3.5 mr-1" />
+                          Ver detalles
                         </Button>
                         <Button
                           type="button"
+                          size="sm"
                           onClick={() => handleLike(pet.id)}
-                          className="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white text-sm py-2"
+                          data-blueprint-guided={
+                            pet.id === blueprintBreedingPetId ? 'send-breeding-request' : undefined
+                          }
+                          className={`w-full min-h-[36px] text-xs ${landingBtnPrimary}`}
                         >
-                          <Heart className="w-4 h-4 mr-2" />
-                          Solicitar Amor
+                          <Heart className="w-3.5 h-3.5 mr-1" />
+                          Solicitar amor
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-              {filteredPets.length === 0 && (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <Heart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      {availablePets.length === 0 
-                        ? 'No hay mascotas disponibles para reproducción' 
-                        : 'No se encontraron mascotas compatibles con los filtros aplicados'}
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      {availablePets.length === 0
-                        ? 'Actualmente no hay mascotas de otros usuarios marcadas como disponibles para reproducción en la base de datos. Solo se muestran mascotas de otros usuarios, no las tuyas.'
-                        : 'Intenta ajustar los filtros de búsqueda para ver más resultados.'}
-                    </p>
-                    {availablePets.length === 0 && (
-                      <div className="text-sm text-gray-500 space-y-2">
-                        <p>💡 <strong>Nota:</strong> Esta sección solo muestra mascotas de otros usuarios.</p>
-                        <p>Para ver mascotas aquí, otros usuarios deben:</p>
-                        <ul className="list-disc list-inside text-left max-w-md mx-auto mt-2 space-y-1">
-                          <li>Crear una cuenta en PetHub</li>
-                          <li>Registrar sus mascotas</li>
-                          <li>Marcarlas como disponibles para reproducción</li>
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+            {filteredPets.length === 0 && (
+              <MobileSectionCard className="p-8 text-center">
+                <Heart className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                  {availablePets.length === 0
+                    ? 'No hay mascotas disponibles'
+                    : 'Sin resultados'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {availablePets.length === 0
+                    ? 'Aún no hay mascotas de otros usuarios marcadas para reproducción.'
+                    : 'Prueba ajustando los filtros de búsqueda.'}
+                </p>
+              </MobileSectionCard>
+            )}
           </div>
         )}
 
-        {/* Solicitudes Recibidas Tab */}
         {activeTab === 'solicitudes-recibidas' && (
-          <div className="space-y-6" style={{ paddingBottom: '100px' }}>
-          {/* Refresh Button */}
+          <div className="space-y-4">
           <div className="flex justify-end">
             <Button
               type="button"
@@ -868,66 +1019,38 @@ const Parejas: React.FC = () => {
                 toast.info('Actualizando solicitudes...');
                 loadData();
               }}
-              className="flex items-center gap-2"
+              className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 mr-2" />
               Actualizar
             </Button>
           </div>
 
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Solicitudes</p>
-                    <p className="text-2xl font-bold text-gray-900">{receivedRequests.length}</p>
-                  </div>
-                  <MessageCircle className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {receivedRequests.filter(r => r.status === 'pending').length}
-                    </p>
-                  </div>
-                  <Clock className="h-8 w-8 text-yellow-500" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Aceptadas</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {receivedRequests.filter(r => r.status === 'accepted').length}
-                    </p>
-                  </div>
-                  <Check className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-3 gap-2">
+            <MobileSectionCard className="p-3 text-center">
+              <p className="text-xs text-gray-500">Total</p>
+              <p className="text-xl font-bold text-gray-900">{receivedRequests.length}</p>
+            </MobileSectionCard>
+            <MobileSectionCard className="p-3 text-center">
+              <p className="text-xs text-gray-500">Pendientes</p>
+              <p className="text-xl font-bold text-landing-mango-dark">
+                {receivedRequests.filter(r => r.status === 'pending').length}
+              </p>
+            </MobileSectionCard>
+            <MobileSectionCard className="p-3 text-center">
+              <p className="text-xs text-gray-500">Aceptadas</p>
+              <p className="text-xl font-bold text-landing-mint-dark">
+                {receivedRequests.filter(r => r.status === 'accepted').length}
+              </p>
+            </MobileSectionCard>
           </div>
 
-          {/* Search and Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Filter className="w-5 h-5 mr-2" />
-                Buscar y Filtrar
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MobileSectionCard className="p-4 space-y-3">
+            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <Filter className="w-4 h-4 text-landing-aqua-dark" />
+              Buscar y filtrar
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="received-pet-filter">Filtrar por mascota</Label>
                   <Select value={receivedRequestsSearch} onValueChange={setReceivedRequestsSearch}>
@@ -960,37 +1083,29 @@ const Parejas: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MobileSectionCard>
 
-          {/* Requests List */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {receivedRequests.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No hay solicitudes recibidas</h3>
-                  <p className="text-gray-600">
-                    Las solicitudes de amor que otros usuarios envíen para tus mascotas aparecerán aquí.
-                  </p>
-                </CardContent>
-              </Card>
+              <MobileSectionCard className="p-8 text-center">
+                <MessageCircle className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-900 mb-1">No hay solicitudes recibidas</h3>
+                <p className="text-sm text-gray-500">
+                  Las solicitudes que otros envíen para tus mascotas aparecerán aquí.
+                </p>
+              </MobileSectionCard>
             ) : filteredAndSortedReceivedRequests.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron resultados</h3>
-                  <p className="text-gray-600">
-                    No hay solicitudes que coincidan con los filtros aplicados.
-                  </p>
-                </CardContent>
-              </Card>
+              <MobileSectionCard className="p-8 text-center">
+                <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Sin resultados</h3>
+                <p className="text-sm text-gray-500">No hay solicitudes que coincidan con los filtros.</p>
+              </MobileSectionCard>
             ) : (
               filteredAndSortedReceivedRequests.map((request) => (
-                <Card key={request.id} className="overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-4">
+                <MobileSectionCard key={request.id}>
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
                       {/* Pet Image - Show the pet that sent the request (other user's pet) */}
                       <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                         {request.pet?.image_url ? (
@@ -1028,15 +1143,17 @@ const Parejas: React.FC = () => {
                           </Badge>
                         </div>
 
-                        {/* Owner Info */}
-                        {request.partner_owner && (
+                        {/* Owner Info - show who sent the request */}
+                        {request.requester_owner && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                             <p className="text-sm font-medium text-gray-700">
-                              Dueño: {request.partner_owner.full_name}
+                              Dueño: {request.requester_owner.full_name}
                             </p>
-                            <p className="text-sm text-gray-600">
-                              Teléfono: {request.partner_owner.phone}
-                            </p>
+                            {request.requester_owner.phone && (
+                              <p className="text-sm text-gray-600">
+                                Teléfono: {request.requester_owner.phone}
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -1048,17 +1165,17 @@ const Parejas: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => handleViewRequestDetails(request)}
-                              className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                              className="border-landing-aqua/30 text-landing-aqua-dark"
                             >
                               <Eye className="w-4 h-4 mr-1" />
-                              Ver Detalles
+                              Ver detalles
                             </Button>
-                            <div className="flex space-x-3">
+                            <div className="flex gap-2">
                               <Button
                                 type="button"
                                 size="sm"
                                 onClick={() => handleAcceptMatch(request.id)}
-                                className="bg-green-600 hover:bg-green-700"
+                                className={landingBtnPrimary}
                               >
                                 <Check className="w-4 h-4 mr-1" />
                                 Aceptar
@@ -1068,7 +1185,7 @@ const Parejas: React.FC = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleRejectMatch(request.id)}
-                                className="border-red-300 text-red-600 hover:bg-red-50"
+                                className="border-red-200 text-red-600 hover:bg-red-50"
                               >
                                 <X className="w-4 h-4 mr-1" />
                                 Rechazar
@@ -1078,12 +1195,13 @@ const Parejas: React.FC = () => {
                         )}
 
                         {request.status === 'accepted' && (
-                          <div className="mt-4">
-                            <Button 
-                              type="button" 
-                              size="sm" 
+                          <div className="mt-3">
+                            <Button
+                              type="button"
+                              size="sm"
                               variant="outline"
                               onClick={() => handleOpenChat(request)}
+                              className="border-landing-aqua/30 text-landing-aqua-dark"
                             >
                               <MessageCircle className="w-4 h-4 mr-1" />
                               Contactar
@@ -1092,18 +1210,16 @@ const Parejas: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </MobileSectionCard>
               ))
             )}
           </div>
           </div>
         )}
 
-        {/* Solicitudes Enviadas Tab */}
         {activeTab === 'solicitudes-enviadas' && (
-          <div className="space-y-6" style={{ paddingBottom: '100px' }}>
-          {/* Refresh Button */}
+          <div className="space-y-4">
           <div className="flex justify-end">
             <Button
               type="button"
@@ -1113,66 +1229,38 @@ const Parejas: React.FC = () => {
                 toast.info('Actualizando solicitudes...');
                 loadData();
               }}
-              className="flex items-center gap-2"
+              className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 mr-2" />
               Actualizar
             </Button>
           </div>
 
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Enviadas</p>
-                    <p className="text-2xl font-bold text-gray-900">{sentRequests.length}</p>
-                  </div>
-                  <Send className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {sentRequests.filter(r => r.status === 'pending').length}
-                    </p>
-                  </div>
-                  <Clock className="h-8 w-8 text-yellow-500" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Aceptadas</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {sentRequests.filter(r => r.status === 'accepted').length}
-                    </p>
-                  </div>
-                  <Check className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-3 gap-2">
+            <MobileSectionCard className="p-3 text-center">
+              <p className="text-xs text-gray-500">Total</p>
+              <p className="text-xl font-bold text-gray-900">{sentRequests.length}</p>
+            </MobileSectionCard>
+            <MobileSectionCard className="p-3 text-center">
+              <p className="text-xs text-gray-500">Pendientes</p>
+              <p className="text-xl font-bold text-landing-mango-dark">
+                {sentRequests.filter(r => r.status === 'pending').length}
+              </p>
+            </MobileSectionCard>
+            <MobileSectionCard className="p-3 text-center">
+              <p className="text-xs text-gray-500">Aceptadas</p>
+              <p className="text-xl font-bold text-landing-mint-dark">
+                {sentRequests.filter(r => r.status === 'accepted').length}
+              </p>
+            </MobileSectionCard>
           </div>
 
-          {/* Search and Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Filter className="w-5 h-5 mr-2" />
-                Buscar y Filtrar
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MobileSectionCard className="p-4 space-y-3">
+            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <Filter className="w-4 h-4 text-landing-aqua-dark" />
+              Buscar y filtrar
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="sent-pet-filter">Filtrar por mascota</Label>
                   <Select value={sentRequestsSearch} onValueChange={setSentRequestsSearch}>
@@ -1205,37 +1293,27 @@ const Parejas: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </MobileSectionCard>
 
-          {/* Requests List */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {sentRequests.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Send className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No has enviado solicitudes</h3>
-                  <p className="text-gray-600">
-                    Las solicitudes de amor que envíes a otros usuarios aparecerán aquí.
-                  </p>
-                </CardContent>
-              </Card>
+              <MobileSectionCard className="p-8 text-center">
+                <Send className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-900 mb-1">No has enviado solicitudes</h3>
+                <p className="text-sm text-gray-500">Las solicitudes que envíes aparecerán aquí.</p>
+              </MobileSectionCard>
             ) : filteredAndSortedSentRequests.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron resultados</h3>
-                  <p className="text-gray-600">
-                    No hay solicitudes que coincidan con los filtros aplicados.
-                  </p>
-                </CardContent>
-              </Card>
+              <MobileSectionCard className="p-8 text-center">
+                <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Sin resultados</h3>
+                <p className="text-sm text-gray-500">No hay solicitudes que coincidan con los filtros.</p>
+              </MobileSectionCard>
             ) : (
               filteredAndSortedSentRequests.map((request) => (
-                <Card key={request.id} className="overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-4">
+                <MobileSectionCard key={request.id}>
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
                       {/* Target Pet Image (the pet we sent the request to) */}
                       <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                         {request.potential_partner?.image_url ? (
@@ -1287,8 +1365,8 @@ const Parejas: React.FC = () => {
 
                         {/* Status Message */}
                         {request.status === 'pending' && (
-                          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-sm text-yellow-800">
+                          <div className="mt-3 p-3 bg-landing-mango/10 border border-landing-mango/20 rounded-lg">
+                            <p className="text-sm text-landing-mango-dark">
                               <Clock className="w-4 h-4 inline mr-1" />
                               Esperando respuesta del dueño...
                             </p>
@@ -1297,18 +1375,19 @@ const Parejas: React.FC = () => {
 
                         {request.status === 'accepted' && (
                           <>
-                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                              <p className="text-sm text-green-800">
+                            <div className="mt-3 p-3 bg-landing-mint/10 border border-landing-mint/20 rounded-lg">
+                              <p className="text-sm text-landing-mint-dark">
                                 <Check className="w-4 h-4 inline mr-1" />
                                 ¡Tu solicitud fue aceptada! Puedes contactar al dueño.
                               </p>
                             </div>
-                            <div className="mt-4">
-                              <Button 
-                                type="button" 
-                                size="sm" 
+                            <div className="mt-3">
+                              <Button
+                                type="button"
+                                size="sm"
                                 variant="outline"
                                 onClick={() => handleOpenChat(request)}
+                                className="border-landing-aqua/30 text-landing-aqua-dark"
                               >
                                 <MessageCircle className="w-4 h-4 mr-1" />
                                 Contactar
@@ -1327,11 +1406,228 @@ const Parejas: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </MobileSectionCard>
               ))
             )}
           </div>
+          </div>
+        )}
+
+        {activeTab === 'chats' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Chats abiertos</h2>
+                <p className="text-sm text-gray-500">
+                  Conversaciones con matches aceptados
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  toast.info('Actualizando chats...');
+                  loadData();
+                }}
+                className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark shrink-0"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Actualizar
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <MobileSectionCard className="p-3 text-center">
+                <p className="text-xs text-gray-500">Matches</p>
+                <p className="text-xl font-bold text-gray-900">{activeChatMatches.length}</p>
+              </MobileSectionCard>
+              <MobileSectionCard className="p-3 text-center">
+                <p className="text-xs text-gray-500">Con mensajes</p>
+                <p className="text-xl font-bold text-landing-mint-dark">
+                  {Object.keys(chatRoomsByMatchId).length}
+                </p>
+              </MobileSectionCard>
+            </div>
+
+            {activeChatMatches.length > 1 && (
+              <MobileSectionCard className="p-4 space-y-3">
+                <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-landing-aqua-dark" />
+                  Filtrar por mascota
+                </h3>
+                <Select value={matchesSearch} onValueChange={setMatchesSearch}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar mascota..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las mascotas</SelectItem>
+                    {Array.from(
+                      new Set([
+                        ...activeChatMatches.map((m) => m.pet?.name).filter(Boolean),
+                        ...activeChatMatches.map((m) => m.potential_partner?.name).filter(Boolean),
+                      ])
+                    ).map((petName) => (
+                      <SelectItem key={petName} value={petName!}>
+                        {petName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </MobileSectionCard>
+            )}
+
+            <div className="space-y-3">
+              {activeChatMatches.length === 0 ? (
+                <MobileSectionCard className="p-8 text-center">
+                  <MessagesSquare className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Sin chats abiertos</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Cuando aceptes o te acepten una solicitud, podrás chatear aquí para coordinar la reproducción.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setActiveTab('solicitudes-recibidas')}
+                    className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark"
+                  >
+                    Ver solicitudes recibidas
+                  </Button>
+                </MobileSectionCard>
+              ) : filteredAndSortedActiveChats.length === 0 ? (
+                <MobileSectionCard className="p-8 text-center">
+                  <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Sin resultados</h3>
+                  <p className="text-sm text-gray-500">No hay chats que coincidan con el filtro.</p>
+                </MobileSectionCard>
+              ) : (
+                filteredAndSortedActiveChats.map((match) => {
+                  const otherOwner = getOtherOwner(match);
+                  const chatRoom = chatRoomsByMatchId[match.id];
+                  const petImage = getPrimaryPetImageUrl(match.pet);
+                  const partnerImage = getPrimaryPetImageUrl(match.potential_partner);
+
+                  return (
+                    <MobileSectionCard key={match.id}>
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              aria-label={`Ver perfil de ${match.pet?.name}`}
+                              onClick={() => handleViewMatchPetDetails(match, 'pet')}
+                              className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 ring-2 ring-white shadow-sm active:scale-95 transition-transform"
+                            >
+                              {petImage ? (
+                                <img src={petImage} alt={match.pet?.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <PawPrint className="w-5 h-5 text-gray-400" />
+                                </div>
+                              )}
+                            </button>
+                            <Heart className="w-3.5 h-3.5 text-landing-mango shrink-0" />
+                            <button
+                              type="button"
+                              aria-label={`Ver perfil de ${match.potential_partner?.name}`}
+                              onClick={() => handleViewMatchPetDetails(match, 'potential_partner')}
+                              className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 ring-2 ring-white shadow-sm active:scale-95 transition-transform"
+                            >
+                              {partnerImage ? (
+                                <img
+                                  src={partnerImage}
+                                  alt={match.potential_partner?.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <PawPrint className="w-5 h-5 text-gray-400" />
+                                </div>
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <h3 className="font-bold text-gray-900 truncate">
+                                  {match.pet?.name} & {match.potential_partner?.name}
+                                </h3>
+                                <p className="text-xs text-gray-500 truncate">
+                                  Con {otherOwner?.full_name ?? 'dueño'}
+                                </p>
+                              </div>
+                              <Badge className="bg-landing-mint/15 text-landing-mint-dark border-landing-mint/30 text-[10px] shrink-0">
+                                {getStatusLabel(match.status)}
+                              </Badge>
+                            </div>
+
+                            <p className="text-[11px] text-gray-400 mt-1">
+                              Match el {new Date(match.updated_at).toLocaleDateString('es-ES')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {chatRoom?.lastMessage ? (
+                          <div className="p-3 rounded-xl bg-landing-aqua/5 border border-landing-aqua/10">
+                            <p className="text-xs text-gray-600 line-clamp-2">{chatRoom.lastMessage}</p>
+                            {chatRoom.lastMessageAt && (
+                              <p className="text-[10px] text-gray-400 mt-1">
+                                {new Date(chatRoom.lastMessageAt).toLocaleString('es-ES', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                            <p className="text-xs text-gray-500">
+                              Aún no hay mensajes. Inicia la conversación para coordinar la reproducción.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewMatchPetDetails(match, 'pet')}
+                            className="min-h-[40px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="truncate">{match.pet?.name}</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewMatchPetDetails(match, 'potential_partner')}
+                            className="min-h-[40px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="truncate">{match.potential_partner?.name}</span>
+                          </Button>
+                        </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => handleOpenChat(match)}
+                          className={`w-full min-h-[44px] ${landingBtnPrimary}`}
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          {chatRoom ? 'Continuar chat' : 'Abrir chat'}
+                        </Button>
+                      </div>
+                    </MobileSectionCard>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 
@@ -1339,136 +1635,158 @@ const Parejas: React.FC = () => {
 
       {/* Pet Details Modal */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Heart className="w-5 h-5 mr-2 text-pink-500" />
+        <DialogContent
+          className={cn(
+            'flex flex-col gap-0 p-0 overflow-hidden',
+            'w-[calc(100vw-0.5rem)] max-w-lg',
+            'max-h-[96dvh] sm:max-h-[92dvh]',
+            'rounded-2xl border-landing-aqua/15'
+          )}
+        >
+          <DialogHeader className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100">
+            <DialogTitle className="flex items-center text-gray-900 text-lg">
+              <Heart className="w-5 h-5 mr-2 text-landing-aqua-dark shrink-0" />
               Detalles de {selectedPetDetails?.name}
             </DialogTitle>
           </DialogHeader>
-          
-          {selectedPetDetails && (
-            <div className="space-y-6">
-              {/* Pet Image */}
-              <div className="flex justify-center">
-                <div className="w-48 h-48 bg-gray-200 rounded-lg overflow-hidden">
-                  {selectedPetDetails.image_url ? (
-                    <img
-                      src={selectedPetDetails.image_url}
+
+          {selectedPetDetails && (() => {
+            const detailImages = getPetImageUrls(selectedPetDetails);
+            return (
+              <>
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
+                  <div>
+                    <PetPhotoCarousel
+                      pet={selectedPetDetails}
                       alt={selectedPetDetails.name}
-                      className="w-full h-full object-cover"
+                      aspectClassName="aspect-[5/3] max-h-[160px]"
+                      showCounter
+                      showArrows={detailImages.length > 1}
+                      showDots={detailImages.length > 1}
+                      setApi={setDetailCarouselApi}
+                      className="rounded-xl"
+                      fallback={
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-xl">
+                          <PawPrint className="w-10 h-10 text-gray-400" />
+                        </div>
+                      }
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <PawPrint className="w-16 h-16 text-gray-400" />
+                    {detailImages.length > 1 && (
+                      <div className="mt-3 space-y-2">
+                        <PetPhotoThumbnails
+                          images={detailImages}
+                          current={detailPhotoIndex}
+                          onSelect={(index) => detailCarouselApi?.scrollTo(index)}
+                          alt={selectedPetDetails.name}
+                        />
+                        <p className="text-xs text-gray-400 text-center">
+                          Toca las miniaturas o usa las flechas para cambiar de foto
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-gray-500">Nombre</Label>
+                      <p className="text-sm font-semibold text-gray-900">{selectedPetDetails.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Edad</Label>
+                      <p className="text-sm font-semibold text-gray-900">{formatPetAge(selectedPetDetails.age)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Especie</Label>
+                      <p className="text-sm font-semibold text-gray-900">{formatSpeciesLabel(selectedPetDetails.species)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Peso</Label>
+                      <p className="text-sm font-semibold text-gray-900">{formatPetWeight(selectedPetDetails.weight)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Raza</Label>
+                      <p className="text-sm font-semibold text-gray-900">{selectedPetDetails.breed}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Género</Label>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'mt-0.5',
+                          isMaleGender(selectedPetDetails.gender)
+                            ? 'border-sky-200 text-sky-800 bg-sky-50'
+                            : selectedPetDetails.gender
+                              ? 'border-pink-200 text-pink-800 bg-pink-50'
+                              : '',
+                        )}
+                      >
+                        {formatGenderLabel(selectedPetDetails.gender)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Color</Label>
+                      <p className="text-sm font-semibold text-gray-900">{selectedPetDetails.color}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Reproducción</Label>
+                      <Badge className={selectedPetDetails.available_for_breeding ? 'bg-landing-mint/15 text-landing-mint-dark mt-0.5' : 'bg-red-50 text-red-700 mt-0.5'}>
+                        {selectedPetDetails.available_for_breeding ? 'Sí' : 'No'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {selectedPetDetails.owner && (
+                    <div className="rounded-xl bg-landing-aqua/5 border border-landing-aqua/15 p-3 space-y-2">
+                      <h4 className="text-sm font-bold text-gray-900">Dueño</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-gray-500">Nombre</Label>
+                          <p className="text-sm">{selectedPetDetails.owner.full_name}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">Teléfono</Label>
+                          <p className="text-sm">{selectedPetDetails.owner.phone}</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Pet Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Nombre</Label>
-                    <p className="text-lg font-semibold">{selectedPetDetails.name}</p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Especie</Label>
-                    <p className="text-sm">{selectedPetDetails.species}</p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Raza</Label>
-                    <p className="text-sm">{selectedPetDetails.breed}</p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Género</Label>
-                    <Badge variant="outline">
-                      {selectedPetDetails.gender === 'macho' ? 'Macho' : 'Hembra'}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Edad</Label>
-                    <p className="text-sm">{selectedPetDetails.age} años</p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Peso</Label>
-                    <p className="text-sm">{selectedPetDetails.weight} kg</p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Color</Label>
-                    <p className="text-sm">{selectedPetDetails.color}</p>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Disponible para reproducción</Label>
-                    <Badge className={selectedPetDetails.available_for_breeding ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                      {selectedPetDetails.available_for_breeding ? 'Sí' : 'No'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Owner Information */}
-              {selectedPetDetails.owner && (
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-3">Información del Dueño</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500">Nombre</Label>
-                      <p className="text-sm">{selectedPetDetails.owner.full_name}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500">Teléfono</Label>
-                      <p className="text-sm">{selectedPetDetails.owner.phone}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex space-x-3 pt-4 border-t">
-                {!isViewingFromRequest && (
+                <div className="shrink-0 p-4 border-t border-gray-100 bg-white/95 flex gap-2">
+                  {!isViewingFromRequest && (
+                    <Button
+                      type="button"
+                      onClick={() => handleLike(selectedPetDetails.id)}
+                      className={`flex-1 min-h-[48px] ${landingBtnPrimary}`}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Solicitar amor
+                    </Button>
+                  )}
                   <Button
                     type="button"
-                    onClick={() => handleLike(selectedPetDetails.id)}
-                    className="flex-1 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600"
+                    variant="outline"
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setIsViewingFromRequest(false);
+                    }}
+                    className={cn('min-h-[48px] border-landing-aqua/30', isViewingFromRequest ? 'flex-1' : '')}
                   >
-                    <Heart className="w-4 h-4 mr-2" />
-                    Solicitar Amor
+                    Cerrar
                   </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setIsViewingFromRequest(false);
-                  }}
-                  className={isViewingFromRequest ? "flex-1" : "flex-1"}
-                >
-                  Cerrar
-                </Button>
-              </div>
-            </div>
-          )}
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
       {/* Pet Selection Modal */}
       <Dialog open={showPetSelectionModal} onOpenChange={setShowPetSelectionModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-2xl border-landing-aqua/15">
           <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Heart className="w-5 h-5 mr-2 text-pink-500" />
+            <DialogTitle className="flex items-center text-gray-900">
+              <Heart className="w-5 h-5 mr-2 text-landing-aqua-dark" />
               Seleccionar tu mascota
             </DialogTitle>
           </DialogHeader>
@@ -1482,10 +1800,10 @@ const Parejas: React.FC = () => {
               {myPets.filter(pet => pet.available_for_breeding).map((pet) => (
                 <div
                   key={pet.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                  className={`p-3 border rounded-xl cursor-pointer transition-colors ${
                     selectedPetForRequest?.id === pet.id
-                      ? 'border-pink-500 bg-pink-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-landing-aqua bg-landing-aqua/10'
+                      : 'border-gray-200 hover:border-landing-aqua/30'
                   }`}
                   onClick={() => setSelectedPetForRequest(pet)}
                 >
@@ -1505,10 +1823,12 @@ const Parejas: React.FC = () => {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">{pet.name}</h4>
-                      <p className="text-sm text-gray-600">{pet.breed} • {pet.age} años</p>
+                      <p className="text-sm text-gray-600">
+                        {formatSpeciesLabel(pet.species)} · {pet.breed || '—'} · {formatPetAge(pet.age)} · {formatPetWeight(pet.weight)} · {formatGenderLabel(pet.gender)}
+                      </p>
                     </div>
                     {selectedPetForRequest?.id === pet.id && (
-                      <Check className="w-5 h-5 text-pink-500" />
+                      <Check className="w-5 h-5 text-landing-aqua-dark" />
                     )}
                   </div>
                 </div>
@@ -1527,10 +1847,10 @@ const Parejas: React.FC = () => {
                   }
                 }}
                 disabled={!selectedPetForRequest}
-                className="flex-1 bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600"
+                className={`flex-1 min-h-[44px] ${landingBtnPrimary}`}
               >
                 <Heart className="w-4 h-4 mr-2" />
-                Enviar Solicitud
+                Enviar solicitud
               </Button>
               <Button
                 type="button"
@@ -1555,10 +1875,12 @@ const Parejas: React.FC = () => {
         onClose={() => {
           setShowChatModal(false);
           setSelectedMatchForChat(null);
+          loadBreedingChatRooms(myMatches);
+          dispatchNotificationsUpdated();
         }}
         breedingMatch={selectedMatchForChat}
       />
-    </div>
+    </DashboardShell>
   );
 };
 

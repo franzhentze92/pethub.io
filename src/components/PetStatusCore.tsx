@@ -1,10 +1,12 @@
 import React from 'react';
+import { SectionLoader } from '@/components/PageLoader';
 import { Heart, Utensils, Zap, Droplets, Smile, AlertCircle, CheckCircle2, TrendingDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PetStatus, StatusBar, StatusRecommendation } from '@/services/petStatusService';
+import { formatSpeciesLabel } from '@/utils/petLabels';
 import { useNavigate } from 'react-router-dom';
 
 interface PetStatusCoreProps {
@@ -126,7 +128,7 @@ const PetStatusCore: React.FC<PetStatusCoreProps> = ({
       <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-50 to-pink-50">
         <CardContent className="p-6">
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <SectionLoader message="Cargando estado de mascota…" className="py-4" />
           </div>
         </CardContent>
       </Card>
@@ -142,17 +144,11 @@ const PetStatusCore: React.FC<PetStatusCoreProps> = ({
             {/* Pet Avatar */}
             <div className="relative">
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 p-1 shadow-lg">
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                  {pet.image_url ? (
-                    <img 
-                      src={pet.image_url} 
-                      alt={pet.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-6xl md:text-7xl">🐾</span>
-                  )}
-                </div>
+                <PetAvatar
+                  pet={pet}
+                  size="hero"
+                  className="w-full h-full md:w-40 md:h-40"
+                />
               </div>
               {/* Mood Indicator */}
               <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-2 shadow-lg border-4 border-purple-100">
@@ -166,7 +162,7 @@ const PetStatusCore: React.FC<PetStatusCoreProps> = ({
                 {pet.name}
               </h2>
               {pet.species && (
-                <p className="text-gray-600 mb-4">{pet.species}</p>
+                <p className="text-gray-600 mb-4">{formatSpeciesLabel(pet.species)}</p>
               )}
               
               {/* Overall Mood */}

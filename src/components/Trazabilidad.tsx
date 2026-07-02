@@ -1,20 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { 
+import { ActionConfirmDialog } from './ui/ActionConfirmDialog';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
   Activity,
   Plus,
-  Clock,
   Calendar,
   Target,
   Zap,
@@ -29,10 +28,30 @@ import {
   Dumbbell,
   MoreHorizontal,
   Edit,
-  Trash2
+  Trash2,
+  PawPrint,
+  Info,
+  Flame,
 } from 'lucide-react';
 import PageHeader from './PageHeader';
-import { useNavigation } from '@/contexts/NavigationContext';
+import { PageLoader } from './PageLoader';
+import { DashboardShell } from './dashboard/DashboardShell';
+import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingBtnPrimary, landingCardThemes, landingChartColors } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
+import { formatPetOptionLabel } from '@/utils/petLabels';
+import {
+  WEEKLY_GOAL_MINUTES,
+  getExerciseNotificationIdsForPet,
+  getExerciseReminderNotificationId,
+  getWeeklyGoalNotificationId,
+  getWeekStartStr,
+  loadExercisePageUnreadIds,
+  markExerciseNotificationsRead,
+  markExerciseNotificationsReadForPet,
+} from '@/utils/exerciseNotifications';
 
 interface Pet {
   id: string;
@@ -57,15 +76,19 @@ interface ExerciseSession {
 
 const Trazabilidad: React.FC = () => {
   const { user } = useAuth();
-  const { isMobileMenuOpen, toggleMobileMenu } = useNavigation();
-
-  // States
+  const navigate = useNavigate();
+  const location = useLocation();
+  const deepLinkHandled = useRef<string | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [exerciseSessions, setExerciseSessions] = useState<ExerciseSession[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showExerciseConfirm, setShowExerciseConfirm] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [selectedPetForAnalytics, setSelectedPetForAnalytics] = useState('all');
   const [activeTab, setActiveTab] = useState('register');
+  const guidedTour = useBlueprintGuidedTourOptional();
   const [editingSession, setEditingSession] = useState<ExerciseSession | null>(null);
+  const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
 
   // Form states
   const [selectedPet, setSelectedPet] = useState('');
@@ -76,13 +99,157 @@ const Trazabilidad: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [calculatedCalories, setCalculatedCalories] = useState(0);
 
-  // Load data
-  useEffect(() => {
-    if (user) {
-      loadPets();
-      loadExerciseSessions();
+  const loadPets = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pets')
+        .select('id, name, species, breed, weight')
+        .eq('owner_id', user?.id);
+
+      if (error) throw error;
+      setPets(data || []);
+    } catch (error) {
+      console.error('Error loading pets:', error);
+      toast.error('No se pudieron cargar tus mascotas.');
     }
-  }, [user]);
+  }, [user?.id]);
+
+  const loadExerciseSessions = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('exercise_sessions')
+        .select(`
+          *,
+          pets(name)
+        `)
+        .eq('owner_id', user?.id)
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Error loading exercise sessions:', error);
+        setExerciseSessions([]);
+        return;
+      }
+
+      const formattedSessions =
+        data?.map((session) => ({
+          ...session,
+          pet_name: session.pets?.name || 'Mascota desconocida',
+        })) || [];
+
+      setExerciseSessions(formattedSessions);
+    } catch (error) {
+      console.error('Error loading exercise sessions:', error);
+      setExerciseSessions([]);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) {
+      setInitialLoading(false);
+      return;
+    }
+
+    const loadAll = async () => {
+      setInitialLoading(true);
+      await Promise.all([loadPets(), loadExerciseSessions()]);
+      setInitialLoading(false);
+    };
+
+    void loadAll();
+  }, [user, loadPets, loadExerciseSessions]);
+
+  const refreshUnreadIds = useCallback(async () => {
+    if (!user?.id) return;
+    const ids = await loadExercisePageUnreadIds(user.id);
+    setUnreadIds(ids);
+  }, [user?.id]);
+
+  useEffect(() => {
+    void refreshUnreadIds();
+  }, [refreshUnreadIds]);
+
+  useEffect(() => {
+    const onUpdate = () => {
+      void refreshUnreadIds();
+    };
+    window.addEventListener('notifications-updated', onUpdate);
+    return () => window.removeEventListener('notifications-updated', onUpdate);
+  }, [refreshUnreadIds]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('exercise_page_notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'exercise_sessions', filter: `owner_id=eq.${user.id}` },
+        () => {
+          void loadExerciseSessions();
+          void refreshUnreadIds();
+          dispatchNotificationsUpdated();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pet_reminders', filter: `owner_id=eq.${user.id}` },
+        () => {
+          void refreshUnreadIds();
+          dispatchNotificationsUpdated();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, loadExerciseSessions, refreshUnreadIds]);
+
+  useEffect(() => {
+    const state = location.state as { tab?: string } | null;
+    if (state?.tab) {
+      setActiveTab(state.tab);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (guidedTour?.isActive && guidedTour.currentStep?.moduleTab) {
+      setActiveTab(guidedTour.currentStep.moduleTab);
+    }
+  }, [guidedTour?.isActive, guidedTour?.currentStep?.moduleTab]);
+
+  useEffect(() => {
+    const state = location.state as {
+      petId?: string;
+      petReminderId?: string;
+      tab?: string;
+    } | null;
+    const linkKey = state?.petReminderId || state?.petId;
+    if (!user?.id || !linkKey || deepLinkHandled.current === linkKey) return;
+
+    deepLinkHandled.current = linkKey;
+    if (state.tab) setActiveTab(state.tab);
+    if (state.petId) setSelectedPet(state.petId);
+
+    const markRead = async () => {
+      if (state.petReminderId) {
+        await markExerciseNotificationsRead(user.id, [
+          getExerciseReminderNotificationId(state.petReminderId),
+        ]);
+      } else if (state.petId) {
+        await markExerciseNotificationsReadForPet(user.id, state.petId);
+      }
+      await refreshUnreadIds();
+    };
+
+    void markRead();
+
+    navigate('/trazabilidad', {
+      replace: true,
+      state: state.tab ? { tab: state.tab } : undefined,
+    });
+  }, [location.state, user?.id, navigate, refreshUnreadIds]);
 
   // Calculate calories when form changes
   useEffect(() => {
@@ -114,7 +281,9 @@ const Trazabilidad: React.FC = () => {
         const intensityMultiplier = intensity === 'low' ? 0.7 : intensity === 'medium' ? 1.0 : 1.3;
         
         // Pet weight factor (heavier pets burn more calories)
-        const weightFactor = selectedPetData.weight ? Math.sqrt(selectedPetData.weight / 20) : 1;
+        const weightFactor = selectedPetData.weight
+          ? Math.sqrt(Number(selectedPetData.weight) / 20)
+          : 1;
         
         // Calculate total calories
         const calories = Math.round(baseCaloriesPerMinute * durationNum * intensityMultiplier * weightFactor);
@@ -125,49 +294,6 @@ const Trazabilidad: React.FC = () => {
       setCalculatedCalories(0);
     }
   }, [selectedPet, duration, intensity, exerciseType, pets]);
-
-  const loadPets = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('pets')
-          .select('*')
-        .eq('owner_id', user?.id);
-        
-        if (error) throw error;
-        setPets(data || []);
-      } catch (error) {
-      console.error('Error loading pets:', error);
-    }
-  };
-
-  const loadExerciseSessions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('exercise_sessions')
-          .select(`
-            *,
-            pets(name)
-          `)
-          .eq('owner_id', user?.id)
-          .order('date', { ascending: false });
-        
-        if (error) {
-          console.error('Error loading exercise sessions:', error);
-          setExerciseSessions([]);
-          return;
-        }
-
-        const formattedSessions = data?.map(session => ({
-          ...session,
-          pet_name: session.pets?.name || 'Unknown Pet'
-        })) || [];
-        
-        setExerciseSessions(formattedSessions);
-      } catch (error) {
-        console.error('Error loading exercise sessions:', error);
-        setExerciseSessions([]);
-      }
-    };
 
   const resetForm = () => {
     setSelectedPet('');
@@ -201,54 +327,66 @@ const Trazabilidad: React.FC = () => {
     e.preventDefault();
     
     if (!selectedPet || !exerciseType || !duration || !intensity) {
-      toast.error("Por favor, completa todos los campos obligatorios.");
+      toast.error('Por favor, completa todos los campos obligatorios.');
       return;
     }
 
+    const durationNum = parseInt(duration, 10);
+    if (!Number.isFinite(durationNum) || durationNum <= 0) {
+      toast.error('La duración debe ser un número entero mayor a 0.');
+      return;
+    }
+
+    setShowExerciseConfirm(true);
+  };
+
+  const performSaveExercise = async () => {
+    setShowExerciseConfirm(false);
     setLoading(true);
     try {
-      const durationNum = parseFloat(duration);
-      
-      // Use the calculated calories from the form
       const caloriesBurned = calculatedCalories;
 
       const exerciseData = {
         pet_id: selectedPet,
         exercise_type: exerciseType,
-        duration_minutes: durationNum,
-        intensity: intensity,
+        duration_minutes: parseInt(duration, 10),
+        intensity,
         date: exerciseDate,
         notes: notes || null,
         calories_burned: caloriesBurned,
-        owner_id: user?.id
+        owner_id: user?.id,
       };
 
+      const wasEditing = !!editingSession;
+
       if (editingSession) {
-        // Update existing session
         const { error } = await supabase
           .from('exercise_sessions')
           .update(exerciseData)
           .eq('id', editingSession.id);
 
         if (error) throw error;
-
-        toast.success("¡Sesión de ejercicio actualizada correctamente!");
+        toast.success('¡Sesión de ejercicio actualizada correctamente!');
       } else {
-        // Create new session
-        const { error } = await supabase
-          .from('exercise_sessions')
-          .insert([exerciseData]);
+        const { error } = await supabase.from('exercise_sessions').insert([exerciseData]);
 
         if (error) throw error;
-
-        toast.success("¡Sesión de ejercicio registrada correctamente!");
+        toast.success('¡Sesión de ejercicio registrada correctamente!');
+        void guidedTour?.notifySectionSaved('exercise');
       }
 
       resetForm();
-      loadExerciseSessions();
-      // Switch back to history tab after saving
-      if (editingSession) {
-        setActiveTab('history');
+      await loadExerciseSessions();
+      if (user?.id && selectedPet) {
+        await markExerciseNotificationsReadForPet(user.id, selectedPet);
+      }
+      void refreshUnreadIds();
+      dispatchNotificationsUpdated();
+      setActiveTab('history');
+      if (!wasEditing) {
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
       }
     } catch (error: any) {
       console.error('Error saving exercise session:', error);
@@ -279,7 +417,9 @@ const Trazabilidad: React.FC = () => {
 
       toast.success("¡Sesión de ejercicio eliminada correctamente!");
 
-      loadExerciseSessions();
+      await loadExerciseSessions();
+      void refreshUnreadIds();
+      dispatchNotificationsUpdated();
     } catch (error) {
       console.error('Error deleting exercise session:', error);
       toast.error("No se pudo eliminar la sesión de ejercicio.");
@@ -304,10 +444,43 @@ const Trazabilidad: React.FC = () => {
   ];
 
   const intensityLevels = [
-    { value: 'low', label: 'Baja', color: 'bg-green-100 text-green-800' },
-    { value: 'medium', label: 'Media', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'high', label: 'Alta', color: 'bg-red-100 text-red-800' }
+    { value: 'low', label: 'Baja', color: 'bg-landing-mint/20 text-landing-mint-dark border border-landing-mint/30' },
+    { value: 'medium', label: 'Media', color: 'bg-landing-mango/15 text-landing-mango-dark border border-landing-mango/30' },
+    { value: 'high', label: 'Alta', color: 'bg-red-100 text-red-800 border border-red-200' },
   ];
+
+  const petHasUnread = useCallback(
+    (petId: string) => {
+      const weekStart = getWeekStartStr();
+      const ids = [
+        ...getExerciseNotificationIdsForPet(petId, weekStart),
+      ];
+      return ids.some((id) => unreadIds.has(id));
+    },
+    [unreadIds],
+  );
+
+  const registerUnreadCount = useMemo(
+    () => pets.filter((pet) => petHasUnread(pet.id)).length,
+    [pets, petHasUnread],
+  );
+
+  const exerciseTabs: MobileTabItem[] = useMemo(
+    () => [
+      {
+        id: 'register',
+        label: 'Registrar Ejercicio',
+        shortLabel: registerUnreadCount
+          ? `Registrar · ${registerUnreadCount} aviso${registerUnreadCount !== 1 ? 's' : ''}`
+          : 'Registrar',
+        icon: Plus,
+        gradientIndex: 0,
+      },
+      { id: 'analytics', label: 'Análisis', shortLabel: 'Análisis', icon: BarChart3, gradientIndex: 2 },
+      { id: 'history', label: 'Historial', shortLabel: 'Historial', icon: Calendar, gradientIndex: 4 },
+    ],
+    [registerUnreadCount],
+  );
 
   // Analytics functions
   const getFilteredExerciseSessions = () => {
@@ -423,325 +596,408 @@ const Trazabilidad: React.FC = () => {
   // Prepare chart data for time series
   const getChartData = () => {
     const filteredSessions = getFilteredExerciseSessions();
-    
-    // Group sessions by date
-    const sessionsByDate = filteredSessions.reduce((acc, session) => {
-      const date = session.date;
-      if (!acc[date]) {
-        acc[date] = {
-          date: new Date(date).toLocaleDateString('es-GT'),
-          sessions: 0,
-          duration: 0,
-          calories: 0
-        };
-      }
-      acc[date].sessions += 1;
-      acc[date].duration += session.duration_minutes;
-      acc[date].calories += session.calories_burned;
-      return acc;
-    }, {} as Record<string, any>);
 
-    // Convert to array and sort by date
-    return Object.values(sessionsByDate).sort((a: any, b: any) => 
-      new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime()
+    const sessionsByDate = filteredSessions.reduce(
+      (acc, session) => {
+        const sortKey = session.date;
+        if (!acc[sortKey]) {
+          acc[sortKey] = {
+            sortKey,
+            date: new Date(`${sortKey}T12:00:00`).toLocaleDateString('es-GT', {
+              day: 'numeric',
+              month: 'short',
+            }),
+            sessions: 0,
+            duration: 0,
+            calories: 0,
+          };
+        }
+        acc[sortKey].sessions += 1;
+        acc[sortKey].duration += session.duration_minutes;
+        acc[sortKey].calories += session.calories_burned;
+        return acc;
+      },
+      {} as Record<
+        string,
+        { sortKey: string; date: string; sessions: number; duration: number; calories: number }
+      >,
     );
+
+    return Object.values(sessionsByDate).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   };
+
+  const weeklyProgress = useMemo(() => {
+    const weekStart = getWeekStartStr();
+
+    const filtered =
+      selectedPetForAnalytics === 'all'
+        ? exerciseSessions
+        : exerciseSessions.filter((s) => s.pet_id === selectedPetForAnalytics);
+
+    const weekSessions = filtered.filter((s) => s.date >= weekStart);
+    const minutes = weekSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+    const percent = Math.min(100, Math.round((minutes / WEEKLY_GOAL_MINUTES) * 100));
+
+    return {
+      minutes,
+      sessions: weekSessions.length,
+      goal: WEEKLY_GOAL_MINUTES,
+      percent,
+    };
+  }, [exerciseSessions, selectedPetForAnalytics]);
 
   const chartData = getChartData();
 
+  const renderWeeklyProgress = () => {
+    const weekStart = getWeekStartStr();
+    const showWeeklyNudge =
+      selectedPetForAnalytics !== 'all' &&
+      weeklyProgress.percent < 100 &&
+      unreadIds.has(getWeeklyGoalNotificationId(selectedPetForAnalytics, weekStart));
+
     return (
-    <div className="p-6 space-y-6" style={{ paddingBottom: '100px' }}>
-      <PageHeader 
+    <MobileSectionCard className={cn(showWeeklyNudge && 'ring-2 ring-amber-300/80 ring-offset-1')}>
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Meta semanal</p>
+            <p className="text-lg font-bold text-gray-900 mt-0.5">
+              {weeklyProgress.minutes} / {weeklyProgress.goal} min
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {weeklyProgress.sessions} sesión{weeklyProgress.sessions === 1 ? '' : 'es'} esta semana
+            </p>
+            {showWeeklyNudge && (
+              <span className="inline-flex mt-2 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                Meta pendiente
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full bg-landing-mango/15 px-3 py-1.5 text-landing-mango-dark text-sm font-semibold shrink-0">
+            <Flame className="w-4 h-4" />
+            {weeklyProgress.percent}%
+          </div>
+        </div>
+        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint transition-all duration-500"
+            style={{ width: `${weeklyProgress.percent}%` }}
+          />
+        </div>
+        {weeklyProgress.percent >= 100 && (
+          <p className="text-sm text-landing-aqua-dark font-medium mt-2">
+            ¡Excelente! Cumpliste la meta semanal de actividad.
+          </p>
+        )}
+      </div>
+    </MobileSectionCard>
+    );
+  };
+
+  const renderHowItWorks = () => (
+    <MobileSectionCard>
+      <div className="p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
+          <Info className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+          ¿Cómo funciona?
+        </h3>
+        <div className="space-y-3 text-sm text-gray-600 leading-relaxed">
+          <p>
+            <strong className="text-gray-800">1. Registra</strong> cada caminata, juego o entrenamiento con duración e intensidad.
+          </p>
+          <p>
+            <strong className="text-gray-800">2. Calorías estimadas</strong> según tipo de ejercicio, intensidad y peso de la mascota (actualízalo en Ajustes si falta).
+          </p>
+          <p>
+            <strong className="text-gray-800">3. Revisa</strong> el historial y análisis para ver progreso y cumplir la meta de {WEEKLY_GOAL_MINUTES} min/semana.
+          </p>
+        </div>
+      </div>
+    </MobileSectionCard>
+  );
+
+  const renderPetFilter = () => (
+    <MobileSectionCard>
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+          <span className="text-sm font-semibold text-gray-800">Filtrar por mascota</span>
+        </div>
+        <Select value={selectedPetForAnalytics} onValueChange={setSelectedPetForAnalytics}>
+          <SelectTrigger className="w-full bg-white/90">
+            <SelectValue placeholder="Selecciona una mascota" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las mascotas</SelectItem>
+            {pets.map((pet) => (
+              <SelectItem key={pet.id} value={pet.id}>
+                {pet.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </MobileSectionCard>
+  );
+
+  const statCards = exerciseStats
+    ? [
+        { label: 'Total sesiones', value: String(exerciseStats.total_sessions), sub: 'Sesiones registradas' },
+        { label: 'Tiempo total', value: `${exerciseStats.total_duration} min`, sub: 'Minutos de ejercicio' },
+        { label: 'Calorías', value: String(exerciseStats.total_calories), sub: 'Total quemadas' },
+        { label: 'Promedio', value: `${exerciseStats.average_duration} min`, sub: 'Por sesión' },
+        { label: 'Ejercicio favorito', value: exerciseStats.favorite_exercise, sub: 'Más realizado', small: true },
+        { label: 'Mascota más activa', value: exerciseStats.most_active_pet, sub: 'Más ejercicios', small: true },
+      ]
+    : [];
+
+  if (initialLoading) {
+    return (
+      <DashboardShell>
+        <PageLoader variant="inline" message="Cargando ejercicio y sesiones…" />
+      </DashboardShell>
+    );
+  }
+
+  return (
+    <>
+    <DashboardShell>
+      <PageHeader
         title="Ejercicio"
         subtitle="Registra y gestiona las actividades físicas de tus mascotas"
-        gradient="from-orange-500 to-red-500"
-        showHamburgerMenu={true}
-        onToggleHamburger={toggleMobileMenu}
-        isHamburgerOpen={isMobileMenuOpen}
       >
-        <Activity className="w-8 h-8" />
+        <Activity className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
       </PageHeader>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="register" className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Registrar Ejercicio
-              </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-            Análisis
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Historial
-              </TabsTrigger>
-            </TabsList>
+      {unreadIds.size > 0 && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200/80 px-4 py-3 text-sm text-amber-900">
+          Tienes {unreadIds.size} aviso{unreadIds.size !== 1 ? 's' : ''} de ejercicio sin revisar. Registra
+          una actividad para mantener a tus mascotas activas.
+        </div>
+      )}
 
-        <TabsContent value="register" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-            <Plus className="w-5 h-5 text-orange-600" />
-            {editingSession ? 'Editar Sesión de Ejercicio' : 'Registrar Nueva Sesión de Ejercicio'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-          <form onSubmit={saveExerciseSession} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Pet Selection */}
-                      <div>
-                        <Label htmlFor="pet">Mascota *</Label>
-                        <Select value={selectedPet} onValueChange={setSelectedPet}>
-                          <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una mascota" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {pets.map((pet) => (
-                              <SelectItem key={pet.id} value={pet.id}>
-                        {pet.name} ({pet.species})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+      <MobileTabStrip
+        tabs={exerciseTabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        columns={3}
+      />
 
-              {/* Exercise Type */}
-                      <div>
-                <Label htmlFor="exercise-type">Tipo de Ejercicio *</Label>
-                        <Select value={exerciseType} onValueChange={setExerciseType}>
-                          <SelectTrigger>
-                    <SelectValue placeholder="Selecciona el tipo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                    {exerciseTypes.map((type) => {
-                      const IconComponent = type.icon;
-                      return (
-                              <SelectItem key={type.value} value={type.value}>
-                          <div className="flex items-center gap-2">
-                            <IconComponent className="w-4 h-4" />
-                            {type.label}
-                          </div>
-                              </SelectItem>
-                      );
-                    })}
-                          </SelectContent>
-                        </Select>
-                      </div>
+      {exerciseSessions.length > 0 && activeTab !== 'register' && renderWeeklyProgress()}
 
-              {/* Duration */}
-                      <div>
-                        <Label htmlFor="duration">Duración (minutos) *</Label>
-                        <Input
-                          type="number"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  placeholder="Ej: 30"
-                          min="1"
-                  step="1"
-                        />
-                    </div>
+      {activeTab === 'register' && (
+        <div className="space-y-4">
+          {renderHowItWorks()}
 
-              {/* Intensity */}
-                      <div>
-                <Label htmlFor="intensity">Intensidad *</Label>
-                <Select value={intensity} onValueChange={setIntensity}>
-                          <SelectTrigger>
-                    <SelectValue placeholder="Selecciona la intensidad" />
-                          </SelectTrigger>
-                          <SelectContent>
-                    {intensityLevels.map((level) => (
-                      <SelectItem key={level.value} value={level.value}>
-                        {level.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+          {pets.length === 0 ? (
+            <MobileSectionCard>
+              <div className="text-center py-10 px-4">
+                <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-medium text-gray-800">Primero agrega una mascota</p>
+                <p className="text-sm text-gray-500 mt-1 mb-4 max-w-sm mx-auto">
+                  Necesitas al menos una mascota registrada para guardar sesiones de ejercicio.
+                </p>
+                <Button className={landingBtnPrimary} onClick={() => navigate('/pet-creation')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Registrar mascota
+                </Button>
+              </div>
+            </MobileSectionCard>
+          ) : (
+        <MobileSectionCard>
+          <div className="p-4 sm:p-5">
+            <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-gray-900 mb-4">
+              <Plus className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+              {editingSession ? 'Editar sesión de ejercicio' : 'Registrar nueva sesión'}
+            </h3>
 
-              {/* Calories Display */}
-              <div className="md:col-span-2">
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-orange-600" />
-                    <span className="font-semibold text-orange-800">
-                      Calorías estimadas: {calculatedCalories > 0 ? calculatedCalories : '--'} cal
-                    </span>
-                      </div>
-                  <p className="text-sm text-orange-700 mt-1">
-                    {calculatedCalories > 0 
-                      ? `Basado en ${exerciseTypes.find(t => t.value === exerciseType)?.label || exerciseType}, intensidad ${intensityLevels.find(i => i.value === intensity)?.label || intensity} y peso de la mascota`
-                      : "Selecciona mascota, ejercicio, duración e intensidad para calcular"
-                    }
-                  </p>
+            <form onSubmit={saveExerciseSession} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="pet">Mascota *</Label>
+                  <Select value={selectedPet} onValueChange={setSelectedPet} disabled={pets.length === 0}>
+                    <SelectTrigger className="bg-white/90">
+                      <SelectValue placeholder="Selecciona una mascota" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pets.map((pet) => (
+                        <SelectItem key={pet.id} value={pet.id}>
+                          {formatPetOptionLabel(pet)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="exercise-type">Tipo de ejercicio *</Label>
+                  <Select value={exerciseType} onValueChange={setExerciseType}>
+                    <SelectTrigger className="bg-white/90">
+                      <SelectValue placeholder="Selecciona el tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exerciseTypes.map((type) => {
+                        const IconComponent = type.icon;
+                        return (
+                          <SelectItem key={type.value} value={type.value}>
+                            <div className="flex items-center gap-2">
+                              <IconComponent className="w-4 h-4" />
+                              {type.label}
                             </div>
-                          </div>
-                          
-              {/* Date */}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="duration">Duración (minutos) *</Label>
+                  <Input
+                    type="number"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    placeholder="Ej: 30"
+                    min="1"
+                    step="1"
+                    className="bg-white/90"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="intensity">Intensidad *</Label>
+                  <Select value={intensity} onValueChange={setIntensity}>
+                    <SelectTrigger className="bg-white/90">
+                      <SelectValue placeholder="Selecciona la intensidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {intensityLevels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <div className="rounded-xl border border-landing-aqua/25 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 p-4">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+                      <span className="font-semibold text-landing-aqua-dark">
+                        Calorías estimadas: {calculatedCalories > 0 ? calculatedCalories : '--'} cal
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                      {calculatedCalories > 0
+                        ? `Basado en ${exerciseTypes.find((t) => t.value === exerciseType)?.label || exerciseType}, intensidad ${intensityLevels.find((i) => i.value === intensity)?.label || intensity} y peso de la mascota`
+                        : 'Selecciona mascota, ejercicio, duración e intensidad para calcular'}
+                    </p>
+                    {selectedPet && !Number(pets.find((p) => p.id === selectedPet)?.weight) && (
+                      <p className="text-xs text-landing-mango-dark mt-2">
+                        Tip: agrega el peso de tu mascota en Ajustes para estimaciones más precisas.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="date">Fecha *</Label>
+                  <Input
+                    type="date"
+                    value={exerciseDate}
+                    onChange={(e) => setExerciseDate(e.target.value)}
+                    className="bg-white/90"
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label htmlFor="date">Fecha *</Label>
-                <Input
-                  type="date"
-                  value={exerciseDate}
-                  onChange={(e) => setExerciseDate(e.target.value)}
+                <Label htmlFor="notes">Notas (opcional)</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Observaciones sobre la sesión de ejercicio..."
+                  rows={3}
+                  className="bg-white/90 resize-none"
                 />
               </div>
-            </div>
 
-            {/* Notes */}
-                      <div>
-              <Label htmlFor="notes">Notas (opcional)</Label>
-                        <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observaciones sobre la sesión de ejercicio..."
-                          rows={3}
-                        />
-                    </div>
-
-                <div className="flex gap-2">
-                  <Button 
-                    type="submit" 
-                    disabled={loading}
-                    className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                  >
-                    <Activity className="w-4 h-4 mr-2" />
-                    {loading 
-                      ? (editingSession ? 'Actualizando...' : 'Registrando...') 
-                      : (editingSession ? 'Actualizar Sesión' : 'Registrar Sesión de Ejercicio')
-                    }
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={loading || pets.length === 0}
+                  data-blueprint-guided="register-exercise"
+                  className={cn('flex-1 min-h-[44px]', landingBtnPrimary)}
+                >
+                  <Activity className="w-4 h-4 mr-2 shrink-0" />
+                  {loading
+                    ? editingSession
+                      ? 'Actualizando...'
+                      : 'Registrando...'
+                    : editingSession
+                      ? 'Actualizar sesión'
+                      : 'Registrar sesión'}
+                </Button>
+                {editingSession && (
+                  <Button type="button" variant="outline" onClick={resetForm} disabled={loading} className="min-h-[44px]">
+                    Cancelar
                   </Button>
-                  {editingSession && (
-                    <Button 
-                      type="button"
-                      variant="outline"
-                      onClick={resetForm}
-                      disabled={loading}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-                  </form>
-                </CardContent>
-              </Card>
+                )}
+              </div>
+            </form>
+          </div>
+        </MobileSectionCard>
+          )}
+        </div>
+      )}
 
-            </TabsContent>
+      {activeTab === 'analytics' && (
+        <div className="space-y-4">
+          {exerciseSessions.length === 0 && renderHowItWorks()}
+          {renderPetFilter()}
 
-        <TabsContent value="analytics" className="space-y-6">
-          {/* Pet Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-orange-600" />
-                Filtrar por Mascota
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select value={selectedPetForAnalytics} onValueChange={setSelectedPetForAnalytics}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona una mascota" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las mascotas</SelectItem>
-                  {pets.map((pet) => (
-                    <SelectItem key={pet.id} value={pet.id}>
-                      {pet.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
-
-          {/* Exercise Statistics Cards */}
           {exerciseStats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Total Sesiones</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{exerciseStats.total_sessions}</div>
-                  <p className="text-xs text-gray-500">Sesiones registradas</p>
-                    </CardContent>
-                  </Card>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              {statCards.map((stat, index) => {
+                const theme = landingCardThemes[index % landingCardThemes.length];
+                return (
+                  <div
+                    key={stat.label}
+                    className={cn('rounded-2xl border p-4 backdrop-blur-sm', theme.bg, theme.border)}
+                  >
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide leading-tight">{stat.label}</p>
+                    <p className={cn('font-bold text-gray-900 mt-1 break-words', stat.small ? 'text-base' : 'text-xl sm:text-2xl')}>
+                      {stat.value}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{stat.sub}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-                  <Card>
-                    <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Tiempo Total</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{exerciseStats.total_duration}</div>
-                  <p className="text-xs text-gray-500">Minutos de ejercicio</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Calorías Quemadas</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{exerciseStats.total_calories}</div>
-                  <p className="text-xs text-gray-500">Total de calorías</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Promedio por Sesión</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{exerciseStats.average_duration}</div>
-                  <p className="text-xs text-gray-500">Minutos promedio</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Ejercicio Favorito</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="text-lg font-bold text-purple-600">{exerciseStats.favorite_exercise}</div>
-                  <p className="text-xs text-gray-500">Más realizado</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Mascota Más Activa</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="text-lg font-bold text-indigo-600">{exerciseStats.most_active_pet}</div>
-                  <p className="text-xs text-gray-500">Más ejercicios</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-          {/* Time Series Chart */}
-          {chartData.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-orange-600" />
-                  Progreso de Ejercicio
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80 w-full">
+          {chartData.length > 0 ? (
+            <MobileSectionCard>
+              <div className="p-4 sm:p-5">
+                <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                  <TrendingUp className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+                  Progreso de ejercicio
+                </h3>
+                <div className="h-64 sm:h-80 w-full -mx-1">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        angle={-35}
                         textAnchor="end"
-                        height={60}
+                        height={56}
+                        interval="preserveStartEnd"
                       />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip 
+                      <YAxis tick={{ fontSize: 11 }} width={36} />
+                      <Tooltip
                         formatter={(value, name) => {
                           if (name === 'calories') return [`${value} cal`, 'Calorías'];
                           if (name === 'duration') return [`${value} min`, 'Duración'];
@@ -750,161 +1006,180 @@ const Trazabilidad: React.FC = () => {
                         }}
                         labelFormatter={(label) => `Fecha: ${label}`}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="calories" 
-                        stroke="#f97316" 
-                        strokeWidth={3}
-                        dot={{ fill: '#f97316', strokeWidth: 2, r: 4 }}
+                      <Line
+                        type="monotone"
+                        dataKey="calories"
+                        stroke={landingChartColors.aqua}
+                        strokeWidth={2.5}
+                        dot={{ fill: landingChartColors.aqua, strokeWidth: 2, r: 3 }}
                         name="Calorías"
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="duration" 
-                        stroke="#3b82f6" 
-                        strokeWidth={3}
-                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      <Line
+                        type="monotone"
+                        dataKey="duration"
+                        stroke={landingChartColors.mango}
+                        strokeWidth={2.5}
+                        dot={{ fill: landingChartColors.mango, strokeWidth: 2, r: 3 }}
                         name="Duración"
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-4 flex justify-center gap-6 text-sm text-gray-600">
+                <div className="mt-3 flex flex-wrap justify-center gap-4 text-xs sm:text-sm text-gray-600">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    <span>Calorías Quemadas</span>
+                    <div className="w-3 h-3 rounded-full" style={{ background: landingChartColors.aqua }} />
+                    <span>Calorías</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span>Duración (minutos)</span>
+                    <div className="w-3 h-3 rounded-full" style={{ background: landingChartColors.mango }} />
+                    <span>Duración (min)</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </MobileSectionCard>
+          ) : (
+            <MobileSectionCard>
+              <div className="text-center py-10 px-4">
+                <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-medium text-gray-700">Sin datos para analizar</p>
+                <p className="text-sm text-gray-500 mt-1">Registra sesiones para ver estadísticas y gráficos.</p>
+              </div>
+            </MobileSectionCard>
           )}
-            </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="history" className="space-y-6">
-          {/* Pet Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-orange-600" />
-                Filtrar por Mascota
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select value={selectedPetForAnalytics} onValueChange={setSelectedPetForAnalytics}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona una mascota" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las mascotas</SelectItem>
-                  {pets.map((pet) => (
-                    <SelectItem key={pet.id} value={pet.id}>
-                      {pet.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          {renderPetFilter()}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-orange-600" />
-                Historial de Ejercicios
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+          <MobileSectionCard>
+            <div className="p-4 sm:p-5">
+              <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                <Calendar className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+                Historial de ejercicios
+              </h3>
+
               {getFilteredExerciseSessions().length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                  <Activity className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium mb-2">No hay sesiones de ejercicio registradas</p>
-                  <p className="text-sm">Comienza registrando tu primera sesión de ejercicio</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
+                <div className="text-center py-10 px-2">
+                  <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium text-gray-700">No hay sesiones registradas</p>
+                  <p className="text-sm text-gray-500 mt-1 mb-4">Comienza registrando tu primera sesión.</p>
+                  <Button variant="outline" className="min-h-[44px]" onClick={() => setActiveTab('register')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Registrar ejercicio
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
                   {getFilteredExerciseSessions().map((session) => {
                     const IconComponent = getExerciseTypeIcon(session.exercise_type);
                     const exerciseLabel = getExerciseTypeLabel(session.exercise_type);
+                    const intensityBadge =
+                      intensityLevels.find((i) => i.value === session.intensity)?.color ||
+                      'bg-gray-100 text-gray-800';
+
                     return (
-                      <div key={session.id} className="border-l-4 border-orange-500 pl-4 py-4 bg-orange-50 rounded-r-lg">
-                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <IconComponent className="w-5 h-5 text-orange-600 flex-shrink-0" />
-                                <span className="font-semibold text-gray-800">
-                                  {exerciseLabel}
-                                </span>
-                                <Badge variant="outline" className="text-xs flex-shrink-0">
-                                  {session.pet_name}
-                                </Badge>
-                                <Badge className={`${intensityLevels.find(i => i.value === session.intensity)?.color || 'bg-gray-100 text-gray-800'} flex-shrink-0`}>
-                                  {intensityLevels.find(i => i.value === session.intensity)?.label || session.intensity}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                <Calendar className="w-4 h-4 inline mr-1" />
-                                {new Date(session.date).toLocaleDateString('es-GT', { 
-                                  weekday: 'long', 
-                                  year: 'numeric', 
-                                  month: 'long', 
-                                  day: 'numeric' 
-                                })}
-                              </div>
+                      <div
+                        key={session.id}
+                        className="rounded-xl border border-white/60 bg-white/70 border-l-4 border-l-landing-aqua p-3 sm:p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <IconComponent className="w-5 h-5 text-landing-aqua-dark shrink-0" />
+                              <span className="font-semibold text-gray-900">{exerciseLabel}</span>
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {session.pet_name}
+                              </Badge>
+                              <Badge className={cn('text-xs shrink-0', intensityBadge)}>
+                                {intensityLevels.find((i) => i.value === session.intensity)?.label || session.intensity}
+                              </Badge>
                             </div>
-                            <div className="flex gap-2 flex-shrink-0">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => loadSessionForEdit(session)}
-                                className="text-xs"
-                              >
-                                <Edit className="w-3 h-3 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => deleteExerciseSession(session.id)}
-                                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-100"
-                                disabled={loading}
-                              >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                Eliminar
-                              </Button>
+                            <p className="text-sm text-gray-500">
+                              <Calendar className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+                              {new Date(session.date).toLocaleDateString('es-GT', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                            <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                              <span className="inline-flex items-center gap-1">
+                                <Timer className="w-4 h-4 text-landing-aqua-dark" />
+                                <strong>{session.duration_minutes} min</strong>
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <Zap className="w-4 h-4 text-landing-mango-dark" />
+                                <strong>{session.calories_burned} cal</strong>
+                              </span>
                             </div>
+                            {session.notes && (
+                              <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                                <span className="font-medium text-gray-700">Notas:</span> {session.notes}
+                              </p>
+                            )}
                           </div>
-                          
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Timer className="w-4 h-4" />
-                            <span className="font-medium">{session.duration_minutes} min</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Zap className="w-4 h-4" />
-                            <span className="font-medium">{session.calories_burned} cal</span>
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadSessionForEdit(session)}
+                              className="flex-1 sm:flex-none min-h-[40px] text-xs"
+                            >
+                              <Edit className="w-3.5 h-3.5 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteExerciseSession(session.id)}
+                              className="flex-1 sm:flex-none min-h-[40px] text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              disabled={loading}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Eliminar
+                            </Button>
                           </div>
                         </div>
-                          
-                          {session.notes && (
-                            <div className="mt-2">
-                              <span className="font-medium text-gray-700 text-sm">Notas: </span>
-                              <p className="text-sm text-gray-600 italic inline">"{session.notes}"</p>
-                            </div>
-                          )}
-                        </div>
+                      </div>
                     );
                   })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-    </div>
+                </div>
+              )}
+            </div>
+          </MobileSectionCard>
+        </div>
+      )}
+    </DashboardShell>
+
+    <ActionConfirmDialog
+      open={showExerciseConfirm}
+      onOpenChange={setShowExerciseConfirm}
+      title={editingSession ? 'Confirmar actualización' : 'Confirmar registro de ejercicio'}
+      description="Revisa los datos de la sesión antes de guardar."
+      confirmLabel={editingSession ? 'Actualizar' : 'Registrar'}
+      fields={[
+        { label: 'Mascota', value: pets.find((p) => p.id === selectedPet)?.name || '—' },
+        {
+          label: 'Actividad',
+          value: exerciseTypes.find((t) => t.value === exerciseType)?.label || exerciseType,
+        },
+        { label: 'Duración', value: `${duration} min` },
+        {
+          label: 'Intensidad',
+          value: intensityLevels.find((i) => i.value === intensity)?.label || intensity,
+        },
+        { label: 'Calorías', value: `${calculatedCalories} cal` },
+        { label: 'Fecha', value: exerciseDate },
+        ...(notes ? [{ label: 'Notas', value: notes }] : []),
+      ]}
+      onConfirm={performSaveExercise}
+      loading={loading}
+      onEdit={() => setShowExerciseConfirm(false)}
+    />
+    </>
   );
 };
 

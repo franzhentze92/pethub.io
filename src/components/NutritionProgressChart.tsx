@@ -1,24 +1,33 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingChartColors } from '@/lib/landingTheme';
 
 interface NutritionSession {
   id: string;
   pet_id: string;
   pet_name: string;
   date: string;
-  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  meal_type: string;
   food_name: string;
   food_category: string;
   quantity_grams: number;
-  calories_per_100g: number;
-  protein_per_100g: number;
-  fat_per_100g: number;
-  carbs_per_100g: number;
-  fiber_per_100g: number;
   total_calories: number;
   total_protein: number;
   total_fat: number;
   total_carbs: number;
   total_fiber: number;
+  total_ash?: number;
+  total_moisture?: number;
   notes?: string;
   feeding_time?: string;
   created_at: string;
@@ -28,347 +37,317 @@ interface NutritionProgressChartProps {
   sessions: NutritionSession[];
 }
 
+function ChartShell({
+  title,
+  children,
+  footer,
+}: {
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <MobileSectionCard>
+      <div className="p-4 sm:p-5">
+        <h3 className="text-base font-bold text-gray-900 mb-4">{title}</h3>
+        <div className="h-64 sm:h-80 w-full min-w-0">{children}</div>
+        {footer}
+      </div>
+    </MobileSectionCard>
+  );
+}
+
 const NutritionProgressChart: React.FC<NutritionProgressChartProps> = ({ sessions }) => {
-  console.log('NutritionProgressChart rendered with sessions:', sessions);
+  const monthlyChartData = useMemo(() => {
+    const monthly = sessions.reduce(
+      (acc, session) => {
+        const date = new Date(`${session.date}T12:00:00`);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = date.toLocaleDateString('es-GT', { month: 'short', year: 'numeric' });
+
+        if (!acc[monthKey]) {
+          acc[monthKey] = {
+            monthLabel,
+            calories: 0,
+            protein: 0,
+            fat: 0,
+            carbs: 0,
+            fiber: 0,
+            meals: 0,
+          };
+        }
+        acc[monthKey].calories += session.total_calories || 0;
+        acc[monthKey].protein += session.total_protein || 0;
+        acc[monthKey].fat += session.total_fat || 0;
+        acc[monthKey].carbs += session.total_carbs || 0;
+        acc[monthKey].fiber += session.total_fiber || 0;
+        acc[monthKey].meals += 1;
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          monthLabel: string;
+          calories: number;
+          protein: number;
+          fat: number;
+          carbs: number;
+          fiber: number;
+          meals: number;
+        }
+      >,
+    );
+
+    return Object.entries(monthly)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, value]) => ({
+        ...value,
+        calories: Math.round(value.calories),
+        protein: Math.round(value.protein),
+        fat: Math.round(value.fat),
+        carbs: Math.round(value.carbs),
+        fiber: Math.round(value.fiber),
+      }));
+  }, [sessions]);
+
+  const weeklyChartData = useMemo(() => {
+    const weekly = sessions.reduce(
+      (acc, session) => {
+        const date = new Date(`${session.date}T12:00:00`);
+        const day = date.getDay();
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - day);
+        const weekKey = weekStart.toISOString().split('T')[0];
+        const weekLabel = weekStart.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' });
+
+        if (!acc[weekKey]) {
+          acc[weekKey] = {
+            weekLabel,
+            calories: 0,
+            protein: 0,
+            fat: 0,
+            carbs: 0,
+            meals: 0,
+          };
+        }
+        acc[weekKey].calories += session.total_calories || 0;
+        acc[weekKey].protein += session.total_protein || 0;
+        acc[weekKey].fat += session.total_fat || 0;
+        acc[weekKey].carbs += session.total_carbs || 0;
+        acc[weekKey].meals += 1;
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          weekLabel: string;
+          calories: number;
+          protein: number;
+          fat: number;
+          carbs: number;
+          meals: number;
+        }
+      >,
+    );
+
+    return Object.entries(weekly)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([, value]) => ({
+        ...value,
+        protein: Math.round(value.protein),
+        fat: Math.round(value.fat),
+        carbs: Math.round(value.carbs),
+      }));
+  }, [sessions]);
+
+  const mealTypeStats = useMemo(() => {
+    const total = sessions.length;
+    return (['breakfast', 'lunch', 'dinner', 'snack'] as const).map((mealType) => {
+      const count = sessions.filter((s) => s.meal_type === mealType).length;
+      const label =
+        mealType === 'breakfast'
+          ? 'Desayuno'
+          : mealType === 'lunch'
+            ? 'Almuerzo'
+            : mealType === 'dinner'
+              ? 'Cena'
+              : 'Merienda';
+      return {
+        mealType,
+        label,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+      };
+    });
+  }, [sessions]);
+
+  const categoryStats = useMemo(() => {
+    const counts = sessions.reduce(
+      (acc, session) => {
+        const category = session.food_category || 'other';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    const total = sessions.length;
+    return Object.entries(counts).map(([category, count]) => ({
+      category,
+      count,
+      percentage: total > 0 ? (count / total) * 100 : 0,
+    }));
+  }, [sessions]);
 
   if (sessions.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <p>No hay datos de nutrición para mostrar</p>
-      </div>
+      <MobileSectionCard>
+        <div className="p-6 text-center text-gray-500">
+          <p>No hay datos de nutrición para mostrar</p>
+        </div>
+      </MobileSectionCard>
     );
   }
 
-  // Group sessions by date and calculate daily totals
-  const dailyData = sessions.reduce((acc, session) => {
-    const date = session.date;
-    if (!acc[date]) {
-      acc[date] = {
-        date,
-        calories: 0,
-        protein: 0,
-        fat: 0,
-        carbs: 0,
-        fiber: 0,
-        meals: 0
-      };
-    }
-    acc[date].calories += session.total_calories;
-    acc[date].protein += session.total_protein;
-    acc[date].fat += session.total_fat;
-    acc[date].carbs += session.total_carbs;
-    acc[date].fiber += session.total_fiber;
-    acc[date].meals += 1;
-    return acc;
-  }, {} as Record<string, any>);
-
-  const dailyChartData = Object.values(dailyData)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(-14); // Last 14 days
-
-  console.log('Daily chart data:', dailyChartData);
-
   return (
-    <div className="space-y-6">
-      {/* Time Series Chart - Daily Calories */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Tendencia de Calorías Diarias</h3>
-        <div className="h-64 relative">
-          <svg width="100%" height="100%" className="absolute inset-0">
-            {/* Grid lines */}
-            {Array.from({ length: 5 }, (_, i) => (
-              <line
-                key={i}
-                x1="40"
-                y1={40 + (i * 40)}
-                x2="100%"
-                y2={40 + (i * 40)}
-                stroke="#e5e7eb"
-                strokeWidth="1"
-              />
+    <div className="space-y-4">
+      <ChartShell
+        title="Tendencia de calorías mensuales"
+        footer={
+          <p className="mt-3 text-center text-xs text-gray-500">
+            {monthlyChartData.length}{' '}
+            {monthlyChartData.length === 1 ? 'mes con registros' : 'meses con registros'}
+          </p>
+        }
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={monthlyChartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="monthLabel" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 11 }} width={40} />
+            <Tooltip
+              formatter={(value) => [`${value} cal`, 'Calorías']}
+              labelFormatter={(label) => `Mes: ${label}`}
+            />
+            <Line
+              type="monotone"
+              dataKey="calories"
+              stroke={landingChartColors.mint}
+              strokeWidth={2.5}
+              dot={{ fill: landingChartColors.mint, strokeWidth: 2, r: 4 }}
+              name="Calorías"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartShell>
+
+      <ChartShell title="Tendencias semanales (macronutrientes)">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={weeklyChartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="weekLabel" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 11 }} width={36} unit="g" />
+            <Tooltip
+              formatter={(value, name) => {
+                const labels: Record<string, string> = {
+                  protein: 'Proteína',
+                  fat: 'Grasa',
+                  carbs: 'Carbohidratos',
+                };
+                return [`${value} g`, labels[String(name)] ?? String(name)];
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line
+              type="monotone"
+              dataKey="protein"
+              stroke={landingChartColors.mango}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              name="Proteína"
+            />
+            <Line
+              type="monotone"
+              dataKey="fat"
+              stroke={landingChartColors.tropical}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              name="Grasa"
+            />
+            <Line
+              type="monotone"
+              dataKey="carbs"
+              stroke={landingChartColors.aqua}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              name="Carbohidratos"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartShell>
+
+      <ChartShell title="Tendencia de fibra mensual">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={monthlyChartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="monthLabel" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 11 }} width={40} unit="g" />
+            <Tooltip formatter={(value) => [`${value} g`, 'Fibra']} />
+            <Line
+              type="monotone"
+              dataKey="fiber"
+              stroke={landingChartColors.aqua}
+              strokeWidth={2.5}
+              dot={{ fill: landingChartColors.aqua, r: 4 }}
+              name="Fibra"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartShell>
+
+      <MobileSectionCard>
+        <div className="p-4 sm:p-5">
+          <h3 className="text-base font-bold text-gray-900 mb-4">Distribución por tipo de comida</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {mealTypeStats.map((item) => (
+              <div key={item.mealType} className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-center">
+                <div className="text-2xl mb-1">
+                  {item.mealType === 'breakfast'
+                    ? '🌅'
+                    : item.mealType === 'lunch'
+                      ? '🌞'
+                      : item.mealType === 'dinner'
+                        ? '🌙'
+                        : '🍪'}
+                </div>
+                <p className="font-semibold text-gray-800 text-sm">{item.label}</p>
+                <p className="text-xs text-gray-600">{item.count} comidas</p>
+                <p className="text-xs text-gray-500">{item.percentage.toFixed(0)}%</p>
+              </div>
             ))}
-            
-            {/* X-axis labels (dates) */}
-            {dailyChartData.map((day: any, index) => {
-              const x = 40 + (index * (100 - 40) / Math.max(dailyChartData.length - 1, 1));
-              return (
-                <text
-                  key={`date-${index}`}
-                  x={x}
-                  y="100%"
-                  textAnchor="middle"
-                  className="text-xs fill-gray-600"
-                  transform={`translate(0, 20)`}
-                >
-                  {new Date(day.date).toLocaleDateString('es-GT', { month: 'short', day: 'numeric' })}
-                </text>
-              );
-            })}
-            
-            {/* Y-axis labels (calories) */}
-            {(() => {
-              const maxCalories = Math.max(...dailyChartData.map((d: any) => d.calories), 100);
-              return Array.from({ length: 5 }, (_, i) => {
-                const value = (maxCalories / 4) * (4 - i);
-                const y = 40 + (i * 40);
-                return (
-                  <text
-                    key={`calorie-${i}`}
-                    x="35"
-                    y={y + 4}
-                    textAnchor="end"
-                    className="text-xs fill-gray-600"
-                  >
-                    {Math.round(value)}
-                  </text>
-                );
-              });
-            })()}
-            
-            {/* Calorie line */}
-            {dailyChartData.length > 1 && (() => {
-              const maxCalories = Math.max(...dailyChartData.map((d: any) => d.calories), 100);
-              const points = dailyChartData.map((day: any, index) => {
-                const x = 40 + (index * (100 - 40) / Math.max(dailyChartData.length - 1, 1));
-                const y = 40 + ((maxCalories - day.calories) / maxCalories) * 160;
-                return `${x},${y}`;
-              }).join(' ');
-              
-              return (
-                <>
-                  <polyline
-                    points={points}
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+          </div>
+        </div>
+      </MobileSectionCard>
+
+      <MobileSectionCard>
+        <div className="p-4 sm:p-5">
+          <h3 className="text-base font-bold text-gray-900 mb-4">Distribución por categoría</h3>
+          <div className="space-y-3">
+            {categoryStats.map((item) => (
+              <div key={item.category} className="flex items-center gap-3">
+                <span className="w-24 text-xs text-gray-600 capitalize truncate">{item.category.replace(/_/g, ' ')}</span>
+                <div className="flex-1 bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint"
+                    style={{ width: `${item.percentage}%` }}
                   />
-                  {/* Data points */}
-                  {dailyChartData.map((day: any, index) => {
-                    const x = 40 + (index * (100 - 40) / Math.max(dailyChartData.length - 1, 1));
-                    const y = 40 + ((maxCalories - day.calories) / maxCalories) * 160;
-                    return (
-                      <circle
-                        key={`point-${index}`}
-                        cx={x}
-                        cy={y}
-                        r="4"
-                        fill="#10b981"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                    );
-                  })}
-                </>
-              );
-            })()}
-          </svg>
-        </div>
-        <div className="mt-4 text-center text-sm text-gray-600">
-          Últimos {dailyChartData.length} días
-        </div>
-      </div>
-
-      {/* Time Series Chart - Weekly Trends */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Tendencias Semanales</h3>
-        <div className="h-64 relative">
-          <svg width="100%" height="100%" className="absolute inset-0">
-            {/* Grid lines */}
-            {Array.from({ length: 5 }, (_, i) => (
-              <line
-                key={i}
-                x1="40"
-                y1={40 + (i * 40)}
-                x2="100%"
-                y2={40 + (i * 40)}
-                stroke="#e5e7eb"
-                strokeWidth="1"
-              />
+                </div>
+                <span className="w-14 text-xs text-gray-600 text-right">{item.count}</span>
+              </div>
             ))}
-            
-            {/* Weekly data processing */}
-            {(() => {
-              const weeklyData = sessions.reduce((acc, session) => {
-                const date = new Date(session.date);
-                const weekStart = new Date(date.getTime() - (date.getDay() * 24 * 60 * 60 * 1000));
-                const weekKey = weekStart.toISOString().split('T')[0];
-                
-                if (!acc[weekKey]) {
-                  acc[weekKey] = {
-                    week: `Semana ${Object.keys(acc).length + 1}`,
-                    calories: 0,
-                    protein: 0,
-                    fat: 0,
-                    carbs: 0,
-                    meals: 0
-                  };
-                }
-                acc[weekKey].calories += session.total_calories;
-                acc[weekKey].protein += session.total_protein;
-                acc[weekKey].fat += session.total_fat;
-                acc[weekKey].carbs += session.total_carbs;
-                acc[weekKey].meals += 1;
-                return acc;
-              }, {} as Record<string, any>);
-
-              const weeklyChartData = Object.values(weeklyData).slice(-4); // Last 4 weeks
-              const maxValue = Math.max(...weeklyChartData.map((d: any) => Math.max(d.protein, d.fat, d.carbs)), 50);
-              
-              return (
-                <>
-                  {/* X-axis labels */}
-                  {weeklyChartData.map((week: any, index) => {
-                    const x = 40 + (index * (100 - 40) / Math.max(weeklyChartData.length - 1, 1));
-                    return (
-                      <text
-                        key={`week-${index}`}
-                        x={x}
-                        y="100%"
-                        textAnchor="middle"
-                        className="text-xs fill-gray-600"
-                        transform={`translate(0, 20)`}
-                      >
-                        {week.week}
-                      </text>
-                    );
-                  })}
-                  
-                  {/* Y-axis labels */}
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const value = (maxValue / 4) * (4 - i);
-                    const y = 40 + (i * 40);
-                    return (
-                      <text
-                        key={`value-${i}`}
-                        x="35"
-                        y={y + 4}
-                        textAnchor="end"
-                        className="text-xs fill-gray-600"
-                      >
-                        {Math.round(value)}
-                      </text>
-                    );
-                  })}
-                  
-                  {/* Multiple lines for different nutrients */}
-                  {['protein', 'fat', 'carbs'].map((nutrient, nutrientIndex) => {
-                    const colors = ['#f59e0b', '#ef4444', '#8b5cf6'];
-                    const points = weeklyChartData.map((week: any, index) => {
-                      const x = 40 + (index * (100 - 40) / Math.max(weeklyChartData.length - 1, 1));
-                      const y = 40 + ((maxValue - week[nutrient]) / maxValue) * 160;
-                      return `${x},${y}`;
-                    }).join(' ');
-                    
-                    return (
-                      <g key={nutrient}>
-                        <polyline
-                          points={points}
-                          fill="none"
-                          stroke={colors[nutrientIndex]}
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        {weeklyChartData.map((week: any, index) => {
-                          const x = 40 + (index * (100 - 40) / Math.max(weeklyChartData.length - 1, 1));
-                          const y = 40 + ((maxValue - week[nutrient]) / maxValue) * 160;
-                          return (
-                            <circle
-                              key={`${nutrient}-point-${index}`}
-                              cx={x}
-                              cy={y}
-                              r="3"
-                              fill={colors[nutrientIndex]}
-                              stroke="white"
-                              strokeWidth="1"
-                            />
-                          );
-                        })}
-                      </g>
-                    );
-                  })}
-                </>
-              );
-            })()}
-          </svg>
-        </div>
-        <div className="mt-4 flex justify-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-amber-500 rounded"></div>
-            <span>Proteína</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded"></div>
-            <span>Grasa</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-purple-500 rounded"></div>
-            <span>Carbohidratos</span>
           </div>
         </div>
-      </div>
-
-      {/* Simple Meal Type Distribution */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución por Tipo de Comida</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {['breakfast', 'lunch', 'dinner', 'snack'].map((mealType) => {
-            const count = sessions.filter(s => s.meal_type === mealType).length;
-            const total = sessions.length;
-            const percentage = total > 0 ? (count / total) * 100 : 0;
-            const mealName = mealType === 'breakfast' ? 'Desayuno' :
-                           mealType === 'lunch' ? 'Almuerzo' :
-                           mealType === 'dinner' ? 'Cena' : 'Merienda';
-            
-            return (
-              <div key={mealType} className="text-center">
-                <div className="text-2xl mb-2">
-                  {mealType === 'breakfast' ? '🌅' : 
-                   mealType === 'lunch' ? '🌞' : 
-                   mealType === 'dinner' ? '🌙' : '🍪'}
-                </div>
-                <div className="text-lg font-semibold text-gray-800">{mealName}</div>
-                <div className="text-sm text-gray-600">{count} comidas</div>
-                <div className="text-sm text-gray-500">{percentage.toFixed(1)}%</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Simple Food Category Distribution */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución por Categoría de Alimento</h3>
-        <div className="space-y-3">
-          {Object.entries(
-            sessions.reduce((acc, session) => {
-              const category = session.food_category || 'other';
-              acc[category] = (acc[category] || 0) + 1;
-              return acc;
-            }, {} as Record<string, number>)
-          ).map(([category, count]) => {
-            const total = sessions.length;
-            const percentage = total > 0 ? (count / total) * 100 : 0;
-            
-            return (
-              <div key={category} className="flex items-center gap-4">
-                <div className="w-24 text-sm text-gray-600 capitalize">{category}</div>
-                <div className="flex-1 bg-gray-200 rounded-full h-4 relative">
-                  <div 
-                    className="bg-blue-500 h-4 rounded-full"
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
-                <div className="w-16 text-sm text-gray-600 text-right">
-                  {count} ({percentage.toFixed(1)}%)
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      </MobileSectionCard>
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Loader2, Upload, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useCreateAdoptionPet, useUpdateAdoptionPet } from '@/hooks/useAdoption'
+import { ADOPTION_SPECIES_FORM_OPTIONS, normalizeSpeciesToSpanish, SPECIES_ES } from '@/utils/petLabels'
 
 interface AdoptionPetModalProps {
   isOpen: boolean
@@ -22,7 +23,7 @@ const AdoptionPetModal: React.FC<AdoptionPetModalProps> = ({ isOpen, onClose, ow
   const isEditing = !!pet?.id
   const [formData, setFormData] = useState({
     name: '',
-    species: 'Dog',
+    species: SPECIES_ES.PERRO,
     breed: '',
     sex: 'M',
     age: '',
@@ -45,7 +46,7 @@ const AdoptionPetModal: React.FC<AdoptionPetModalProps> = ({ isOpen, onClose, ow
     if (pet) {
       setFormData({
         name: pet.name || '',
-        species: pet.species || 'Dog',
+        species: normalizeSpeciesToSpanish(pet.species),
         breed: pet.breed || '',
         sex: pet.sex || 'M',
         age: pet.age?.toString() || '',
@@ -172,8 +173,11 @@ const AdoptionPetModal: React.FC<AdoptionPetModalProps> = ({ isOpen, onClose, ow
               <Select value={formData.species} onValueChange={(val) => setFormData(v => ({ ...v, species: val }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Dog">Perro</SelectItem>
-                  <SelectItem value="Cat">Gato</SelectItem>
+                  {ADOPTION_SPECIES_FORM_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

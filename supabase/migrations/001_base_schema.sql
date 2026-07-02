@@ -1,0 +1,1 @@
+-- PetHub SaaS — Base schema (see repo for full file; applied via MCP in parts)

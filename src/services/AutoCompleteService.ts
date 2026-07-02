@@ -1,4 +1,5 @@
-import { FeedingScheduleService } from './FeedingScheduleService';
+import { autoCompleteOverdueMealsForUser } from '../utils/feedingScheduleAutomation';
+import { supabase } from '../lib/supabase';
 
 class AutoCompleteService {
   private intervalId: NodeJS.Timeout | null = null;
@@ -36,16 +37,13 @@ class AutoCompleteService {
   // Check for overdue meals and auto-complete them
   private async checkAndCompleteOverdueMeals() {
     try {
-      console.log('Checking for overdue meals...');
-      const completedCount = await FeedingScheduleService.autoCompleteOverdueMeals();
-      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+
+      const completedCount = await autoCompleteOverdueMealsForUser(user.id);
+
       if (completedCount > 0) {
         console.log(`Auto-completed ${completedCount} overdue meals`);
-        
-        // You could add a notification here if needed
-        // this.showNotification(`Auto-completed ${completedCount} meals`);
-      } else {
-        console.log('No overdue meals found');
       }
     } catch (error) {
       console.error('Error in auto-complete service:', error);
@@ -66,12 +64,7 @@ class AutoCompleteService {
   }
 }
 
-// Create a singleton instance
+// Singleton available for manual triggers; global automation runs via useFeedingAutomation.
 export const autoCompleteService = new AutoCompleteService();
-
-// Auto-start the service when the module is imported
-// This will start checking every 5 minutes
-// Note: Run the SQL script first to create the auto_complete_overdue_meals function
-autoCompleteService.start(5);
 
 export default AutoCompleteService;

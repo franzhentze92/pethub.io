@@ -1,0 +1,31 @@
+# Supabase local / deploy config
+# https://supabase.com/docs/guides/cli/config
+
+[auth.email.template.confirmation]
+subject = "Confirma tu cuenta en PetHub 🐾"
+content_path = "./supabase/email-templates/confirm-signup.html"
+
+[auth.email.template.recovery]
+subject = "Restablece tu contraseña de PetHub"
+content_path = "./supabase/email-templates/recovery.html"
+
+[functions.pet-buddy]
+verify_jwt = true
+
+[functions.pet-buddy-agent]
+verify_jwt = true
+
+[functions.import-product-url]
+verify_jwt = true
+
+[functions.stylize-pet]
+verify_jwt = true
+
+[functions.parse-vet-document]
+verify_jwt = true
+
+[functions.send-order-confirmation]
+verify_jwt = true
+
+[functions.send-feeding-reminders]
+verify_jwt = true

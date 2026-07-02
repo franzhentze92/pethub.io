@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchPetsForAppointment, type OrderItemPet } from '@/utils/orderItemPets';
+import { formatAppointmentTimeLabel } from '@/utils/appointmentDisplay';
 
 export interface ProviderProfile {
   id: string;
@@ -16,6 +18,8 @@ export interface ProviderProfile {
   rating: number;
   total_reviews: number;
   city_id?: number;
+  municipality?: string;
+  department?: string;
   google_place_id?: string;
   formatted_address?: string;
   neighborhood?: string;
@@ -27,6 +31,69 @@ export interface ProviderProfile {
   delivery_fee?: number;
   created_at: string;
   updated_at: string;
+}
+
+type ProviderProfileInput = Partial<ProviderProfile> & {
+  municipality?: string;
+  department?: string;
+};
+
+const PROVIDER_WRITABLE_COLUMNS = [
+  'business_name',
+  'business_type',
+  'phone',
+  'address',
+  'description',
+  'profile_picture_url',
+  'logo_url',
+  'city_id',
+  'municipality',
+  'department',
+  'google_place_id',
+  'formatted_address',
+  'neighborhood',
+  'postal_code',
+  'latitude',
+  'longitude',
+  'has_delivery',
+  'has_pickup',
+  'delivery_fee',
+] as const;
+
+function sanitizeProviderPayload(profileData: ProviderProfileInput): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+
+  for (const key of PROVIDER_WRITABLE_COLUMNS) {
+    const value = profileData[key as keyof ProviderProfileInput];
+    if (value !== undefined) {
+      payload[key] = value;
+    }
+  }
+
+  if (!payload.city_id || payload.city_id === 0) {
+    payload.city_id = null;
+  }
+
+  payload.latitude = profileData.latitude ?? null;
+  payload.longitude = profileData.longitude ?? null;
+
+  return payload;
+}
+
+async function resolveCityId(municipality: string, department: string): Promise<number | null> {
+  const city = municipality.trim();
+  const dept = department.trim();
+  if (!city || !dept) return null;
+
+  const { data } = await supabase
+    .from('guatemala_cities')
+    .select('id')
+    .ilike('city_name', city)
+    .ilike('department', dept)
+    .limit(1)
+    .maybeSingle();
+
+  return data?.id ?? null;
 }
 
 export interface ProviderService {
@@ -50,8 +117,31 @@ export interface ProviderService {
   min_advance_booking_hours: number; // Minimum notice required
   is_active: boolean;
   service_image_url?: string; // Image of the service
+  secondary_images?: string[];
+  uses_custom_availability?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProviderAvailability {
+  id: string;
+  provider_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+  created_at: string;
+}
+
+export interface ProviderTimeSlot {
+  id: string;
+  provider_id: string;
+  day_of_week: number;
+  slot_start_time: string;
+  slot_end_time: string;
+  is_available: boolean;
+  max_bookings_per_slot: number;
+  created_at: string;
 }
 
 export interface ProviderServiceAvailability {
@@ -99,6 +189,15 @@ export interface ProviderAppointment {
     cancellation_policy?: string;
   };
   client_email?: string;
+  client_name?: string;
+  client_phone?: string;
+  order_id?: string | null;
+  order_item_id?: string | null;
+  total_price?: number | null;
+  currency?: string;
+  service_variant_name?: string;
+  slot_end_time?: string | null;
+  pets?: OrderItemPet[];
 }
 
 export interface ProviderProduct {
@@ -131,6 +230,10 @@ export interface ProviderProduct {
   weight_kg?: number;
   dimensions_cm?: string;
   tags?: string[];
+  target_species?: string[];
+  product_subtype?: string | null;
+  life_stage?: string | null;
+  subscription_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -154,18 +257,13 @@ export const useProvider = () => {
         .from('providers')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No profile found, this is normal for new users
-          setProfile(null);
-        } else {
-          throw error;
-        }
-      } else {
-        setProfile(data);
+        throw error;
       }
+
+      setProfile(data ?? null);
     } catch (err) {
       console.error('Error fetching provider profile:', err);
       setError(err instanceof Error ? err.message : 'Error fetching profile');
@@ -175,39 +273,69 @@ export const useProvider = () => {
   };
 
   // Create or update provider profile
-  const saveProfile = async (profileData: Partial<ProviderProfile>) => {
+  const saveProfile = async (profileData: ProviderProfileInput) => {
     if (!user) throw new Error('User not authenticated');
 
     try {
       setLoading(true);
       let result;
 
+      const resolvedCityId =
+        profileData.city_id && profileData.city_id > 0
+          ? profileData.city_id
+          : await resolveCityId(profileData.municipality ?? '', profileData.department ?? '');
+
+      const formattedAddress =
+        profileData.formatted_address ||
+        [profileData.address, profileData.municipality, profileData.department]
+          .filter(Boolean)
+          .join(', ');
+
+      const payload = sanitizeProviderPayload({
+        ...profileData,
+        city_id: resolvedCityId,
+        formatted_address: formattedAddress || profileData.formatted_address,
+      });
+
       if (profile) {
-        // Update existing profile
+        const updateData = {
+          ...payload,
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log('📤 Updating provider profile with data:', updateData);
+
         const { data, error } = await supabase
           .from('providers')
-          .update({
-            ...profileData,
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', profile.id)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error updating profile:', error);
+          throw error;
+        }
+
+        console.log('✅ Profile updated successfully:', data);
+        setProfile(data);
         result = data;
       } else {
-        // Create new profile
         const { data, error } = await supabase
           .from('providers')
           .insert({
-            ...profileData,
-            user_id: user.id
+            ...payload,
+            user_id: user.id,
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error creating profile:', error);
+          throw error;
+        }
+
+        console.log('✅ Profile created successfully:', data);
         result = data;
       }
 
@@ -477,6 +605,88 @@ export const useProvider = () => {
     }
   };
 
+  const fetchProviderAvailability = async (providerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('provider_availability')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('day_of_week', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching provider availability:', err);
+      return [];
+    }
+  };
+
+  const fetchProviderTimeSlots = async (providerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('provider_time_slots')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('day_of_week', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching provider time slots:', err);
+      return [];
+    }
+  };
+
+  const saveProviderAvailability = async (
+    providerId: string,
+    availability: Omit<ProviderAvailability, 'id' | 'provider_id' | 'created_at'>[]
+  ) => {
+    const { error: deleteError } = await supabase
+      .from('provider_availability')
+      .delete()
+      .eq('provider_id', providerId);
+
+    if (deleteError) throw deleteError;
+
+    if (availability.length === 0) return;
+
+    const payload = availability.map((item) => ({
+      ...item,
+      provider_id: providerId,
+      day_of_week: typeof item.day_of_week === 'string' ? parseInt(item.day_of_week, 10) : item.day_of_week,
+      start_time: item.start_time ? item.start_time.substring(0, 5) : '09:00',
+      end_time: item.end_time ? item.end_time.substring(0, 5) : '17:00',
+    }));
+
+    const { error } = await supabase.from('provider_availability').insert(payload);
+    if (error) throw error;
+  };
+
+  const saveProviderTimeSlots = async (
+    providerId: string,
+    timeSlots: Omit<ProviderTimeSlot, 'id' | 'provider_id' | 'created_at'>[]
+  ) => {
+    const { error: deleteError } = await supabase
+      .from('provider_time_slots')
+      .delete()
+      .eq('provider_id', providerId);
+
+    if (deleteError) throw deleteError;
+
+    if (timeSlots.length === 0) return;
+
+    const payload = timeSlots.map((item) => ({
+      ...item,
+      provider_id: providerId,
+      day_of_week: typeof item.day_of_week === 'string' ? parseInt(item.day_of_week, 10) : item.day_of_week,
+      slot_start_time: item.slot_start_time ? item.slot_start_time.substring(0, 5) : '09:00',
+      slot_end_time: item.slot_end_time ? item.slot_end_time.substring(0, 5) : '10:00',
+    }));
+
+    const { error } = await supabase.from('provider_time_slots').insert(payload);
+    if (error) throw error;
+  };
+
   // Save service time slots
   const saveServiceTimeSlots = async (serviceId: string, timeSlots: Omit<ProviderServiceTimeSlot, 'id' | 'service_id' | 'created_at'>[]) => {
     try {
@@ -541,100 +751,241 @@ export const useProvider = () => {
 
     try {
       console.log('Fetching appointments for provider:', profile.id, 'user:', user.id);
-      
-      // Fetch service appointments where provider_id matches the user_id
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('service_appointments')
-        .select(`
-          *,
-          provider_services:provider_services!service_appointments_service_id_fkey (
-            service_name,
-            service_category,
-            description,
-            detailed_description,
-            price,
-            currency,
-            duration_minutes,
-            preparation_instructions,
-            cancellation_policy,
-            providers:providers!provider_services_provider_id_fkey (
-              business_name,
-              user_id
-            )
-          ),
-          provider_service_time_slots:provider_service_time_slots!service_appointments_time_slot_id_fkey (
-            slot_start_time,
-            slot_end_time
-          )
-        `)
-        .eq('provider_id', user.id)
-        .order('appointment_date', { ascending: true });
 
-      console.log('Service appointments query result:', { 
-        count: appointmentsData?.length || 0, 
-        appointmentsError 
-      });
+      const { data: providerServices, error: servicesError } = await supabase
+        .from('provider_services')
+        .select('id')
+        .eq('provider_id', profile.id);
 
-      if (appointmentsError) {
-        console.error('Error fetching service appointments:', appointmentsError);
-        throw appointmentsError;
+      if (servicesError) {
+        console.error('Error fetching provider services for appointments:', servicesError);
       }
 
-      // Enrich appointments with client information
+      const serviceIds = (providerServices || []).map((s) => s.id);
+
+      const orFilters = [
+        `provider_id.eq.${user.id}`,
+        `provider_id.eq.${profile.id}`,
+      ];
+      if (serviceIds.length > 0) {
+        orFilters.push(`service_id.in.(${serviceIds.join(',')})`);
+      }
+
+      const selectWithJoins = `
+        *,
+        provider_services (
+          service_name,
+          service_category,
+          description,
+          detailed_description,
+          price,
+          currency,
+          duration_minutes,
+          preparation_instructions,
+          cancellation_policy
+        ),
+        provider_service_time_slots:provider_service_time_slots!service_appointments_time_slot_id_fkey (
+          slot_start_time,
+          slot_end_time
+        )
+      `;
+
+      let appointmentsData: Record<string, unknown>[] | null = null;
+
+      const joinedResult = await supabase
+        .from('service_appointments')
+        .select(selectWithJoins)
+        .or(orFilters.join(','))
+        .order('appointment_date', { ascending: true });
+
+      if (joinedResult.error) {
+        console.warn('Joined appointments query failed, retrying simple select:', joinedResult.error);
+
+        const simpleResult = await supabase
+          .from('service_appointments')
+          .select('*')
+          .or(orFilters.join(','))
+          .order('appointment_date', { ascending: true });
+
+        if (simpleResult.error) {
+          console.error('Error fetching service appointments:', simpleResult.error);
+          throw simpleResult.error;
+        }
+
+        appointmentsData = simpleResult.data || [];
+
+        if (appointmentsData.length > 0 && serviceIds.length > 0) {
+          const { data: servicesData } = await supabase
+            .from('provider_services')
+            .select(
+              'id, service_name, service_category, description, detailed_description, price, currency, duration_minutes, preparation_instructions, cancellation_policy',
+            )
+            .in('id', serviceIds);
+
+          const serviceMap = new Map((servicesData || []).map((s) => [s.id, s]));
+          appointmentsData = appointmentsData.map((apt) => ({
+            ...apt,
+            provider_services: serviceMap.get(apt.service_id as string) || null,
+          }));
+        }
+      } else {
+        appointmentsData = joinedResult.data || [];
+      }
+
+      const uniqueById = new Map<string, Record<string, unknown>>();
+      (appointmentsData || []).forEach((apt) => {
+        uniqueById.set(apt.id as string, apt);
+      });
+      const dedupedAppointments = Array.from(uniqueById.values());
+
+      console.log('Service appointments query result:', {
+        count: dedupedAppointments.length,
+      });
+
+      const orderItemIds = [
+        ...new Set(
+          dedupedAppointments
+            .map((apt) => apt.order_item_id as string)
+            .filter(Boolean),
+        ),
+      ];
+
+      const orderItemMap = new Map<
+        string,
+        { item_name: string; total_price: number; currency: string }
+      >();
+
+      if (orderItemIds.length > 0) {
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select('id, item_name, total_price, currency')
+          .in('id', orderItemIds);
+
+        (orderItems || []).forEach((item) => {
+          orderItemMap.set(item.id, {
+            item_name: item.item_name,
+            total_price: Number(item.total_price),
+            currency: item.currency,
+          });
+        });
+      }
+
+      const clientIds = [
+        ...new Set(
+          dedupedAppointments
+            .map((apt) => apt.client_id as string)
+            .filter(Boolean),
+        ),
+      ];
+
+      const clientNameMap = new Map<string, string>();
+      if (clientIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', clientIds);
+
+        (profiles || []).forEach((p) => {
+          if (p.full_name?.trim()) {
+            clientNameMap.set(p.user_id, p.full_name.trim());
+          }
+        });
+      }
+
       const enrichedAppointments = await Promise.all(
-        (appointmentsData || []).map(async (appointment) => {
-          // Get client email from orders table using client_id
-          let clientEmail = appointment.client_email || 'N/A';
-          
-          // If no client_email in appointment, try to get it from orders
-          if (!appointment.client_email && appointment.order_id) {
+        dedupedAppointments.map(async (appointment) => {
+          let clientEmail =
+            (appointment.client_email as string) ||
+            (appointment.client_name as string) ||
+            'N/A';
+
+          if ((!appointment.client_email || clientEmail === 'N/A') && appointment.order_id) {
             const { data: orderData } = await supabase
               .from('orders')
               .select('client_email')
-              .eq('id', appointment.order_id)
-              .single();
-            
-            if (orderData) {
-              clientEmail = orderData.client_email || 'N/A';
+              .eq('id', appointment.order_id as string)
+              .maybeSingle();
+
+            if (orderData?.client_email) {
+              clientEmail = orderData.client_email;
             }
           }
 
-          // Get time slot information
-          const timeSlot = appointment.provider_service_time_slots;
-          let appointmentTime = '';
-          if (timeSlot?.slot_start_time && timeSlot?.slot_end_time) {
-            appointmentTime = `${timeSlot.slot_start_time.substring(0, 5)} - ${timeSlot.slot_end_time.substring(0, 5)}`;
-          } else if (appointment.appointment_date) {
-            // Fallback to appointment_date if time slot not available
-            const date = new Date(appointment.appointment_date);
-            appointmentTime = date.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
+          const profileName = clientNameMap.get(appointment.client_id as string);
+          if (profileName && (!clientEmail || clientEmail === 'N/A')) {
+            clientEmail = profileName;
           }
 
+          const timeSlot = appointment.provider_service_time_slots as
+            | { slot_start_time?: string; slot_end_time?: string }
+            | null
+            | undefined;
+          const svc = appointment.provider_services as ProviderAppointment['provider_services'];
+          const orderItem = appointment.order_item_id
+            ? orderItemMap.get(appointment.order_item_id as string)
+            : undefined;
+
+          const appointmentTime = formatAppointmentTimeLabel({
+            appointmentTime: appointment.appointment_time as string | null,
+            slotEndTime: appointment.slot_end_time as string | null,
+            timeSlot,
+          });
+
+          const pets = await fetchPetsForAppointment({
+            orderItemId: appointment.order_item_id as string | null | undefined,
+            orderId: appointment.order_id as string | null | undefined,
+            clientId: appointment.client_id as string,
+            serviceId: appointment.service_id as string,
+            createdAt: appointment.created_at as string,
+            totalPrice: appointment.total_price != null ? Number(appointment.total_price) : null,
+          });
+
+          const clientName = (appointment.client_name as string) || profileName || '';
+          const clientPhone = (appointment.client_phone as string) || '';
+
           return {
-            id: appointment.id,
-            provider_id: appointment.provider_id,
-            client_id: appointment.client_id,
-            service_id: appointment.service_id,
-            appointment_date: appointment.appointment_date,
-            status: appointment.status || 'pending',
-            notes: appointment.notes,
-            created_at: appointment.created_at,
-            updated_at: appointment.updated_at,
-            provider_services: appointment.provider_services ? {
-              service_name: appointment.provider_services.service_name,
-              service_category: appointment.provider_services.service_category,
-              description: appointment.provider_services.description,
-              detailed_description: appointment.provider_services.detailed_description,
-              price: appointment.provider_services.price,
-              currency: appointment.provider_services.currency,
-              duration_minutes: appointment.provider_services.duration_minutes,
-              preparation_instructions: appointment.provider_services.preparation_instructions,
-              cancellation_policy: appointment.provider_services.cancellation_policy
-            } : null,
+            id: appointment.id as string,
+            provider_id: appointment.provider_id as string,
+            client_id: appointment.client_id as string,
+            service_id: appointment.service_id as string,
+            order_id: (appointment.order_id as string | null) ?? null,
+            order_item_id: (appointment.order_item_id as string | null) ?? null,
+            appointment_date: appointment.appointment_date as string,
+            status: (appointment.status as ProviderAppointment['status']) || 'pending',
+            notes: appointment.notes as string | undefined,
+            created_at: appointment.created_at as string,
+            updated_at: appointment.updated_at as string,
+            total_price:
+              appointment.total_price != null
+                ? Number(appointment.total_price)
+                : orderItem?.total_price ?? null,
+            currency:
+              (appointment.currency as string) ||
+              orderItem?.currency ||
+              svc?.currency ||
+              'GTQ',
+            service_variant_name: orderItem?.item_name,
+            slot_end_time: (appointment.slot_end_time as string | null) ?? null,
+            provider_services: svc
+              ? {
+                  service_name: svc.service_name,
+                  service_category: svc.service_category,
+                  description: svc.description,
+                  detailed_description: svc.detailed_description,
+                  price: svc.price,
+                  currency: svc.currency,
+                  duration_minutes: svc.duration_minutes,
+                  preparation_instructions: svc.preparation_instructions,
+                  cancellation_policy: svc.cancellation_policy,
+                }
+              : null,
             client_email: clientEmail,
-            appointment_time: appointmentTime
-          };
-        })
+            client_name: clientName,
+            client_phone: clientPhone,
+            appointment_time: appointmentTime,
+            pets,
+          } satisfies ProviderAppointment;
+        }),
       );
 
       console.log('Enriched appointments:', enrichedAppointments.length);
@@ -642,6 +993,7 @@ export const useProvider = () => {
     } catch (err) {
       console.error('Error fetching appointments:', err);
       setError(err instanceof Error ? err.message : 'Error fetching appointments');
+      setAppointments([]);
     }
   };
 
@@ -825,6 +1177,10 @@ export const useProvider = () => {
     fetchServiceAvailability,
     fetchServiceTimeSlots,
     saveServiceAvailability,
-    saveServiceTimeSlots
+    saveServiceTimeSlots,
+    fetchProviderAvailability,
+    fetchProviderTimeSlots,
+    saveProviderAvailability,
+    saveProviderTimeSlots,
   };
 };

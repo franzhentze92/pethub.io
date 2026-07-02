@@ -1,6 +1,7 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { formatSpeciesLabel } from '@/utils/petLabels';
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
@@ -40,6 +41,32 @@ interface RealMapProps {
   isSelectingLocation?: boolean;
   viewMode?: 'list' | 'map';
   onPetClick?: (pet: LostPet) => void;
+  className?: string;
+}
+
+function MapFlyTo({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo([lat, lng], 15, { duration: 0.5 });
+  }, [lat, lng, map]);
+  return null;
+}
+
+function MapClickHandler({
+  isSelectingLocation,
+  onLocationSelect,
+}: {
+  isSelectingLocation: boolean;
+  onLocationSelect?: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click: (e) => {
+      if (isSelectingLocation && onLocationSelect) {
+        onLocationSelect(e.latlng.lat, e.latlng.lng);
+      }
+    },
+  });
+  return null;
 }
 
 const RealMap: React.FC<RealMapProps> = ({ 
@@ -48,7 +75,8 @@ const RealMap: React.FC<RealMapProps> = ({
   selectedLocation,
   isSelectingLocation = false,
   viewMode = 'map',
-  onPetClick
+  onPetClick,
+  className,
 }) => {
   // Default center for Guatemala City
   const defaultCenter: [number, number] = [14.6349, -90.5069];
@@ -82,12 +110,12 @@ const RealMap: React.FC<RealMapProps> = ({
     }
   };
 
-  // Handle map clicks for location selection
-  const handleMapClick = (e: L.LeafletMouseEvent) => {
-    if (isSelectingLocation && onLocationSelect) {
-      onLocationSelect(e.latlng.lat, e.latlng.lng);
-    }
-  };
+  const mapCenter: [number, number] =
+    selectedLocation && isSelectingLocation
+      ? [selectedLocation.lat, selectedLocation.lng]
+      : defaultCenter;
+
+  const mapZoom = selectedLocation && isSelectingLocation ? 15 : defaultZoom;
 
   if (viewMode === 'list') {
     // List view - show as cards
@@ -132,7 +160,7 @@ const RealMap: React.FC<RealMapProps> = ({
                   </div>
                   
                   <div className="text-sm text-gray-600 space-y-1">
-                    <p><span className="font-medium">Especie:</span> {pet.species} - {pet.breed}</p>
+                    <p><span className="font-medium">Especie:</span> {formatSpeciesLabel(pet.species)} - {pet.breed}</p>
                     <p><span className="font-medium">Última vez visto:</span> {formatDate(pet.last_seen)}</p>
                     <p><span className="font-medium">Ubicación:</span> {pet.last_location}</p>
                   </div>
@@ -147,17 +175,28 @@ const RealMap: React.FC<RealMapProps> = ({
 
   // Map view
   return (
-    <div className="w-full h-full" style={{ minHeight: '400px' }}>
+    <div className={`relative w-full h-full ${className ?? ''}`} style={{ minHeight: isSelectingLocation ? undefined : '400px' }}>
       <MapContainer
-        center={defaultCenter}
-        zoom={defaultZoom}
-        style={{ height: '100%', width: '100%', minHeight: '400px', zIndex: 1 }}
-        onClick={handleMapClick}
+        center={mapCenter}
+        zoom={mapZoom}
+        style={{ height: '100%', width: '100%', minHeight: isSelectingLocation ? '100%' : '400px', zIndex: 0 }}
+        className="z-0"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {isSelectingLocation && (
+          <MapClickHandler
+            isSelectingLocation={isSelectingLocation}
+            onLocationSelect={onLocationSelect}
+          />
+        )}
+
+        {selectedLocation && isSelectingLocation && (
+          <MapFlyTo lat={selectedLocation.lat} lng={selectedLocation.lng} />
+        )}
         
         {/* Lost Pet Markers */}
         {lostPets.map((pet) => (
@@ -197,7 +236,7 @@ const RealMap: React.FC<RealMapProps> = ({
                 </div>
                 
                 <div className="text-sm text-gray-600 space-y-1 mb-3">
-                  <p><span className="font-medium">Especie:</span> {pet.species} - {pet.breed}</p>
+                  <p><span className="font-medium">Especie:</span> {formatSpeciesLabel(pet.species)} - {pet.breed}</p>
                   <p><span className="font-medium">Edad:</span> {pet.age} años</p>
                   <p><span className="font-medium">Color:</span> {pet.color}</p>
                   <p><span className="font-medium">Perdido:</span> {formatDate(pet.last_seen)}</p>
@@ -212,10 +251,10 @@ const RealMap: React.FC<RealMapProps> = ({
                 
                 <div className="flex space-x-2">
                   <button
-                    className="flex-1 bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
+                    className="flex-1 bg-gradient-to-r from-landing-aqua to-landing-mint text-white px-3 py-1.5 rounded-lg text-xs font-medium"
                     onClick={() => onPetClick?.(pet)}
                   >
-                    Ver Detalles
+                    Ver detalles
                   </button>
                 </div>
               </div>
@@ -230,10 +269,7 @@ const RealMap: React.FC<RealMapProps> = ({
               <div className="text-center">
                 <p className="font-medium">Ubicación seleccionada</p>
                 <p className="text-sm text-gray-600">
-                  Lat: {selectedLocation.lat.toFixed(6)}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Lng: {selectedLocation.lng.toFixed(6)}
+                  {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
                 </p>
               </div>
             </Popup>
@@ -241,13 +277,11 @@ const RealMap: React.FC<RealMapProps> = ({
         )}
       </MapContainer>
       
-      
-      {/* Click Instructions for Location Selection */}
-      {isSelectingLocation && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg" style={{ zIndex: 1001 }}>
+      {isSelectingLocation && !selectedLocation && (
+        <div className="absolute top-3 left-3 right-3 pointer-events-none bg-white/95 backdrop-blur-sm text-gray-800 px-4 py-3 rounded-xl shadow-lg border border-landing-aqua/15 z-[1000]">
           <div className="text-center">
-            <div className="text-lg font-semibold mb-1">📍 Selecciona una ubicación</div>
-            <div className="text-sm opacity-90">Haz clic en el mapa para marcar donde se perdió tu mascota</div>
+            <div className="text-sm font-bold mb-0.5 text-landing-aqua-dark">Selecciona una ubicación</div>
+            <div className="text-xs text-gray-600">Toca el mapa para marcar dónde se perdió tu mascota</div>
           </div>
         </div>
       )}

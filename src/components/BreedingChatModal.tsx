@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Send, X, PawPrint, Heart } from 'lucide-react';
+import { MessageCircle, Send, PawPrint, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { landingBtnPrimary } from '@/lib/landingTheme';
+import { getPrimaryPetImageUrl } from '@/utils/petImages';
+import {
+  markBreedingChatRoomRead,
+  markBreedingNotificationsRead,
+} from '@/utils/breedingNotifications';
+import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
 
 interface ChatMessage {
   id: string;
@@ -42,6 +47,10 @@ interface BreedingMatch {
     full_name: string;
     phone?: string;
   };
+  requester_owner?: {
+    full_name: string;
+    phone?: string;
+  };
 }
 
 interface BreedingChatModalProps {
@@ -50,10 +59,31 @@ interface BreedingChatModalProps {
   breedingMatch: BreedingMatch | null;
 }
 
+const PetChip = ({ pet }: { pet: { name: string; breed?: string; image_url?: string; pet_images?: unknown } }) => {
+  const imageUrl = getPrimaryPetImageUrl(pet);
+  return (
+    <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-landing-aqua/10 ring-2 ring-white shadow-sm">
+        {imageUrl ? (
+          <img src={imageUrl} alt={pet.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <PawPrint className="w-4 h-4 text-landing-aqua-dark" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="font-semibold text-sm text-gray-900 truncate">{pet.name}</p>
+        {pet.breed && <p className="text-[11px] text-gray-500 truncate">{pet.breed}</p>}
+      </div>
+    </div>
+  );
+};
+
 const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
   isOpen,
   onClose,
-  breedingMatch
+  breedingMatch,
 }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -70,15 +100,19 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
   useEffect(() => {
     if (isOpen && breedingMatch) {
       loadOrCreateChatRoom();
+    } else if (!isOpen) {
+      setChatRoom(null);
+      setMessages([]);
+      setNewMessage('');
     }
-  }, [isOpen, breedingMatch]);
+  }, [isOpen, breedingMatch?.id]);
 
   useEffect(() => {
-    if (chatRoom) {
-      loadMessages();
-      subscribeToMessages();
-    }
-  }, [chatRoom]);
+    if (!chatRoom) return;
+    loadMessages();
+    const unsubscribe = subscribeToMessages();
+    return unsubscribe;
+  }, [chatRoom?.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -90,25 +124,23 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
     try {
       setLoading(true);
 
-      // First, try to find existing chat room
-      const { data: existingRoom, error: fetchError } = await supabase
+      const { data: existingRoom } = await supabase
         .from('chat_rooms')
         .select('*')
         .eq('breeding_match_id', breedingMatch.id)
-        .single();
+        .maybeSingle();
 
       if (existingRoom) {
         setChatRoom(existingRoom);
         return;
       }
 
-      // If no existing room, create a new one
       const { data: newRoom, error: createError } = await supabase
         .from('chat_rooms')
         .insert({
           breeding_match_id: breedingMatch.id,
           owner1_id: breedingMatch.owner_id,
-          owner2_id: breedingMatch.partner_owner_id
+          owner2_id: breedingMatch.partner_owner_id,
         })
         .select()
         .single();
@@ -121,16 +153,12 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
 
       setChatRoom(newRoom);
 
-      // Send a welcome message
-      await supabase
-        .from('chat_messages')
-        .insert({
-          chat_room_id: newRoom.id,
-          sender_id: user.id,
-          message: `¡Hola! Me interesa la solicitud de reproducción entre ${breedingMatch.pet.name} y ${breedingMatch.potential_partner.name}. ¿Podemos coordinar?`,
-          message_type: 'system'
-        });
-
+      await supabase.from('chat_messages').insert({
+        chat_room_id: newRoom.id,
+        sender_id: user.id,
+        message: `¡Hola! Me interesa la solicitud de reproducción entre ${breedingMatch.pet.name} y ${breedingMatch.potential_partner.name}. ¿Podemos coordinar?`,
+        message_type: 'system',
+      });
     } catch (error) {
       console.error('Error loading/creating chat room:', error);
       toast.error('Error al cargar el chat');
@@ -155,6 +183,12 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
       }
 
       setMessages(data || []);
+
+      if (user?.id) {
+        await markBreedingChatRoomRead(chatRoom.id, user.id);
+        await markBreedingNotificationsRead(user.id, [`breeding-chat-${chatRoom.id}`]);
+        dispatchNotificationsUpdated();
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -165,14 +199,22 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
 
     const subscription = supabase
       .channel(`chat_room_${chatRoom.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `chat_room_id=eq.${chatRoom.id}`
-      }, (payload) => {
-        setMessages(prev => [...prev, payload.new as ChatMessage]);
-      })
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `chat_room_id=eq.${chatRoom.id}`,
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new as ChatMessage]);
+          const incoming = payload.new as { sender_id?: string };
+          if (incoming.sender_id && incoming.sender_id !== user?.id) {
+            dispatchNotificationsUpdated();
+          }
+        }
+      )
       .subscribe();
 
     return () => {
@@ -186,14 +228,12 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
     try {
       setSending(true);
 
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert({
-          chat_room_id: chatRoom.id,
-          sender_id: user.id,
-          message: newMessage.trim(),
-          message_type: 'text'
-        });
+      const { error } = await supabase.from('chat_messages').insert({
+        chat_room_id: chatRoom.id,
+        sender_id: user.id,
+        message: newMessage.trim(),
+        message_type: 'text',
+      });
 
       if (error) {
         console.error('Error sending message:', error);
@@ -202,6 +242,7 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
       }
 
       setNewMessage('');
+      dispatchNotificationsUpdated();
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');
@@ -217,133 +258,109 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
     }
   };
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('es-ES', {
+  const formatTime = (timestamp: string) =>
+    new Date(timestamp).toLocaleTimeString('es-ES', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
+
+  const getOtherUserName = () => {
+    if (!breedingMatch || !user) return 'Dueño';
+    const isRequester = user.id === breedingMatch.owner_id;
+    if (isRequester) {
+      return breedingMatch.partner_owner?.full_name || 'Dueño';
+    }
+    return breedingMatch.requester_owner?.full_name || 'Dueño';
   };
 
-  const getOtherUser = () => {
-    if (!breedingMatch || !user) return null;
-    
-    const isOwner1 = user.id === breedingMatch.owner_id;
-    return {
-      id: isOwner1 ? breedingMatch.partner_owner_id : breedingMatch.owner_id,
-      name: isOwner1 ? breedingMatch.partner_owner?.full_name : 'Tú',
-      pet: isOwner1 ? breedingMatch.potential_partner : breedingMatch.pet
-    };
-  };
+  if (!breedingMatch) return null;
 
-  const otherUser = getOtherUser();
-
-  if (!breedingMatch || !otherUser) return null;
+  const otherUserName = getOtherUserName();
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[600px] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center space-x-2">
-            <Heart className="w-5 h-5 text-pink-500" />
-            <span>Chat de Reproducción</span>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={cn(
+          'flex flex-col gap-0 p-0 overflow-hidden',
+          'w-[calc(100vw-0.5rem)] max-w-lg',
+          'h-[min(96dvh,640px)] max-h-[96dvh]',
+          'rounded-2xl border-landing-aqua/15'
+        )}
+      >
+        {/* Header */}
+        <div className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+          <DialogTitle className="flex items-center gap-2 text-lg font-bold text-gray-900">
+            <Heart className="w-5 h-5 text-landing-aqua-dark" />
+            Chat de reproducción
           </DialogTitle>
-          
-          {/* Pet Match Info */}
-          <div className="flex items-center space-x-4 p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden">
-                {breedingMatch.pet.image_url ? (
-                  <img
-                    src={breedingMatch.pet.image_url}
-                    alt={breedingMatch.pet.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <PawPrint className="w-5 h-5 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="font-medium text-sm">{breedingMatch.pet.name}</p>
-                <p className="text-xs text-gray-600">{breedingMatch.pet.breed}</p>
-              </div>
-            </div>
-            
-            <Heart className="w-4 h-4 text-pink-500" />
-            
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden">
-                {breedingMatch.potential_partner.image_url ? (
-                  <img
-                    src={breedingMatch.potential_partner.image_url}
-                    alt={breedingMatch.potential_partner.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <PawPrint className="w-5 h-5 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="font-medium text-sm">{breedingMatch.potential_partner.name}</p>
-                <p className="text-xs text-gray-600">{breedingMatch.potential_partner.breed}</p>
-              </div>
-            </div>
+          <p className="text-xs text-gray-500 mt-1 truncate">
+            Conversación con {otherUserName}
+          </p>
+
+          <div className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-white/80 border border-landing-aqua/10">
+            <PetChip pet={breedingMatch.pet} />
+            <Heart className="w-4 h-4 text-landing-mango shrink-0" />
+            <PetChip pet={breedingMatch.potential_partner} />
           </div>
-        </DialogHeader>
+        </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-3 p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-gradient-to-b from-white to-landing-aqua/[0.03]">
           {loading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-landing-aqua/20 border-t-landing-aqua" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              <MessageCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>Inicia la conversación sobre la reproducción</p>
+            <div className="text-center py-10">
+              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-landing-aqua/30" />
+              <p className="text-sm font-medium text-gray-700">Sin mensajes aún</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Inicia la conversación sobre la reproducción
+              </p>
             </div>
           ) : (
             messages.map((message) => {
               const isOwnMessage = message.sender_id === user?.id;
               const isSystemMessage = message.message_type === 'system';
 
+              if (isSystemMessage) {
+                return (
+                  <div key={message.id} className="flex justify-center px-2">
+                    <div className="text-center max-w-[90%] px-3 py-2 rounded-xl bg-landing-mango/10 border border-landing-mango/20">
+                      <p className="text-xs text-gray-700 leading-relaxed">{message.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{formatTime(message.created_at)}</p>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={message.id}
-                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                  className={cn('flex', isOwnMessage ? 'justify-end' : 'justify-start')}
                 >
-                  <div className={`max-w-[70%] ${isSystemMessage ? 'w-full' : ''}`}>
-                    {isSystemMessage ? (
-                      <div className="text-center">
-                        <Badge variant="secondary" className="text-xs">
-                          {message.message}
-                        </Badge>
-                      </div>
-                    ) : (
-                      <div className={`flex items-start space-x-2 ${isOwnMessage ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src="" />
-                          <AvatarFallback className="text-xs">
-                            {isOwnMessage ? 'Tú' : otherUser.name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className={`rounded-lg px-3 py-2 ${
-                          isOwnMessage 
-                            ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white' 
-                            : 'bg-gray-100 text-gray-900'
-                        }`}>
-                          <p className="text-sm">{message.message}</p>
-                          <p className={`text-xs mt-1 ${
-                            isOwnMessage ? 'text-pink-100' : 'text-gray-500'
-                          }`}>
-                            {formatTime(message.created_at)}
-                          </p>
-                        </div>
-                      </div>
+                  <div
+                    className={cn(
+                      'max-w-[85%] rounded-2xl px-3 py-2 shadow-sm',
+                      isOwnMessage
+                        ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white rounded-br-md'
+                        : 'bg-white border border-gray-100 text-gray-900 rounded-bl-md'
                     )}
+                  >
+                    {!isOwnMessage && (
+                      <p className="text-[10px] font-medium text-landing-aqua-dark mb-0.5">
+                        {otherUserName}
+                      </p>
+                    )}
+                    <p className="text-sm leading-relaxed break-words">{message.message}</p>
+                    <p
+                      className={cn(
+                        'text-[10px] mt-1 text-right',
+                        isOwnMessage ? 'text-white/80' : 'text-gray-400'
+                      )}
+                    >
+                      {formatTime(message.created_at)}
+                    </p>
                   </div>
                 </div>
               );
@@ -352,24 +369,25 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Message Input */}
-        <div className="flex-shrink-0 p-4 border-t">
-          <div className="flex space-x-2">
+        {/* Input */}
+        <div className="shrink-0 p-3 border-t border-gray-100 bg-white/95 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="flex gap-2">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Escribe tu mensaje..."
-              disabled={sending}
-              className="flex-1"
+              disabled={sending || loading}
+              className="flex-1 min-h-[48px] rounded-xl border-landing-aqua/20 focus-visible:ring-landing-aqua/30"
             />
             <Button
               onClick={sendMessage}
-              disabled={!newMessage.trim() || sending}
-              className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+              disabled={!newMessage.trim() || sending || loading}
+              className={cn('min-h-[48px] min-w-[48px] px-0 rounded-xl shrink-0', landingBtnPrimary)}
+              aria-label="Enviar mensaje"
             >
               {sending ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
               ) : (
                 <Send className="w-4 h-4" />
               )}

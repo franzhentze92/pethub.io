@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { LandingSpinner } from '@/components/PageLoader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Download, Printer, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Download, Printer, FileText, MapPin, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { landingBadge, landingBtnPrimary } from '@/lib/landingTheme';
 
 interface Invoice {
   id: string;
@@ -46,6 +50,30 @@ interface InvoiceViewerProps {
   orderId: string;
 }
 
+const dialogShellClass =
+  'w-[calc(100vw-1rem)] max-w-3xl max-h-[92vh] p-0 gap-0 overflow-hidden flex flex-col rounded-2xl border-landing-aqua/20 shadow-xl';
+const dialogHeaderClass =
+  'shrink-0 px-4 sm:px-6 pt-5 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5';
+const outlineBtnClass = 'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
+
+const getPaymentMethodName = (method: string) => {
+  const methods: Record<string, string> = {
+    card: 'Tarjeta de Crédito/Débito',
+    cash: 'Efectivo',
+    transfer: 'Transferencia Bancaria',
+  };
+  return methods[method] || method;
+};
+
+const getPaymentStatusName = (status: string) => {
+  const statuses: Record<string, string> = {
+    completed: 'Completado',
+    pending: 'Pendiente',
+    failed: 'Fallido',
+  };
+  return statuses[status] || status;
+};
+
 const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId }) => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -60,8 +88,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
   const fetchInvoice = async () => {
     try {
       setLoading(true);
-      
-      // Fetch invoice using maybeSingle() to handle case when invoice doesn't exist
+
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .select('*')
@@ -70,19 +97,11 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
 
       if (invoiceError) {
         console.error('Error fetching invoice:', invoiceError);
-        // Check if it's a "table doesn't exist" error
-        if (invoiceError.code === 'PGRST116' || invoiceError.message.includes('does not exist')) {
-          console.warn('Invoices table may not exist. Please run the supabase_invoices_table.sql script.');
-        }
-        setInvoice(null);
-      } else if (!invoiceData) {
-        console.warn('No invoice found for order:', orderId);
         setInvoice(null);
       } else {
-        setInvoice(invoiceData);
+        setInvoice(invoiceData ?? null);
       }
 
-      // Fetch order items (this should always work if order exists)
       const { data: itemsData, error: itemsError } = await supabase
         .from('order_items')
         .select('*')
@@ -94,7 +113,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
       } else {
         setOrderItems(itemsData || []);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Unexpected error fetching invoice:', error);
       setInvoice(null);
       setOrderItems([]);
@@ -112,320 +131,19 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
   };
 
   const handleDownload = () => {
-    // Simply trigger print which allows user to save as PDF
     handlePrint();
-  };
-
-  // This function is kept for potential future use but currently not used
-  const generateInvoiceHTML = () => {
-    if (!invoice) return '';
-
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Factura ${invoice.invoice_number}</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: Arial, sans-serif;
-      padding: 40px;
-      color: #333;
-      background: white;
-    }
-    .invoice-container {
-      max-width: 800px;
-      margin: 0 auto;
-      background: white;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 40px;
-      padding-bottom: 20px;
-      border-bottom: 3px solid #6366f1;
-    }
-    .company-info h1 {
-      color: #6366f1;
-      font-size: 32px;
-      margin-bottom: 10px;
-    }
-    .company-info p {
-      color: #666;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    .invoice-info {
-      text-align: right;
-    }
-    .invoice-info h2 {
-      font-size: 24px;
-      margin-bottom: 10px;
-      color: #333;
-    }
-    .invoice-info p {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 5px;
-    }
-    .billing-info {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 40px;
-    }
-    .billing-section {
-      flex: 1;
-    }
-    .billing-section h3 {
-      font-size: 16px;
-      margin-bottom: 10px;
-      color: #333;
-      text-transform: uppercase;
-    }
-    .billing-section p {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 5px;
-      line-height: 1.6;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 30px;
-    }
-    thead {
-      background-color: #f3f4f6;
-    }
-    th {
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      color: #333;
-      border-bottom: 2px solid #e5e7eb;
-    }
-    td {
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
-      color: #666;
-    }
-    .text-right {
-      text-align: right;
-    }
-    .totals {
-      margin-left: auto;
-      width: 300px;
-    }
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      font-size: 14px;
-    }
-    .total-row.total {
-      font-size: 18px;
-      font-weight: bold;
-      padding-top: 15px;
-      border-top: 2px solid #e5e7eb;
-      color: #333;
-    }
-    .payment-info {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-    }
-    .payment-info p {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 5px;
-    }
-    .footer {
-      margin-top: 60px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      color: #999;
-      font-size: 12px;
-    }
-    @media print {
-      body {
-        padding: 0;
-      }
-      .no-print {
-        display: none;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="invoice-container">
-    <div class="header">
-      <div class="company-info">
-        <h1>PetHub</h1>
-        <p>Plataforma Integral para el Cuidado de Mascotas</p>
-        <p>Guatemala</p>
-        <p>info@pethub.gt</p>
-      </div>
-      <div class="invoice-info">
-        <h2>FACTURA</h2>
-        <p><strong>Número:</strong> ${invoice.invoice_number}</p>
-        <p><strong>Fecha:</strong> ${format(new Date(invoice.issued_at), "dd 'de' MMMM, yyyy", { locale: es })}</p>
-        <p><strong>Orden:</strong> #${orderId.substring(0, 8)}</p>
-      </div>
-    </div>
-
-    <div class="billing-info">
-      <div class="billing-section">
-        <h3>Facturar a:</h3>
-        <p><strong>${invoice.client_name}</strong></p>
-        ${invoice.client_email ? `<p>${invoice.client_email}</p>` : ''}
-        ${invoice.client_phone ? `<p>${invoice.client_phone}</p>` : ''}
-        ${invoice.client_address ? `<p>${invoice.client_address}</p>` : ''}
-        ${invoice.client_city ? `<p>${invoice.client_city}</p>` : ''}
-      </div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Producto/Servicio</th>
-          <th class="text-right">Cantidad</th>
-          <th class="text-right">Precio Unit.</th>
-          <th class="text-right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${orderItems.map(item => `
-          <tr>
-            <td>
-              <strong>${item.item_name}</strong>
-              ${item.item_description ? `<br><small style="color: #999;">${item.item_description}</small>` : ''}
-              <br><small style="color: #999;">Proveedor: ${item.provider_name}</small>
-            </td>
-            <td class="text-right">${item.quantity}</td>
-            <td class="text-right">${formatPrice(item.unit_price, item.currency)}</td>
-            <td class="text-right"><strong>${formatPrice(item.total_price, item.currency)}</strong></td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-
-    <div class="totals">
-      <div class="total-row">
-        <span>Subtotal:</span>
-        <span>${formatPrice(invoice.subtotal, invoice.currency)}</span>
-      </div>
-      ${invoice.delivery_fee > 0 ? `
-      <div class="total-row">
-        <span>Envío:</span>
-        <span>${formatPrice(invoice.delivery_fee, invoice.currency)}</span>
-      </div>
-      ` : ''}
-      ${invoice.tax_amount > 0 ? `
-      <div class="total-row">
-        <span>Impuestos:</span>
-        <span>${formatPrice(invoice.tax_amount, invoice.currency)}</span>
-      </div>
-      ` : ''}
-      ${invoice.discount_amount > 0 ? `
-      <div class="total-row">
-        <span>Descuento:</span>
-        <span>-${formatPrice(invoice.discount_amount, invoice.currency)}</span>
-      </div>
-      ` : ''}
-      <div class="total-row total">
-        <span>TOTAL:</span>
-        <span>${formatPrice(invoice.total_amount, invoice.currency)}</span>
-      </div>
-    </div>
-
-    <div class="payment-info">
-      <p><strong>Método de Pago:</strong> ${getPaymentMethodName(invoice.payment_method)}</p>
-      <p><strong>Estado de Pago:</strong> ${getPaymentStatusName(invoice.payment_status)}</p>
-      ${invoice.paid_at ? `
-      <p><strong>Fecha de Pago:</strong> ${format(new Date(invoice.paid_at), "dd 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}</p>
-      ` : ''}
-    </div>
-
-    ${invoice.notes ? `
-    <div class="payment-info">
-      <p><strong>Notas:</strong></p>
-      <p>${invoice.notes}</p>
-    </div>
-    ` : ''}
-
-    <div class="footer">
-      <p>Gracias por tu compra. Esta es una factura generada automáticamente.</p>
-      <p>Para consultas, contacta a info@pethub.gt</p>
-    </div>
-  </div>
-</body>
-</html>
-    `;
-  };
-
-  const getPaymentMethodName = (method: string) => {
-    const methods: { [key: string]: string } = {
-      'card': 'Tarjeta de Crédito/Débito',
-      'cash': 'Efectivo',
-      'transfer': 'Transferencia Bancaria'
-    };
-    return methods[method] || method;
-  };
-
-  const getPaymentStatusName = (status: string) => {
-    const statuses: { [key: string]: string } = {
-      'completed': 'Completado',
-      'pending': 'Pendiente',
-      'failed': 'Fallido'
-    };
-    return statuses[status] || status;
   };
 
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Cargando Factura</DialogTitle>
-            <DialogDescription>Obteniendo información de la factura...</DialogDescription>
+        <DialogContent className={dialogShellClass}>
+          <DialogHeader className={dialogHeaderClass}>
+            <DialogTitle>Cargando factura</DialogTitle>
+            <DialogDescription>Obteniendo información de la factura…</DialogDescription>
           </DialogHeader>
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  if (!loading && !invoice) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Factura no encontrada</DialogTitle>
-            <DialogDescription>No se encontró una factura para esta orden.</DialogDescription>
-          </DialogHeader>
-          <div className="py-12 text-center space-y-4">
-            <div className="text-6xl mb-4">📄</div>
-            <p className="text-gray-600 text-lg">
-              No se encontró una factura para esta orden.
-            </p>
-            <p className="text-gray-500 text-sm">
-              Esto puede ocurrir si:
-            </p>
-            <ul className="text-gray-500 text-sm text-left max-w-md mx-auto list-disc list-inside space-y-1">
-              <li>La orden fue creada antes de implementar el sistema de facturas</li>
-              <li>La tabla de facturas aún no ha sido creada en la base de datos</li>
-              <li>Hubo un error al generar la factura durante la compra</li>
-            </ul>
-            <div className="pt-4">
-              <Button onClick={onClose} variant="outline">Cerrar</Button>
-            </div>
+          <div className="flex items-center justify-center py-16">
+            <LandingSpinner size="md" />
           </div>
         </DialogContent>
       </Dialog>
@@ -433,263 +151,254 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
   }
 
   if (!invoice) {
-    return null; // Still loading
-  }
-
-  const InvoiceContent = () => (
-    <div className="bg-white p-8" id="invoice-content">
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white; }
-          .invoice-content { box-shadow: none; }
-        }
-        .invoice-content {
-          font-family: Arial, sans-serif;
-          color: #333;
-        }
-        .invoice-header {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 40px;
-          padding-bottom: 20px;
-          border-bottom: 3px solid #6366f1;
-        }
-        .company-info h1 {
-          color: #6366f1;
-          font-size: 32px;
-          margin-bottom: 10px;
-        }
-        .company-info p {
-          color: #666;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-        .invoice-info {
-          text-align: right;
-        }
-        .invoice-info h2 {
-          font-size: 24px;
-          margin-bottom: 10px;
-          color: #333;
-        }
-        .invoice-info p {
-          font-size: 14px;
-          color: #666;
-          margin-bottom: 5px;
-        }
-        .billing-section {
-          margin-bottom: 30px;
-        }
-        .billing-section h3 {
-          font-size: 16px;
-          margin-bottom: 10px;
-          color: #333;
-          text-transform: uppercase;
-        }
-        .billing-section p {
-          font-size: 14px;
-          color: #666;
-          margin-bottom: 5px;
-          line-height: 1.6;
-        }
-        .invoice-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 30px;
-        }
-        .invoice-table thead {
-          background-color: #f3f4f6;
-        }
-        .invoice-table th {
-          padding: 12px;
-          text-align: left;
-          font-weight: 600;
-          color: #333;
-          border-bottom: 2px solid #e5e7eb;
-        }
-        .invoice-table td {
-          padding: 12px;
-          border-bottom: 1px solid #e5e7eb;
-          color: #666;
-        }
-        .text-right {
-          text-align: right;
-        }
-        .totals {
-          margin-left: auto;
-          width: 300px;
-          margin-bottom: 30px;
-        }
-        .total-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 8px 0;
-          font-size: 14px;
-        }
-        .total-row.total {
-          font-size: 18px;
-          font-weight: bold;
-          padding-top: 15px;
-          border-top: 2px solid #e5e7eb;
-          color: #333;
-        }
-        .payment-info {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 1px solid #e5e7eb;
-        }
-        .payment-info p {
-          font-size: 14px;
-          color: #666;
-          margin-bottom: 5px;
-        }
-        .invoice-footer {
-          margin-top: 60px;
-          padding-top: 20px;
-          border-top: 1px solid #e5e7eb;
-          text-align: center;
-          color: #999;
-          font-size: 12px;
-        }
-      `}</style>
-      
-      <div className="invoice-content">
-        <div className="invoice-header">
-          <div className="company-info">
-            <h1>PetHub</h1>
-            <p>Plataforma Integral para el Cuidado de Mascotas</p>
-            <p>Guatemala</p>
-            <p>info@pethub.gt</p>
-          </div>
-          <div className="invoice-info">
-            <h2>FACTURA</h2>
-            <p><strong>Número:</strong> {invoice.invoice_number}</p>
-            <p><strong>Fecha:</strong> {format(new Date(invoice.issued_at), "dd 'de' MMMM, yyyy", { locale: es })}</p>
-            <p><strong>Orden:</strong> #{orderId.substring(0, 8)}</p>
-          </div>
-        </div>
-
-        <div className="billing-section">
-          <h3>Facturar a:</h3>
-          <p><strong>{invoice.client_name}</strong></p>
-          {invoice.client_email && <p>{invoice.client_email}</p>}
-          {invoice.client_phone && <p>{invoice.client_phone}</p>}
-          {invoice.client_address && <p>{invoice.client_address}</p>}
-          {invoice.client_city && <p>{invoice.client_city}</p>}
-        </div>
-
-        <table className="invoice-table">
-          <thead>
-            <tr>
-              <th>Producto/Servicio</th>
-              <th className="text-right">Cantidad</th>
-              <th className="text-right">Precio Unit.</th>
-              <th className="text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderItems.map(item => (
-              <tr key={item.id}>
-                <td>
-                  <strong>{item.item_name}</strong>
-                  {item.item_description && (
-                    <>
-                      <br />
-                      <small style={{ color: '#999' }}>{item.item_description}</small>
-                    </>
-                  )}
-                  <br />
-                  <small style={{ color: '#999' }}>Proveedor: {item.provider_name}</small>
-                </td>
-                <td className="text-right">{item.quantity}</td>
-                <td className="text-right">{formatPrice(item.unit_price, item.currency)}</td>
-                <td className="text-right"><strong>{formatPrice(item.total_price, item.currency)}</strong></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="totals">
-          <div className="total-row">
-            <span>Subtotal:</span>
-            <span>{formatPrice(invoice.subtotal, invoice.currency)}</span>
-          </div>
-          {invoice.delivery_fee > 0 && (
-            <div className="total-row">
-              <span>Envío:</span>
-              <span>{formatPrice(invoice.delivery_fee, invoice.currency)}</span>
-            </div>
-          )}
-          {invoice.tax_amount > 0 && (
-            <div className="total-row">
-              <span>Impuestos:</span>
-              <span>{formatPrice(invoice.tax_amount, invoice.currency)}</span>
-            </div>
-          )}
-          {invoice.discount_amount > 0 && (
-            <div className="total-row">
-              <span>Descuento:</span>
-              <span>-{formatPrice(invoice.discount_amount, invoice.currency)}</span>
-            </div>
-          )}
-          <div className="total-row total">
-            <span>TOTAL:</span>
-            <span>{formatPrice(invoice.total_amount, invoice.currency)}</span>
-          </div>
-        </div>
-
-        <div className="payment-info">
-          <p><strong>Método de Pago:</strong> {getPaymentMethodName(invoice.payment_method)}</p>
-          <p><strong>Estado de Pago:</strong> {getPaymentStatusName(invoice.payment_status)}</p>
-          {invoice.paid_at && (
-            <p><strong>Fecha de Pago:</strong> {format(new Date(invoice.paid_at), "dd 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}</p>
-          )}
-        </div>
-
-        {invoice.notes && (
-          <div className="payment-info">
-            <p><strong>Notas:</strong></p>
-            <p>{invoice.notes}</p>
-          </div>
-        )}
-
-        <div className="invoice-footer">
-          <p>Gracias por tu compra. Esta es una factura generada automáticamente.</p>
-          <p>Para consultas, contacta a info@pethub.gt</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
+    return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto no-print">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle>Factura {invoice.invoice_number}</DialogTitle>
-                <DialogDescription>Orden #{orderId.substring(0, 8)}</DialogDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleDownload} variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar PDF
-                </Button>
-                <Button onClick={handlePrint} variant="outline" size="sm">
-                  <Printer className="w-4 h-4 mr-2" />
-                  Imprimir
-                </Button>
-              </div>
-            </div>
+        <DialogContent className={dialogShellClass}>
+          <DialogHeader className={dialogHeaderClass}>
+            <DialogTitle>Factura no encontrada</DialogTitle>
+            <DialogDescription>No se encontró una factura para esta orden.</DialogDescription>
           </DialogHeader>
-          <InvoiceContent />
+          <div className="px-6 py-10 text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-landing-aqua/10 text-landing-aqua-dark">
+              <FileText className="w-7 h-7" />
+            </div>
+            <p className="text-gray-600">Esta orden no tiene factura asociada todavía.</p>
+            <Button onClick={onClose} variant="outline" className={outlineBtnClass}>
+              Cerrar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
-    </>
+    );
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className={cn(dialogShellClass, 'no-print')}>
+        <DialogHeader className={dialogHeaderClass}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 pr-8">
+              <DialogTitle className="text-base sm:text-lg leading-snug break-words">
+                Factura {invoice.invoice_number}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                Orden #{orderId.substring(0, 8)}
+              </DialogDescription>
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button onClick={handleDownload} variant="outline" size="sm" className={outlineBtnClass}>
+                <Download className="w-4 h-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Descargar PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </Button>
+              <Button onClick={handlePrint} variant="outline" size="sm" className={outlineBtnClass}>
+                <Printer className="w-4 h-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Imprimir</span>
+              </Button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-4 sm:py-5" id="invoice-content">
+          {/* Brand header */}
+          <div className="rounded-2xl bg-gradient-to-r from-landing-aqua to-landing-mint p-4 sm:p-5 text-white mb-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-2xl sm:text-3xl font-bold tracking-tight">PetHub</p>
+                <p className="text-sm text-white/90 mt-1">Plataforma integral para el cuidado de mascotas</p>
+                <p className="text-xs text-white/80 mt-2">Latinoamérica · info@pethub.gt</p>
+              </div>
+              <div className="sm:text-right shrink-0">
+                <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/20 mb-2">
+                  FACTURA
+                </Badge>
+                <p className="text-xs sm:text-sm text-white/95 break-all">{invoice.invoice_number}</p>
+                <p className="text-xs text-white/85 mt-1">
+                  {format(new Date(invoice.issued_at), "dd MMM yyyy", { locale: es })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Client + meta */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div className="rounded-xl border border-landing-aqua/15 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-landing-aqua-dark mb-2">
+                Facturar a
+              </p>
+              <p className="font-semibold text-gray-900">{invoice.client_name}</p>
+              {invoice.client_email && (
+                <p className="text-sm text-gray-600 mt-2 flex items-center gap-1.5 break-all">
+                  <Mail className="w-3.5 h-3.5 shrink-0 text-landing-aqua-dark" />
+                  {invoice.client_email}
+                </p>
+              )}
+              {invoice.client_phone && (
+                <p className="text-sm text-gray-600 mt-1 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 shrink-0 text-landing-aqua-dark" />
+                  {invoice.client_phone}
+                </p>
+              )}
+              {(invoice.client_address || invoice.client_city) && (
+                <p className="text-sm text-gray-600 mt-1 flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 shrink-0 text-landing-aqua-dark mt-0.5" />
+                  <span>
+                    {invoice.client_address}
+                    {invoice.client_city ? `, ${invoice.client_city}` : ''}
+                  </span>
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl border border-landing-aqua/15 bg-white p-4 space-y-2 text-sm">
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Número</span>
+                <span className="font-medium text-gray-900 text-right break-all">{invoice.invoice_number}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Fecha</span>
+                <span className="font-medium text-gray-900 text-right">
+                  {format(new Date(invoice.issued_at), "dd/MM/yyyy", { locale: es })}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500">Orden</span>
+                <span className="font-medium text-gray-900 text-right">#{orderId.substring(0, 8)}</span>
+              </div>
+              <div className="flex justify-between gap-2 items-center">
+                <span className="text-gray-500">Estado</span>
+                <Badge className={cn(landingBadge, 'text-[10px]')}>
+                  {getPaymentStatusName(invoice.payment_status)}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Items — cards on mobile */}
+          <div className="space-y-2 md:hidden mb-4">
+            {orderItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-landing-aqua/15 bg-white p-3 shadow-sm"
+              >
+                <p className="font-medium text-gray-900 text-sm leading-snug">{item.item_name}</p>
+                {item.item_description && (
+                  <p className="text-xs text-gray-500 mt-1">{item.item_description}</p>
+                )}
+                <p className="text-xs text-gray-400 mt-1">Proveedor: {item.provider_name}</p>
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 text-sm">
+                  <span className="text-gray-500">
+                    {item.quantity} × {formatPrice(item.unit_price, item.currency)}
+                  </span>
+                  <span className="font-semibold text-landing-aqua-dark">
+                    {formatPrice(item.total_price, item.currency)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Items — table on desktop */}
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-landing-aqua/15 mb-4">
+            <table className="w-full text-sm">
+              <thead className="bg-landing-aqua/10">
+                <tr>
+                  <th className="text-left p-3 font-semibold text-landing-aqua-dark">Producto / Servicio</th>
+                  <th className="text-right p-3 font-semibold text-landing-aqua-dark w-20">Cant.</th>
+                  <th className="text-right p-3 font-semibold text-landing-aqua-dark w-28">P. unit.</th>
+                  <th className="text-right p-3 font-semibold text-landing-aqua-dark w-28">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orderItems.map((item) => (
+                  <tr key={item.id} className="border-t border-landing-aqua/10">
+                    <td className="p-3">
+                      <p className="font-medium text-gray-900">{item.item_name}</p>
+                      {item.item_description && (
+                        <p className="text-xs text-gray-500 mt-0.5">{item.item_description}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-0.5">Proveedor: {item.provider_name}</p>
+                    </td>
+                    <td className="p-3 text-right text-gray-700">{item.quantity}</td>
+                    <td className="p-3 text-right text-gray-700">
+                      {formatPrice(item.unit_price, item.currency)}
+                    </td>
+                    <td className="p-3 text-right font-semibold text-landing-aqua-dark">
+                      {formatPrice(item.total_price, item.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals */}
+          <div className="rounded-xl border border-landing-aqua/15 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 p-4 ml-auto max-w-sm">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Subtotal</span>
+                <span>{formatPrice(invoice.subtotal, invoice.currency)}</span>
+              </div>
+              {invoice.delivery_fee > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Envío</span>
+                  <span>{formatPrice(invoice.delivery_fee, invoice.currency)}</span>
+                </div>
+              )}
+              {invoice.tax_amount > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Impuestos</span>
+                  <span>{formatPrice(invoice.tax_amount, invoice.currency)}</span>
+                </div>
+              )}
+              {invoice.discount_amount > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Descuento</span>
+                  <span>-{formatPrice(invoice.discount_amount, invoice.currency)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t border-landing-aqua/20 text-base font-bold text-landing-aqua-dark">
+                <span>Total</span>
+                <span>{formatPrice(invoice.total_amount, invoice.currency)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment info */}
+          <div className="mt-4 rounded-xl border border-landing-aqua/15 bg-white p-4 text-sm text-gray-600 space-y-1">
+            <p>
+              <span className="font-medium text-gray-800">Método de pago:</span>{' '}
+              {getPaymentMethodName(invoice.payment_method)}
+            </p>
+            <p>
+              <span className="font-medium text-gray-800">Estado de pago:</span>{' '}
+              {getPaymentStatusName(invoice.payment_status)}
+            </p>
+            {invoice.paid_at && (
+              <p>
+                <span className="font-medium text-gray-800">Fecha de pago:</span>{' '}
+                {format(new Date(invoice.paid_at), "dd 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
+              </p>
+            )}
+            {invoice.notes && (
+              <p className="pt-2 border-t border-gray-100 mt-2">
+                <span className="font-medium text-gray-800">Notas:</span> {invoice.notes}
+              </p>
+            )}
+          </div>
+
+          <p className="text-center text-xs text-gray-400 mt-6 pb-2">
+            Gracias por tu compra · info@pethub.gt
+          </p>
+        </div>
+
+        <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-landing-aqua/10 bg-gray-50/80 no-print">
+          <Button onClick={onClose} className={cn(landingBtnPrimary, 'w-full sm:w-auto border-0')}>
+            Cerrar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
 export default InvoiceViewer;
-

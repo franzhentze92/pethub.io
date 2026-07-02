@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/supabase'
+import { copyPetImagesToAdoptionPet, getPrimaryPetImageUrl } from '@/utils/petImages'
+import { dispatchNotificationsUpdated } from '@/utils/notificationEvents'
+import { resolveSpeciesFilter } from '@/utils/petLabels'
 
 export type Shelter = Database['public']['Tables']['shelters']['Row']
 export type ShelterInsert = Database['public']['Tables']['shelters']['Insert']
@@ -107,20 +110,12 @@ export const useAdoptionPets = (filters?: AdoptionFilters) => {
     queryFn: async () => {
       let query = supabase
         .from('adoption_pets')
-        .select('*, shelters(name, location, phone, description)')
+        .select('*, shelters(name, location, phone, description), pet_images(image_url, display_order)')
         .eq('status', 'available')
         .order('created_at', { ascending: false })
 
       if (filters?.species) {
-        // Handle both Spanish and English species values
-        const speciesMap: Record<string, string> = {
-          'perro': 'Dog',
-          'gato': 'Cat',
-          'conejo': 'Rabbit',
-          'ave': 'Bird',
-          'otro': 'Other'
-        }
-        const speciesValue = speciesMap[filters.species.toLowerCase()] || filters.species
+        const speciesValue = resolveSpeciesFilter(filters.species) ?? filters.species
         query = query.eq('species', speciesValue)
       }
       
@@ -258,7 +253,154 @@ export const useDeleteAdoptionPet = () => {
       if (error) throw error
       return id
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adoption_pets'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoption_pets'] })
+      queryClient.invalidateQueries({ queryKey: ['my_adoption_listings'] })
+    },
+  })
+}
+
+function mapGenderToSex(gender?: string | null): string | null {
+  if (!gender) return null
+  const g = gender.toLowerCase()
+  if (g === 'macho' || g === 'male' || g === 'm') return 'M'
+  if (g === 'hembra' || g === 'female' || g === 'f') return 'F'
+  return gender.length === 1 ? gender.toUpperCase() : null
+}
+
+export interface OfferPetForAdoptionInput {
+  sourcePetId: string
+  ownerId: string
+  description: string
+  location?: string | null
+  adoptionFee?: string | null
+  goodWithKids?: boolean
+  goodWithDogs?: boolean
+  goodWithCats?: boolean
+  houseTrained?: boolean
+  spayedNeutered?: boolean
+}
+
+export const useMyAdoptionListings = (ownerId?: string) => {
+  return useQuery({
+    queryKey: ['my_adoption_listings', ownerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('adoption_pets')
+        .select('*, pet_images(image_url, display_order)')
+        .eq('owner_id', ownerId!)
+        .is('shelter_id', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    },
+    enabled: !!ownerId,
+  })
+}
+
+export const useOfferPetForAdoption = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: OfferPetForAdoptionInput) => {
+      const { data: existing, error: existingError } = await supabase
+        .from('adoption_pets')
+        .select('id')
+        .eq('pet_id', input.sourcePetId)
+        .eq('status', 'available')
+        .maybeSingle()
+
+      if (existingError) throw existingError
+      if (existing) {
+        throw new Error('Esta mascota ya tiene una publicación activa en adopción')
+      }
+
+      const { data: sourcePet, error: petError } = await supabase
+        .from('pets')
+        .select('*, pet_images(image_url, display_order)')
+        .eq('id', input.sourcePetId)
+        .eq('owner_id', input.ownerId)
+        .single()
+
+      if (petError) throw petError
+      if (!sourcePet) throw new Error('Mascota no encontrada')
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('adoption_pets')
+        .insert({
+          owner_id: input.ownerId,
+          shelter_id: null,
+          pet_id: input.sourcePetId,
+          name: sourcePet.name,
+          species: sourcePet.species,
+          breed: sourcePet.breed,
+          sex: mapGenderToSex(sourcePet.gender),
+          age: sourcePet.age,
+          color: sourcePet.color,
+          weight: sourcePet.weight,
+          description: input.description,
+          location: input.location || null,
+          adoption_fee: input.adoptionFee || null,
+          good_with_kids: input.goodWithKids ?? true,
+          good_with_dogs: input.goodWithDogs ?? true,
+          good_with_cats: input.goodWithCats ?? false,
+          house_trained: input.houseTrained ?? null,
+          spayed_neutered: input.spayedNeutered ?? (sourcePet.vaccinated ? true : null),
+          image_url: getPrimaryPetImageUrl(sourcePet),
+          status: 'available',
+        })
+        .select('id')
+        .single()
+
+      if (insertError) throw insertError
+      if (!inserted?.id) throw new Error('No se pudo crear la publicación')
+
+      await copyPetImagesToAdoptionPet(input.sourcePetId, inserted.id)
+      return inserted
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoption_pets'] })
+      queryClient.invalidateQueries({ queryKey: ['my_adoption_listings'] })
+    },
+  })
+}
+
+export const useWithdrawAdoptionListing = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (listingId: string) => {
+      const { data, error } = await supabase
+        .from('adoption_pets')
+        .update({ status: 'removed' })
+        .eq('id', listingId)
+        .select('id')
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoption_pets'] })
+      queryClient.invalidateQueries({ queryKey: ['my_adoption_listings'] })
+    },
+  })
+}
+
+export const useReactivateAdoptionListing = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (listingId: string) => {
+      const { data, error } = await supabase
+        .from('adoption_pets')
+        .update({ status: 'available' })
+        .eq('id', listingId)
+        .select('id')
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adoption_pets'] })
+      queryClient.invalidateQueries({ queryKey: ['my_adoption_listings'] })
+    },
   })
 }
 
@@ -334,6 +476,43 @@ export const useApplyToPet = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my_applications'] })
       queryClient.invalidateQueries({ queryKey: ['has_applied_to_pet'] })
+      queryClient.invalidateQueries({ queryKey: ['applications_for_my_pets'] })
+      dispatchNotificationsUpdated()
+    },
+  })
+}
+
+export const useCancelAdoptionApplication = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ applicationId, applicantId }: { applicationId: string; applicantId: string }) => {
+      const { data: application, error: fetchError } = await supabase
+        .from('adoption_applications')
+        .select('id, status, applicant_id')
+        .eq('id', applicationId)
+        .eq('applicant_id', applicantId)
+        .maybeSingle()
+
+      if (fetchError) throw fetchError
+      if (!application) throw new Error('No se encontró la solicitud')
+      if (!['pending', 'rejected'].includes(application.status)) {
+        throw new Error('Solo puedes cancelar solicitudes pendientes o rechazadas')
+      }
+
+      const { error } = await supabase
+        .from('adoption_applications')
+        .delete()
+        .eq('id', applicationId)
+        .eq('applicant_id', applicantId)
+
+      if (error) throw error
+      return applicationId
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my_applications'] })
+      queryClient.invalidateQueries({ queryKey: ['has_applied_to_pet'] })
+      queryClient.invalidateQueries({ queryKey: ['applications_for_my_pets'] })
+      dispatchNotificationsUpdated()
     },
   })
 }
@@ -365,11 +544,47 @@ export const useMyApplications = (userId?: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('adoption_applications')
-        .select('*, adoption_pets(*)')
+        .select('*, adoption_pets(*, pet_images(image_url, display_order), shelters(name))')
         .eq('applicant_id', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data
+
+      const ownerIds = [...new Set((data ?? []).map((app) => app.adoption_pets?.owner_id).filter(Boolean))]
+      let ownersMap: Record<string, { full_name?: string | null; phone?: string | null; email?: string | null; address?: string | null; avatar_url?: string | null }> = {}
+
+      if (ownerIds.length > 0) {
+        const { data: owners, error: ownersError } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name, phone, email, address, avatar_url')
+          .in('user_id', ownerIds)
+
+        if (ownersError) throw ownersError
+
+        ownersMap = (owners ?? []).reduce(
+          (acc, owner) => {
+            acc[owner.user_id] = owner
+            return acc
+          },
+          {} as Record<string, { full_name?: string | null; phone?: string | null; email?: string | null; address?: string | null; avatar_url?: string | null }>
+        )
+      }
+
+      return (data ?? []).map((app) => {
+        const ownerId = app.adoption_pets?.owner_id
+        const owner = ownerId ? ownersMap[ownerId] : null
+        return {
+          ...app,
+          listing_owner_name:
+            owner?.full_name?.trim() ||
+            owner?.email?.split('@')[0] ||
+            (app.adoption_pets?.shelters?.name ? `Albergue ${app.adoption_pets.shelters.name}` : 'Dueño'),
+          listing_owner_phone: owner?.phone || null,
+          listing_owner_email: owner?.email || null,
+          listing_owner_address: owner?.address || null,
+          listing_owner_avatar_url: owner?.avatar_url || null,
+          listing_owner_id: ownerId || null,
+        }
+      })
     },
     enabled: !!userId,
   })
@@ -379,15 +594,88 @@ export const useApplicationsForMyPets = (ownerId?: string) => {
   return useQuery({
     queryKey: ['applications_for_my_pets', ownerId],
     queryFn: async () => {
-      const petIds = (await supabase.from('adoption_pets').select('id').eq('owner_id', ownerId)).data?.map(p => p.id) || []
+      const { data: myListings, error: listingsError } = await supabase
+        .from('adoption_pets')
+        .select('id')
+        .eq('owner_id', ownerId!)
+        .is('shelter_id', null)
+
+      if (listingsError) throw listingsError
+
+      const petIds = myListings?.map((p) => p.id) || []
       if (petIds.length === 0) return []
+
       const { data, error } = await supabase
         .from('adoption_applications')
-        .select('*, adoption_pets(*)')
+        .select('*, adoption_pets(*, pet_images(image_url, display_order))')
         .in('pet_id', petIds)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data
+
+      const applicantIds = [...new Set((data ?? []).map((app) => app.applicant_id))]
+      type ApplicantProfile = {
+        full_name?: string | null
+        phone?: string | null
+        email?: string | null
+        address?: string | null
+        avatar_url?: string | null
+      }
+      let profilesMap: Record<string, ApplicantProfile> = {}
+
+      if (applicantIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name, phone, email, address, avatar_url')
+          .in('user_id', applicantIds)
+
+        if (profilesError) throw profilesError
+
+        profilesMap = (profiles ?? []).reduce(
+          (acc, profile) => {
+            acc[profile.user_id] = profile
+            return acc
+          },
+          {} as Record<string, ApplicantProfile>
+        )
+      }
+
+      let applicantPetsMap: Record<string, unknown[]> = {}
+      if (applicantIds.length > 0) {
+        const { data: applicantPets, error: petsError } = await supabase
+          .from('pets')
+          .select('*, pet_images(image_url, display_order)')
+          .in('owner_id', applicantIds)
+          .order('created_at', { ascending: false })
+
+        if (petsError) throw petsError
+
+        applicantPetsMap = (applicantPets ?? []).reduce(
+          (acc, pet) => {
+            if (!acc[pet.owner_id]) acc[pet.owner_id] = []
+            acc[pet.owner_id].push(pet)
+            return acc
+          },
+          {} as Record<string, unknown[]>
+        )
+      }
+
+      return (data ?? []).map((app) => {
+        const profile = profilesMap[app.applicant_id]
+        const displayName =
+          profile?.full_name?.trim() ||
+          profile?.email?.split('@')[0] ||
+          'Interesado en adoptar'
+
+        return {
+          ...app,
+          applicant_name: displayName,
+          applicant_phone: profile?.phone || null,
+          applicant_email: profile?.email || null,
+          applicant_address: profile?.address || null,
+          applicant_avatar_url: profile?.avatar_url || null,
+          applicant_pets: applicantPetsMap[app.applicant_id] || [],
+        }
+      })
     },
     enabled: !!ownerId,
   })
@@ -498,7 +786,11 @@ export const useLostPets = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lost_pets')
-        .select('*')
+        .select(`
+          *,
+          pet_images(image_url, display_order),
+          source_pet:pets!pet_id(*, pet_images(image_url, display_order))
+        `)
         .eq('status', 'lost')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -689,11 +981,10 @@ export const useUpdateAdoptionApplication = () => {
     mutationFn: async ({ 
       applicationId, 
       status, 
-      shelterId 
     }: { 
       applicationId: string; 
       status: 'approved' | 'rejected'; 
-      shelterId: string;
+      shelterId?: string;
     }) => {
       const { data, error } = await supabase
         .from('adoption_applications')
@@ -747,6 +1038,10 @@ export const useUpdateAdoptionApplication = () => {
       queryClient.invalidateQueries({ 
         queryKey: ['my_applications'] 
       });
+      queryClient.invalidateQueries({ 
+        queryKey: ['applications_for_my_pets'] 
+      });
+      dispatchNotificationsUpdated();
     },
   });
 };

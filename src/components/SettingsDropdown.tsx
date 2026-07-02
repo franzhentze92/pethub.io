@@ -1,233 +1,112 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings, User, LogOut, Users, Building2, Home, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { Settings, User, LogOut, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { ROLE_OPTIONS, useRoleSwitcher } from '@/hooks/useRoleSwitcher';
+import { cn } from '@/lib/utils';
 
 interface SettingsDropdownProps {
   className?: string;
   variant?: 'gradient' | 'default';
 }
 
-const SettingsDropdown: React.FC<SettingsDropdownProps> = ({ className = "", variant = 'gradient' }) => {
+const MENU_WIDTH = 224;
+
+const SettingsDropdown: React.FC<SettingsDropdownProps> = ({ className = '', variant = 'gradient' }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showRoleSubmenu, setShowRoleSubmenu] = useState(false);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-  const [submenuStyle, setSubmenuStyle] = useState<React.CSSProperties>({});
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const dropdownMenuRef = useRef<HTMLDivElement>(null);
-  const submenuRef = useRef<HTMLDivElement>(null);
-  const submenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { signOut, user } = useAuth();
+  const [menuPosition, setMenuPosition] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const userRole = localStorage.getItem('user_role');
+  const { userRole, canSwitchRoles, handleRoleChange, handleSignOut } = useRoleSwitcher();
 
-  // Calculate dropdown position to prevent overflow
-  useEffect(() => {
-    if (showDropdown && dropdownRef.current && dropdownMenuRef.current) {
-      const rect = dropdownRef.current.getBoundingClientRect();
-      const menuWidth = 224; // w-56 = 14rem = 224px
-      const viewportWidth = window.innerWidth;
-      const spaceOnRight = viewportWidth - rect.right;
-      const spaceOnLeft = rect.left;
-      
-      let style: React.CSSProperties = {};
-      
-      // If there's not enough space on the right, align to left
-      if (spaceOnRight < menuWidth && spaceOnLeft >= menuWidth) {
-        style.right = 'auto';
-        style.left = '0';
-      } else {
-        style.right = '0';
-        style.left = 'auto';
-      }
-      
-      // Ensure dropdown doesn't go off screen
-      if (rect.left + menuWidth > viewportWidth) {
-        style.right = '0';
-        style.left = 'auto';
-        style.maxWidth = `${Math.max(spaceOnRight, 200)}px`;
-      }
-      
-      setDropdownStyle(style);
+  const isAdmin = user?.email === 'admin@pethubgt.com' || userRole === 'admin';
+  const isDelivery = user?.email === 'delivery@pehtubgt.com' || userRole === 'delivery';
+
+  const updateMenuPosition = useCallback(() => {
+    if (!triggerRef.current) return;
+
+    const rect = triggerRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const margin = 8;
+    let left = rect.right - MENU_WIDTH;
+
+    if (left < margin) left = margin;
+    if (left + MENU_WIDTH > viewportWidth - margin) {
+      left = viewportWidth - MENU_WIDTH - margin;
     }
-  }, [showDropdown]);
 
-  // Calculate submenu position to prevent overflow
+    setMenuPosition({
+      position: 'fixed',
+      top: rect.bottom + 8,
+      left,
+      width: MENU_WIDTH,
+      zIndex: 300,
+    });
+  }, []);
+
   useEffect(() => {
-    if (showRoleSubmenu && dropdownMenuRef.current && submenuRef.current) {
-      const menuRect = dropdownMenuRef.current.getBoundingClientRect();
-      const submenuWidth = 224; // w-56 = 14rem = 224px
-      const viewportWidth = window.innerWidth;
-      const spaceOnLeft = menuRect.left;
-      
-      let style: React.CSSProperties = {};
-      
-      // If there's not enough space on the left, show submenu on the right
-      if (spaceOnLeft < submenuWidth) {
-        style.right = 'auto';
-        style.left = 'calc(100% + 0.25rem)';
-      } else {
-        style.right = 'calc(100% + 0.25rem)';
-        style.left = 'auto';
-      }
-      
-      // Ensure submenu doesn't go off screen
-      style.maxWidth = `${Math.min(submenuWidth, viewportWidth - 16)}px`;
-      
-      setSubmenuStyle(style);
-    }
-  }, [showRoleSubmenu]);
+    if (!showDropdown) return;
 
-  // Close dropdown when clicking outside
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [showDropdown, updateMenuPosition]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-        setShowRoleSubmenu(false);
-        if (submenuTimeoutRef.current) {
-          clearTimeout(submenuTimeoutRef.current);
-          submenuTimeoutRef.current = null;
-        }
-      }
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (document.getElementById('settings-dropdown-portal')?.contains(target)) return;
+
+      setShowDropdown(false);
+      setShowRoleSubmenu(false);
     };
 
     if (showDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showDropdown]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (submenuTimeoutRef.current) {
-        clearTimeout(submenuTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      localStorage.removeItem('user_role');
-      localStorage.removeItem('is_new_user');
-      toast.success('Sesión cerrada correctamente');
-      navigate('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Error al cerrar sesión');
-    }
-  };
-
-  const handleRoleChange = async (role: 'client' | 'provider' | 'shelter') => {
+  const closeDropdown = () => {
     setShowDropdown(false);
-    
-    // Save to localStorage first (for immediate access)
-    localStorage.setItem('user_role', role);
-    
-    // Update database if user is authenticated
-    if (user) {
-      try {
-        // Check if user profile exists
-        const { data: existingProfile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (existingProfile) {
-          // Update existing profile
-          await supabase
-            .from('user_profiles')
-            .update({ 
-              role: role,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id);
-        } else {
-          // Create new profile with role
-          await supabase
-            .from('user_profiles')
-            .insert({
-              user_id: user.id,
-              role: role,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-        }
-      } catch (error) {
-        console.error('Error updating role in database:', error);
-        // Still allow navigation even if database update fails
-      }
-    }
-    
-    // Navigate to appropriate dashboard
-    switch (role) {
-      case 'client':
-        navigate('/dashboard');
-        toast.success('Cambiado a dashboard de cliente');
-        break;
-      case 'provider':
-        navigate('/provider');
-        toast.success('Cambiado a dashboard de proveedor');
-        break;
-      case 'shelter':
-        navigate('/shelter-dashboard');
-        toast.success('Cambiado a dashboard de albergue');
-        break;
-    }
-    
-    // Reload page to ensure all components update with new role
-    window.location.reload();
+    setShowRoleSubmenu(false);
   };
-
-  const roleOptions = [
-    {
-      icon: Home,
-      label: 'Cliente',
-      role: 'client' as const,
-      onClick: () => handleRoleChange('client')
-    },
-    {
-      icon: Users,
-      label: 'Proveedor',
-      role: 'provider' as const,
-      onClick: () => handleRoleChange('provider')
-    },
-    {
-      icon: Building2,
-      label: 'Albergue',
-      role: 'shelter' as const,
-      onClick: () => handleRoleChange('shelter')
-    }
-  ];
 
   const handleProfileClick = () => {
-    setShowDropdown(false);
-    
-    // Navigate based on current role
+    closeDropdown();
+
+    if (isAdmin) {
+      navigate('/ajustes');
+      return;
+    }
+
+    if (isDelivery || userRole === 'delivery') {
+      navigate('/delivery/profile');
+      return;
+    }
+
     switch (userRole) {
       case 'client':
         navigate('/ajustes');
         break;
       case 'provider':
-        // Navigate to provider dashboard with profile tab using state
         navigate('/provider', { state: { activeTab: 'profile' } });
-        // Also dispatch event as fallback
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('providerDashboardTabChange', { detail: 'profile' }));
         }, 100);
         break;
       case 'shelter':
-        // Navigate to shelter dashboard with profile tab using state
         navigate('/shelter-dashboard', { state: { activeTab: 'profile' } });
-        // Also dispatch event as fallback
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('shelterDashboardTabChange', { detail: 'profile' }));
         }, 100);
@@ -237,135 +116,119 @@ const SettingsDropdown: React.FC<SettingsDropdownProps> = ({ className = "", var
     }
   };
 
-  const menuItems = [
-    {
-      icon: User,
-      label: 'Mi Perfil',
-      onClick: handleProfileClick
+  const roleOptions = ROLE_OPTIONS.map((option) => ({
+    ...option,
+    onClick: () => {
+      closeDropdown();
+      handleRoleChange(option.role);
     },
+  }));
+
+  const baseMenuItems = [
+    { icon: User, label: 'Mi Perfil', onClick: handleProfileClick },
     {
       icon: Settings,
       label: 'Cambiar de Rol',
       hasSubmenu: true,
-      onClick: () => setShowRoleSubmenu(!showRoleSubmenu)
+      onClick: () => setShowRoleSubmenu((prev) => !prev),
     },
     {
       icon: LogOut,
       label: 'Cerrar Sesión',
-      onClick: handleSignOut,
-      className: 'text-red-600 hover:text-red-700'
-    }
+      onClick: () => {
+        closeDropdown();
+        handleSignOut();
+      },
+      className: 'text-red-600 hover:text-red-700 hover:bg-red-50',
+    },
   ];
 
-  const buttonClassName = variant === 'gradient' 
-    ? "bg-white/20 text-white border-white/40 hover:bg-white/30 hover:text-white backdrop-blur-sm p-2"
-    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 p-2";
+  const menuItems = !canSwitchRoles
+    ? baseMenuItems.filter((item) => item.label !== 'Cambiar de Rol')
+    : baseMenuItems;
+
+  const buttonClassName =
+    variant === 'gradient'
+      ? 'bg-white/20 text-white border-white/40 hover:bg-white/30 hover:text-white backdrop-blur-sm p-2 rounded-xl'
+      : 'bg-white text-gray-700 border-landing-aqua/25 hover:bg-landing-aqua/10 hover:text-landing-aqua-dark hover:border-landing-aqua/40 p-2 rounded-xl shadow-sm';
+
+  const dropdownMenu =
+    showDropdown &&
+    createPortal(
+      <div
+        id="settings-dropdown-portal"
+        className="rounded-xl bg-white/95 backdrop-blur-md shadow-xl border border-landing-aqua/20 overflow-hidden"
+        style={menuPosition}
+      >
+        <div className="py-2">
+          {menuItems.map((item, index) => (
+            <div key={index}>
+              <button
+                type="button"
+                onClick={item.hasSubmenu ? item.onClick : item.onClick}
+                className={cn(
+                  'w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-landing-aqua/10 hover:text-landing-aqua-dark transition-colors',
+                  item.className
+                )}
+              >
+                <div className="flex items-center space-x-3">
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </div>
+                {item.hasSubmenu && (
+                  <ChevronDown
+                    className={cn('w-4 h-4 transition-transform', showRoleSubmenu && 'rotate-180')}
+                  />
+                )}
+              </button>
+
+              {item.hasSubmenu && showRoleSubmenu && (
+                <div className="bg-landing-aqua/5 border-y border-landing-aqua/10 py-1">
+                  {roleOptions.map((roleOption, roleIndex) => (
+                    <button
+                      key={roleIndex}
+                      type="button"
+                      onClick={roleOption.onClick}
+                      className={cn(
+                        'w-full flex items-center justify-between px-4 py-2.5 pl-11 text-sm text-gray-700 hover:bg-landing-aqua/10 hover:text-landing-aqua-dark transition-colors',
+                        userRole === roleOption.role && 'bg-landing-aqua/15 text-landing-aqua-dark font-medium'
+                      )}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <roleOption.icon className="w-4 h-4 shrink-0" />
+                        <span>{roleOption.label}</span>
+                      </div>
+                      {userRole === roleOption.role && (
+                        <span className="text-xs text-landing-aqua-dark font-medium">Actual</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>,
+      document.body
+    );
 
   return (
-    <div className={`relative settings-dropdown ${className}`} ref={dropdownRef}>
+    <div className={cn('relative settings-dropdown', className)} ref={triggerRef}>
       <Button
         type="button"
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={() => {
+          setShowDropdown((prev) => !prev);
+          if (showDropdown) setShowRoleSubmenu(false);
+        }}
         variant="outline"
         size="sm"
         className={buttonClassName}
+        aria-label="Configuración y roles"
+        aria-expanded={showDropdown}
       >
         <Settings className="w-4 h-4" />
       </Button>
-      
-      {/* Settings Dropdown */}
-      {showDropdown && (
-        <div 
-          ref={dropdownMenuRef}
-          className="absolute top-12 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-[100]"
-          style={dropdownStyle}
-        >
-          <div className="py-2">
-            {menuItems.map((item, index) => {
-              const handleMouseEnterSubmenu = () => {
-                if (submenuTimeoutRef.current) {
-                  clearTimeout(submenuTimeoutRef.current);
-                  submenuTimeoutRef.current = null;
-                }
-                if (item.hasSubmenu) {
-                  setShowRoleSubmenu(true);
-                }
-              };
-
-              const handleMouseLeaveSubmenu = () => {
-                if (item.hasSubmenu) {
-                  submenuTimeoutRef.current = setTimeout(() => {
-                    setShowRoleSubmenu(false);
-                  }, 200); // Delay de 200ms antes de cerrar
-                }
-              };
-
-              return (
-                <div 
-                  key={index} 
-                  className="relative"
-                  onMouseEnter={handleMouseEnterSubmenu}
-                  onMouseLeave={handleMouseLeaveSubmenu}
-                >
-                  <button
-                    onClick={item.hasSubmenu ? () => {
-                      setShowRoleSubmenu(!showRoleSubmenu);
-                      if (submenuTimeoutRef.current) {
-                        clearTimeout(submenuTimeoutRef.current);
-                        submenuTimeoutRef.current = null;
-                      }
-                    } : item.onClick}
-                    className={`
-                      w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors
-                      ${item.className || ''}
-                    `}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </div>
-                    {item.hasSubmenu && (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
-                  </button>
-                  
-                  {/* Role Submenu */}
-                  {item.hasSubmenu && showRoleSubmenu && (
-                    <div 
-                      ref={submenuRef}
-                      className="absolute top-0 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-[110]"
-                      style={submenuStyle}
-                      onMouseEnter={handleMouseEnterSubmenu}
-                      onMouseLeave={handleMouseLeaveSubmenu}
-                    >
-                    <div className="py-2">
-                      {roleOptions.map((roleOption, roleIndex) => (
-                        <button
-                          key={roleIndex}
-                          onClick={roleOption.onClick}
-                          className={`
-                            w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors
-                            ${userRole === roleOption.role ? 'bg-blue-50 text-blue-700' : ''}
-                          `}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <roleOption.icon className="w-4 h-4" />
-                            <span>{roleOption.label}</span>
-                          </div>
-                          {userRole === roleOption.role && (
-                            <span className="text-xs text-blue-600 font-medium">Actual</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {dropdownMenu}
     </div>
   );
 };

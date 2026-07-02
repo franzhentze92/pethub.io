@@ -11,7 +11,7 @@ export const Terms: React.FC = () => {
       
       <main className="pt-20">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-purple-600 to-pink-600 py-20 relative overflow-hidden">
+        <section className="bg-gradient-to-r from-landing-aqua to-landing-mango py-20 relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
@@ -21,7 +21,7 @@ export const Terms: React.FC = () => {
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
               Términos de <span className="text-yellow-300">Servicio</span>
             </h1>
-            <p className="text-xl text-purple-100 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-white/80 max-w-3xl mx-auto leading-relaxed">
               Estos términos rigen el uso de PetHub. 
               Por favor, léelos cuidadosamente antes de usar nuestra plataforma.
             </p>
@@ -33,7 +33,7 @@ export const Terms: React.FC = () => {
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <Link 
               to="/" 
-              className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium transition-colors"
+              className="inline-flex items-center gap-2 text-landing-aqua-dark hover:text-landing-mango-dark font-medium transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Volver al Inicio
@@ -47,8 +47,8 @@ export const Terms: React.FC = () => {
             <div className="prose prose-lg max-w-none">
               
               {/* Last Updated */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
-                <p className="text-blue-800">
+              <div className="bg-landing-aqua/10 border-l-4 border-landing-aqua p-4 mb-8">
+                <p className="text-landing-aqua-dark">
                   <strong>Última actualización:</strong> 15 de enero de 2024
                 </p>
               </div>
@@ -56,7 +56,7 @@ export const Terms: React.FC = () => {
               {/* Introduction */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <FileText className="w-8 h-8 text-purple-600 mr-3" />
+                  <FileText className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Introducción
                 </h2>
                 <p className="text-lg text-gray-600 leading-relaxed mb-4">
@@ -89,7 +89,7 @@ export const Terms: React.FC = () => {
               {/* Service Description */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Users className="w-8 h-8 text-purple-600 mr-3" />
+                  <Users className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Descripción del Servicio
                 </h2>
                 <p className="text-lg text-gray-600 leading-relaxed mb-4">
@@ -173,12 +173,12 @@ export const Terms: React.FC = () => {
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">Contenido y Datos</h2>
                 
                 <div className="space-y-6">
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-xl font-semibold text-blue-800 mb-3">Tu Contenido</h3>
-                    <p className="text-blue-700 mb-3">
+                  <div className="bg-landing-aqua/10 p-6 rounded-lg">
+                    <h3 className="text-xl font-semibold text-landing-aqua-dark mb-3">Tu Contenido</h3>
+                    <p className="text-landing-aqua-dark mb-3">
                       Mantienes todos los derechos sobre el contenido que subes a PetHub, incluyendo:
                     </p>
-                    <ul className="text-blue-700 space-y-1 text-sm">
+                    <ul className="text-landing-aqua-dark space-y-1 text-sm">
                       <li>• Fotos y videos de tus mascotas</li>
                       <li>• Información médica y de salud</li>
                       <li>• Comentarios y reseñas</li>
@@ -186,9 +186,9 @@ export const Terms: React.FC = () => {
                     </ul>
                   </div>
                   
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-xl font-semibold text-blue-800 mb-3">Licencia de Uso</h3>
-                    <p className="text-blue-700">
+                  <div className="bg-landing-aqua/10 p-6 rounded-lg">
+                    <h3 className="text-xl font-semibold text-landing-aqua-dark mb-3">Licencia de Uso</h3>
+                    <p className="text-landing-aqua-dark">
                       Al subir contenido, nos otorgas una licencia limitada para usar, almacenar y 
                       procesar tu contenido únicamente para proporcionar y mejorar nuestros servicios.
                     </p>
@@ -199,7 +199,7 @@ export const Terms: React.FC = () => {
               {/* Privacy and Security */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Shield className="w-8 h-8 text-purple-600 mr-3" />
+                  <Shield className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Privacidad y Seguridad
                 </h2>
                 <p className="text-lg text-gray-600 leading-relaxed mb-4">
@@ -287,7 +287,7 @@ export const Terms: React.FC = () => {
                   </p>
                   <ul className="text-gray-600 space-y-2">
                     <li><strong>Email:</strong> legal@pethub.com</li>
-                    <li><strong>Dirección:</strong> Zona 10, Guatemala City, Guatemala</li>
+                    <li><strong>Dirección:</strong> Operaciones regionales — Latinoamérica</li>
                     <li><strong>Teléfono:</strong> +502 1234-5678</li>
                   </ul>
                 </div>
@@ -297,8 +297,9 @@ export const Terms: React.FC = () => {
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">Ley Aplicable</h2>
                 <p className="text-lg text-gray-600 leading-relaxed">
-                  Estos Términos se rigen por las leyes de Guatemala. 
-                  Cualquier disputa será resuelta en los tribunales competentes de Guatemala City.
+                  Estos Términos se rigen por las leyes aplicables en la jurisdicción del usuario
+                  dentro de Latinoamérica. Cualquier disputa se resolverá en los tribunales competentes
+                  de dicha jurisdicción.
                 </p>
               </div>
 

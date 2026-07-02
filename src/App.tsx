@@ -11,6 +11,7 @@ import { Features } from '@/pages/landing/Features';
 import { FAQs } from '@/pages/landing/FAQs';
 import { Pricing } from '@/pages/landing/Pricing';
 import { Contact } from '@/pages/landing/Contact';
+import { Pitch } from '@/pages/landing/Pitch';
 import { Login } from '@/pages/landing/Login';
 import { Register } from '@/pages/landing/Register';
 import { ForgotPassword } from '@/pages/landing/ForgotPassword';
@@ -25,7 +26,6 @@ import Auth from '@/components/Auth';
 import Index from '@/pages/Index';
 import NotFound from '@/pages/NotFound';
 import Role from '@/pages/Role';
-import ShelterDetails from '@/components/ShelterDetails';
 import PetCreation from '@/pages/PetCreation';
 
 function App() {
@@ -82,6 +82,12 @@ function App() {
                     <LandingFooter />
                   </div>
                 } />
+                <Route path="/pitch" element={
+                  <div className="min-h-screen bg-gray-950 overflow-hidden">
+                    <LandingNavbar />
+                    <main><Pitch /></main>
+                  </div>
+                } />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -108,22 +114,59 @@ function App() {
                 <Route path="/veterinaria" element={<Index />} />
                 <Route path="/recordatorios" element={<Index />} />
                 <Route path="/ajustes" element={<Index />} />
+                <Route path="/pet-hub-blueprint" element={<Index />} />
                 <Route path="/parejas" element={<Index />} />
                 <Route path="/mascotas-perdidas" element={<Index />} />
                 <Route path="/client-orders" element={<Index />} />
+                <Route path="/my-subscriptions" element={<Index />} />
+                <Route path="/cart" element={<Index />} />
                 <Route path="/marketplace/services" element={<Index />} />
                 <Route path="/marketplace/products" element={<Index />} />
+                <Route path="/marketplace/favorites" element={<Index />} />
                 <Route path="/pet-journey/:petId" element={<Index />} />
-                
-                {/* Dashboard routes */}
+                <Route path="/shelter/:shelterId" element={<Index />} />
                 <Route path="/client-dashboard" element={<Index />} />
                 <Route path="/provider" element={<Index />} />
                 <Route path="/shelter-dashboard" element={<Index />} />
+                <Route path="/admin-dashboard" element={<Index />} />
+                <Route path="/admin/users" element={<Index />} />
+                <Route path="/admin/orders" element={<Index />} />
+                <Route path="/admin/delivery" element={<Index />} />
+                <Route path="/admin/costs" element={<Index />} />
+                <Route path="/admin/operational-analysis" element={<Index />} />
+        <Route path="/admin/profile" element={<Index />} />
+                <Route path="/admin/products" element={<Index />} />
+                <Route path="/admin/services" element={<Index />} />
+                <Route path="/admin/pets" element={<Index />} />
+                <Route path="/admin/veterinary" element={<Index />} />
+                <Route path="/admin/exercise" element={<Index />} />
+                <Route path="/admin/nutrition" element={<Index />} />
+                <Route path="/admin/adoptions" element={<Index />} />
+                <Route path="/admin/breeding" element={<Index />} />
+                <Route path="/admin/lost-pets" element={<Index />} />
+                <Route path="/admin/shelters" element={<Index />} />
+                <Route path="/admin/providers" element={<Index />} />
+                <Route path="/admin/financial-analysis" element={<Index />} />
+
+                {/* PetHub Admin (hentzefranz92@gmail.com only) */}
+                <Route path="/pethub-admin" element={<Index />} />
+                <Route path="/pethub-admin/productos-comprados" element={<Index />} />
+                <Route path="/pethub-admin/servicios" element={<Index />} />
+                <Route path="/pethub-admin/adopciones" element={<Index />} />
+                <Route path="/pethub-admin/parejas" element={<Index />} />
+                <Route path="/pethub-admin/mascotas-perdidas" element={<Index />} />
+                <Route path="/pethub-admin/mascotas" element={<Index />} />
+                <Route path="/pethub-admin/direcciones" element={<Index />} />
+                <Route path="/pethub-admin/usuarios" element={<Index />} />
+                <Route path="/pethub-admin/ordenes" element={<Index />} />
                 
-                {/* Shelter detail route */}
-                <Route path="/shelter/:shelterId" element={<ShelterDetails />} />
+                {/* Delivery routes */}
+                <Route path="/delivery/orders" element={<Index />} />
+                <Route path="/delivery/expenses" element={<Index />} />
+                <Route path="/delivery/profile" element={<Index />} />
+                <Route path="/delivery/expenses" element={<Index />} />
                 
-                {/* Catch all */}
+                {/* Dashboard routes */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Router>

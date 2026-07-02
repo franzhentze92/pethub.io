@@ -15,7 +15,16 @@ import {
 } from '@/hooks/useAdoption';
 import { useUserProfile } from '@/hooks/useSettings';
 import { useQueryClient } from '@tanstack/react-query';
-import SettingsDropdown from './SettingsDropdown';
+import PageHeader from './PageHeader';
+import { DashboardShell } from './dashboard/DashboardShell';
+import PageLoader, { LandingSpinner } from '@/components/PageLoader';
+import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { BlueprintMascotNavTab } from '@/components/blueprint/BlueprintMascotNavTab';
+import { DashboardStatCard } from './dashboard/DashboardStatCard';
+import { landingBtnPrimary, landingChartColors, landingFeatureGradients } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -61,7 +70,10 @@ import {
   BarChart3,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Search,
+  Filter,
+  RotateCcw,
 } from 'lucide-react';
 import { storage, fileValidation } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -116,6 +128,70 @@ interface Quote {
   applicant_name?: string;
 }
 
+const SHELTER_MAIN_TABS: MobileTabItem[] = [
+  { id: 'dashboard', label: 'Dashboard', shortLabel: 'Inicio', icon: BarChart3, gradientIndex: 0 },
+  { id: 'profile', label: 'Perfil', shortLabel: 'Perfil', icon: Building2, gradientIndex: 1 },
+  { id: 'pets', label: 'Mascotas', shortLabel: 'Mascotas', icon: PawPrint, gradientIndex: 2 },
+  { id: 'quotes', label: 'Solicitudes', shortLabel: 'Solicitudes', icon: MessageSquare, gradientIndex: 3 },
+  { id: 'media', label: 'Media', shortLabel: 'Media', icon: Image, gradientIndex: 4 },
+];
+
+const filterPanelClass =
+  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
+
+const PET_SPECIES_CHIPS = [
+  { id: '', label: 'Todas' },
+  { id: 'Dog', label: 'Perros' },
+  { id: 'Cat', label: 'Gatos' },
+  { id: 'Other', label: 'Otros' },
+] as const;
+
+const QUOTE_STATUS_CHIPS = [
+  { id: '', label: 'Todas' },
+  { id: 'pending', label: 'Pendiente' },
+  { id: 'approved', label: 'Aprobada' },
+  { id: 'rejected', label: 'Rechazada' },
+] as const;
+
+const DEFAULT_PET_FILTERS = {
+  search: '',
+  size: '',
+  species: '',
+  age: '',
+  gender: '',
+  house_trained: false,
+  spayed_neutered: false,
+  special_needs: false,
+  good_with_kids: false,
+  good_with_dogs: false,
+  good_with_cats: false,
+};
+
+const formatDateShort = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+const getQuoteStatusLabel = (status: string) => {
+  switch (status) {
+    case 'pending': return 'Pendiente';
+    case 'approved': return 'Aprobada';
+    case 'rejected': return 'Rechazada';
+    default: return status;
+  }
+};
+
+const getQuoteStatusClass = (status: string) => {
+  switch (status) {
+    case 'pending': return 'bg-landing-tropical/30 text-landing-mango-dark';
+    case 'approved': return 'bg-landing-mint/20 text-landing-mint-dark';
+    case 'rejected': return 'bg-red-100 text-red-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+};
+
 const ShelterDashboard: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -129,6 +205,8 @@ const ShelterDashboard: React.FC = () => {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     // Removed localStorage persistence to always start with dashboard
+    // Scroll to top when changing tabs
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Check navigation state for activeTab on mount and when location changes
@@ -138,13 +216,22 @@ const ShelterDashboard: React.FC = () => {
       setActiveTab(state.activeTab);
       // Clear the state to prevent it from persisting
       window.history.replaceState({}, document.title);
+      // Scroll to top when tab changes via navigation
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [location.state]);
+
+  // Scroll to top whenever activeTab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   // Listen for tab change events from SettingsDropdown
   useEffect(() => {
     const handleTabChangeEvent = (event: CustomEvent) => {
       setActiveTab(event.detail);
+      // Scroll to top when tab changes via event
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     window.addEventListener('shelterDashboardTabChange', handleTabChangeEvent as EventListener);
@@ -157,6 +244,8 @@ const ShelterDashboard: React.FC = () => {
   const [showAddPetForm, setShowAddPetForm] = useState(false);
   const [petViewMode, setPetViewMode] = useState<'cards' | 'list'>('cards');
   const [quoteViewMode, setQuoteViewMode] = useState<'cards' | 'list'>('cards');
+  const [showPetFilters, setShowPetFilters] = useState(false);
+  const [showQuoteFilters, setShowQuoteFilters] = useState(false);
   const [showShelterForm, setShowShelterForm] = useState(false);
   const [newShelter, setNewShelter] = useState({
     name: '',
@@ -441,63 +530,6 @@ const ShelterDashboard: React.FC = () => {
 
 
 
-  // Mock data for testing
-  const mockPets = [
-    {
-      id: '00000000-0000-0000-0000-000000000001',
-      name: 'Luna',
-      species: 'Dog',
-      breed: 'Golden Retriever',
-      age: 2,
-      size: 'Grande',
-      sex: 'hembra',
-      description: 'Luna es una perrita muy cariñosa y juguetona. Le encanta estar con niños y otros perros.',
-      image_url: '',
-      good_with_kids: true,
-      good_with_dogs: true,
-      good_with_cats: false,
-      created_at: '2024-01-15'
-    },
-    {
-      id: '00000000-0000-0000-0000-000000000002',
-      name: 'Max',
-      species: 'Dog',
-      breed: 'Labrador',
-      age: 1,
-      size: 'Grande',
-      sex: 'macho',
-      description: 'Max es muy activo y necesita ejercicio diario. Perfecto para familias deportistas.',
-      image_url: '',
-      good_with_kids: true,
-      good_with_dogs: true,
-      good_with_cats: true,
-      created_at: '2024-01-20'
-    }
-  ];
-
-  const mockQuotes = [
-    {
-      id: '00000000-0000-0000-0000-000000000011',
-      pet_id: '00000000-0000-0000-0000-000000000001',
-      applicant_id: 'user1',
-      message: 'Me encantaría adoptar a Luna. Tengo experiencia con perros y una casa con jardín.',
-      status: 'pending',
-      created_at: '2024-01-25',
-      pet_name: 'Luna',
-      applicant_name: 'María González'
-    },
-    {
-      id: '00000000-0000-0000-0000-000000000012',
-      pet_id: '00000000-0000-0000-0000-000000000002',
-      applicant_id: 'user2',
-      message: 'Max sería perfecto para mi familia. Tenemos tiempo para ejercitarlo diariamente.',
-      status: 'approved',
-      created_at: '2024-01-26',
-      pet_name: 'Max',
-      applicant_name: 'Carlos Rodríguez'
-    }
-  ];
-
   // Get shelter data for the current user
   const { data: shelter, isLoading: shelterLoading, error: shelterError } = useShelter(user?.id); // Assuming user ID is shelter ID
   const { data: pets = [], isLoading: petsLoading, error: petsError } = useAdoptionPetsByShelter(user?.id);
@@ -610,6 +642,32 @@ const ShelterDashboard: React.FC = () => {
     }
     return true;
   });
+
+  const hasActivePetFilters =
+    petFilters.search !== '' ||
+    petFilters.size !== '' ||
+    petFilters.species !== '' ||
+    petFilters.age !== '' ||
+    petFilters.gender !== '' ||
+    petFilters.house_trained ||
+    petFilters.spayed_neutered ||
+    petFilters.special_needs ||
+    petFilters.good_with_kids ||
+    petFilters.good_with_dogs ||
+    petFilters.good_with_cats;
+
+  const hasActiveQuoteFilters =
+    quoteFilters.search !== '' || quoteFilters.status !== '' || quoteFilters.dateRange !== '';
+
+  const clearPetFilters = () => {
+    setPetFilters(DEFAULT_PET_FILTERS);
+    setShowPetFilters(false);
+  };
+
+  const clearQuoteFilters = () => {
+    setQuoteFilters({ search: '', status: '', dateRange: '' });
+    setShowQuoteFilters(false);
+  };
 
   // Hooks for mutations
   const updateApplication = useUpdateAdoptionApplication();
@@ -1432,131 +1490,96 @@ const ShelterDashboard: React.FC = () => {
   // Show loading state only for critical data
   if (isCriticalLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-6">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🐾</span>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-700">Cargando datos del albergue...</h2>
-          <p className="text-gray-500 mt-2">Conectando con la base de datos...</p>
-        </div>
-      </div>
+      <DashboardShell>
+        <PageLoader variant="skeleton" />
+      </DashboardShell>
     );
   }
 
-  // Show error state
-  if (hasErrors) {
-    // Check if the main issue is that the user doesn't have a shelter
-    const noShelterError = shelterError && shelterError.message.includes('No rows returned');
-    
-    if (noShelterError && !showShelterForm) {
+  if (!shelter) {
+    if (showShelterForm) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-6">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl text-white">🏠</span>
+        <DashboardShell>
+          <PageHeader title="Crear Albergue" subtitle="Completa la información de tu albergue" />
+          <MobileSectionCard className="p-6 max-w-2xl mx-auto space-y-6">
+            <div>
+              <Label htmlFor="shelter-name">Nombre del Albergue *</Label>
+              <Input
+                id="shelter-name"
+                value={newShelter.name}
+                onChange={(e) => setNewShelter({ ...newShelter, name: e.target.value })}
+                placeholder="Ej: Refugio de Mascotas Felices"
+                className="mt-2"
+              />
             </div>
-            <h2 className="text-xl font-semibold text-blue-700">¡Bienvenido a PetHub!</h2>
-            <p className="text-gray-600 mt-2">Parece que aún no tienes un albergue registrado.</p>
-            <p className="text-gray-600 mt-1">Crea tu albergue para comenzar a gestionar mascotas y adopciones.</p>
-            
-            <Button 
-              onClick={() => setShowShelterForm(true)} 
-              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
-            >
-              <Building2 className="w-5 h-5 mr-2" />
-              Crear Mi Albergue
-            </Button>
-          </div>
-        </div>
+            <div>
+              <Label htmlFor="shelter-location">Ubicación</Label>
+              <Input
+                id="shelter-location"
+                value={newShelter.location}
+                onChange={(e) => setNewShelter({ ...newShelter, location: e.target.value })}
+                placeholder="Ciudad, Estado, País"
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="shelter-phone">Teléfono</Label>
+              <Input
+                id="shelter-phone"
+                value={newShelter.phone}
+                onChange={(e) => setNewShelter({ ...newShelter, phone: e.target.value })}
+                placeholder="+502 1234-5678"
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="shelter-description">Descripción</Label>
+              <Textarea
+                id="shelter-description"
+                value={newShelter.description}
+                onChange={(e) => setNewShelter({ ...newShelter, description: e.target.value })}
+                placeholder="Describe tu albergue, misión, servicios, etc."
+                rows={4}
+                className="mt-2"
+              />
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowShelterForm(false)} className="flex-1">
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreateShelter}
+                disabled={!newShelter.name.trim() || createShelter.isPending}
+                className={cn('flex-1', landingBtnPrimary, 'border-0')}
+              >
+                {createShelter.isPending ? 'Creando...' : 'Crear Albergue'}
+              </Button>
+            </div>
+          </MobileSectionCard>
+        </DashboardShell>
       );
     }
 
-    if (noShelterError && showShelterForm) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl text-white">🏠</span>
-              </div>
-              <h2 className="text-2xl font-semibold text-blue-700">Crear Nuevo Albergue</h2>
-              <p className="text-gray-600 mt-2">Completa la información de tu albergue para comenzar</p>
-            </div>
-
-            <Card>
-              <CardContent className="p-6 space-y-6">
-                <div>
-                  <Label htmlFor="shelter-name">Nombre del Albergue *</Label>
-                  <Input 
-                    id="shelter-name" 
-                    value={newShelter.name} 
-                    onChange={(e) => setNewShelter({...newShelter, name: e.target.value})}
-                    placeholder="Ej: Refugio de Mascotas Felices"
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="shelter-location">Ubicación</Label>
-                  <Input 
-                    id="shelter-location" 
-                    value={newShelter.location} 
-                    onChange={(e) => setNewShelter({...newShelter, location: e.target.value})}
-                    placeholder="Ciudad, Estado, País"
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="shelter-phone">Teléfono</Label>
-                  <Input 
-                    id="shelter-phone" 
-                    value={newShelter.phone} 
-                    onChange={(e) => setNewShelter({...newShelter, phone: e.target.value})}
-                    placeholder="+1 (555) 123-4567"
-                    className="mt-2"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="shelter-description">Descripción</Label>
-                  <Textarea 
-                    id="shelter-description" 
-                    value={newShelter.description} 
-                    onChange={(e) => setNewShelter({...newShelter, description: e.target.value})}
-                    placeholder="Describe tu albergue, misión, servicios, etc."
-                    rows={4}
-                    className="mt-2"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowShelterForm(false)}
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={handleCreateShelter}
-                    disabled={!newShelter.name.trim() || createShelter.isPending}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    {createShelter.isPending ? 'Creando...' : 'Crear Albergue'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      );
-    }
-
-    // Show other errors
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-6">
+      <DashboardShell>
+        <MobileSectionCard className="p-8 text-center max-w-md mx-auto">
+          <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+          <h2 className="text-xl font-semibold text-gray-800">¡Bienvenido a PetHub!</h2>
+          <p className="text-gray-600 mt-2">Aún no tienes un albergue registrado.</p>
+          <p className="text-gray-500 text-sm mt-1">Créalo para gestionar mascotas y adopciones con datos reales.</p>
+          <Button onClick={() => setShowShelterForm(true)} className={cn('mt-6', landingBtnPrimary, 'border-0')}>
+            <Building2 className="w-5 h-5 mr-2" />
+            Crear Mi Albergue
+          </Button>
+        </MobileSectionCard>
+      </DashboardShell>
+    );
+  }
+
+  // Show error state (real connection/query failures only)
+  if (hasErrors) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-landing-aqua/5 via-white to-landing-mint/5 p-6">
         <div className="text-center">
           <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl text-white">⚠️</span>
@@ -1574,12 +1597,12 @@ const ShelterDashboard: React.FC = () => {
           </div>
           
           {/* Database Connection Test */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg text-left text-sm">
-            <p className="font-semibold text-blue-800">🔍 Diagnóstico de Base de Datos:</p>
-            <p className="text-blue-600 mt-2">
+          <div className="mt-4 p-4 bg-landing-aqua/10 rounded-xl text-left text-sm border border-landing-aqua/20">
+            <p className="font-semibold text-landing-aqua-dark">Diagnóstico de Base de Datos</p>
+            <p className="text-gray-600 mt-2">
               Los errores sugieren que las tablas de la base de datos no han sido creadas aún.
             </p>
-            <p className="text-blue-600 mt-1">
+            <p className="text-gray-600 mt-1">
               Para solucionarlo, ejecuta el script de base de datos en Supabase:
             </p>
             <div className="mt-2 p-2 bg-white rounded border text-xs">
@@ -1601,169 +1624,60 @@ const ShelterDashboard: React.FC = () => {
     );
   }
 
-  // For now, let's use a mock shelter for testing
-  const mockShelter = {
-    id: 'test-shelter-id',
-    name: 'Mi Albergue',
-    location: 'Ciudad',
-    phone: '+1 (555) 123-4567',
-    email: user?.email || 'shelter@email.com',
-    mission_statement: 'Somos un albergue dedicado a rescatar y encontrar hogares para mascotas necesitadas.',
-    years_experience: 3,
-    total_volunteers: 8
-  };
+  const currentShelter = shelter;
 
-  // Use mock shelter for now, or real shelter if it exists
-  const currentShelter = shelter || mockShelter;
-  
-  // Debug logging
-  console.log('ShelterDashboard Debug:', {
-    userId: user?.id,
-    quotes: quotes.length,
-    quotesData: quotes,
-    quotesError: quotesError?.message,
-    currentShelter: currentShelter?.id
-  });
+  const pendingQuotesCount = displayQuotes.filter((q) => q.status === 'pending').length;
+  const approvedQuotesCount = displayQuotes.filter((q) => q.status === 'approved').length;
 
+  const bottomNavActive = (tab: string) =>
+    activeTab === tab || (tab === 'pets' && activeTab === 'add-pet');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-3 md:p-6">
-      {/* Header - Modern Design */}
-      <div className="mb-6 md:mb-8 relative z-10">
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-4 md:p-6 text-white shadow-lg relative">
-          <div className="flex items-center justify-between gap-4 mb-3">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 md:w-6 md:h-6" />
-          </div>
-              <h1 className="text-lg md:text-xl font-bold truncate">Dashboard Albergue</h1>
-                </div>
-            <div className="flex items-center shrink-0 relative z-50">
-              <SettingsDropdown variant="gradient" />
-            </div>
-          </div>
-          <div className="pl-0 md:pl-[52px]">
-            <p className="text-sm md:text-base text-blue-100 truncate">{currentShelter.name}</p>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{displayPets.length}</div>
-              <div className="text-sm text-gray-600">Mascotas</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-                             <div className="text-2xl font-bold text-green-600">
-                 {displayQuotes.filter(q => q.status === 'pending').length}
-               </div>
-               <div className="text-sm text-gray-600">Solicitudes Pendientes</div>
-             </CardContent>
-           </Card>
-           <Card>
-             <CardContent className="p-4 text-center">
-               <div className="text-2xl font-bold text-blue-600">
-                 {displayQuotes.filter(q => q.status === 'approved').length}
-               </div>
-               <div className="text-sm text-gray-600">Adopciones Aprobadas</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-                             <div className="text-2xl font-bold text-orange-600">
-                 {currentShelter.total_volunteers || 0}
-               </div>
-              <div className="text-sm text-gray-600">Voluntarios</div>
-            </CardContent>
-          </Card>
-        </div>
+    <DashboardShell>
+      <PageHeader
+        title="Dashboard Albergue"
+        subtitle={currentShelter.name}
+        gradient="from-landing-aqua via-landing-mint to-landing-mango"
+      />
+      <div className="hidden md:block">
+        <MobileTabStrip tabs={SHELTER_MAIN_TABS} activeTab={activeTab === 'add-pet' ? 'pets' : activeTab} onChange={handleTabChange} />
       </div>
 
       {/* Main Content */}
       <div className="pb-24 md:pb-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 md:space-y-6">
-          {/* Tabs content without TabsList - we'll use bottom navigation instead */}
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-4 md:space-y-6">
-          {/* Dashboard Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Mascotas</p>
-                    <p className="text-2xl font-bold text-blue-600">{displayPets.length}</p>
-                  </div>
-                  <div className="p-3 bg-blue-100 rounded-full">
-                    <PawPrint className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  {displayPets.filter(p => p.species === 'Dog').length} perros • {displayPets.filter(p => p.species === 'Cat').length} gatos
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Solicitudes Pendientes</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {displayQuotes.filter(q => q.status === 'pending').length}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-green-100 rounded-full">
-                    <Clock className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Requieren atención
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-emerald-500">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Adopciones Aprobadas</p>
-                    <p className="text-2xl font-bold text-emerald-600">
-                      {displayQuotes.filter(q => q.status === 'approved').length}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-emerald-100 rounded-full">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Total aprobadas
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-orange-500">
-              <CardContent className="p-4 md:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Voluntarios</p>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {currentShelter?.total_volunteers || 0}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-orange-100 rounded-full">
-                    <Users className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Miembros activos
-                </p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <DashboardStatCard
+              icon={PawPrint}
+              value={displayPets.length}
+              label="Mascotas"
+              footer={`${displayPets.filter((p) => p.species === 'Dog').length} perros · ${displayPets.filter((p) => p.species === 'Cat').length} gatos`}
+              gradientIndex={0}
+            />
+            <DashboardStatCard
+              icon={Clock}
+              value={pendingQuotesCount}
+              label="Pendientes"
+              footer="Requieren atención"
+              gradientIndex={2}
+            />
+            <DashboardStatCard
+              icon={CheckCircle2}
+              value={approvedQuotesCount}
+              label="Aprobadas"
+              footer="Adopciones confirmadas"
+              gradientIndex={1}
+            />
+            <DashboardStatCard
+              icon={Users}
+              value={currentShelter?.total_volunteers || 0}
+              label="Voluntarios"
+              footer="Miembros activos"
+              gradientIndex={3}
+            />
           </div>
 
           {/* Charts Row */}
@@ -1804,8 +1718,8 @@ const ShelterDashboard: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="Pendientes" fill="#10b981" />
-                    <Bar dataKey="Aprobadas" fill="#3b82f6" />
+                    <Bar dataKey="Pendientes" fill={landingChartColors.mango} />
+                    <Bar dataKey="Aprobadas" fill={landingChartColors.aqua} />
                     <Bar dataKey="Rechazadas" fill="#ef4444" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -1838,7 +1752,7 @@ const ShelterDashboard: React.FC = () => {
                     <XAxis dataKey="especie" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="cantidad" fill="#3b82f6" />
+                    <Bar dataKey="cantidad" fill={landingChartColors.mint} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1905,12 +1819,12 @@ const ShelterDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-landing-aqua/10 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <PawPrint className="w-5 h-5 text-blue-600" />
+                      <PawPrint className="w-5 h-5 text-landing-aqua-dark" />
                       <span className="font-medium text-gray-700">Total Mascotas</span>
                     </div>
-                    <span className="text-2xl font-bold text-blue-600">{displayPets.length}</span>
+                    <span className="text-2xl font-bold text-landing-aqua-dark">{displayPets.length}</span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
@@ -1947,14 +1861,11 @@ const ShelterDashboard: React.FC = () => {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-4 md:space-y-6">
-          <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                <Building2 className="w-4 h-4 md:w-5 md:h-5" />
-                Información del Albergue
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 md:space-y-6 p-4 md:p-6">
+          <MobileSectionCard className="p-4 md:p-6 space-y-4 md:space-y-6">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-landing-aqua-dark" />
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900">Información del Albergue</h3>
+            </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-4">
                   <div>
@@ -1963,7 +1874,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-name" 
                       value={shelterForm.name} 
                       onChange={(e) => setShelterForm({...shelterForm, name: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
                     />
                   </div>
                   <div>
@@ -1972,7 +1883,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-location" 
                       value={shelterForm.location} 
                       onChange={(e) => setShelterForm({...shelterForm, location: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
                     />
                   </div>
                   <div>
@@ -1981,7 +1892,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-phone" 
                       value={shelterForm.phone} 
                       onChange={(e) => setShelterForm({...shelterForm, phone: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
                     />
                   </div>
                   <div>
@@ -1990,7 +1901,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-email" 
                       value={shelterForm.email} 
                       onChange={(e) => setShelterForm({...shelterForm, email: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500 w-full"
+                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
                     />
                   </div>
                 </div>
@@ -2035,33 +1946,85 @@ const ShelterDashboard: React.FC = () => {
               <div className="flex justify-end pt-2">
                 <Button 
                   onClick={handleSaveProfile} 
-                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                  className={cn('w-full sm:w-auto', landingBtnPrimary, 'border-0')}
                   size="sm"
                 >
                   <Save className="w-4 h-4 mr-2" />
                   Guardar Cambios
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+          </MobileSectionCard>
         </TabsContent>
 
         {/* Pets Tab */}
         <TabsContent value="pets" className="space-y-6">
           {/* Pets Header with Filters and View Toggle */}
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold">Mascotas del Albergue</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 className="text-lg font-semibold text-gray-900">Mascotas del Albergue</h3>
+              <Button
+                onClick={() => { setShowAddPetForm(true); setActiveTab('add-pet'); }}
+                className={cn(landingBtnPrimary, 'border-0 w-full sm:w-auto min-h-[44px] rounded-xl shrink-0')}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar Mascota
+              </Button>
+            </div>
+
+            {/* Filtros */}
+            <div className={filterPanelClass}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Nombre, raza o descripción…"
+                  value={petFilters.search}
+                  onChange={(e) => setPetFilters({ ...petFilters, search: e.target.value })}
+                  className="pl-10 pr-4 min-h-[44px] rounded-xl border-gray-200/80 bg-white/90"
+                />
               </div>
-              <div className="flex items-center gap-3">
-                {/* View Mode Toggle */}
+
+              <div className="grid grid-cols-4 gap-2">
+                {PET_SPECIES_CHIPS.map((chip, index) => {
+                  const active = petFilters.species === chip.id;
+                  const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                  return (
+                    <button
+                      key={chip.id || 'all'}
+                      type="button"
+                      onClick={() => setPetFilters({ ...petFilters, species: chip.id })}
+                      className={cn(
+                        'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all text-center leading-tight',
+                        active
+                          ? `bg-gradient-to-r ${gradient} text-white shadow-md`
+                          : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 shadow-sm'
+                      )}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPetFilters(!showPetFilters)}
+                  className={cn(
+                    'flex items-center gap-2 min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10',
+                    showPetFilters && 'bg-landing-aqua/10'
+                  )}
+                >
+                  <Filter className="w-4 h-4" />
+                  Más filtros
+                  {showPetFilters && <X className="w-4 h-4" />}
+                </Button>
+
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <Button
                     variant={petViewMode === 'cards' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setPetViewMode('cards')}
-                    className="h-8 px-3"
+                    className={cn('h-9 px-3', petViewMode === 'cards' && 'bg-white shadow-sm')}
                   >
                     <Grid className="w-4 h-4" />
                   </Button>
@@ -2069,390 +2032,240 @@ const ShelterDashboard: React.FC = () => {
                     variant={petViewMode === 'list' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setPetViewMode('list')}
-                    className="h-8 px-3"
+                    className={cn('h-9 px-3', petViewMode === 'list' && 'bg-white shadow-sm')}
                   >
                     <List className="w-4 h-4" />
                   </Button>
                 </div>
-                                 <Button 
-                   onClick={() => {
-                     setShowAddPetForm(true);
-                     setActiveTab('add-pet');
-                   }} 
-                   className="bg-blue-600 hover:bg-blue-700"
-                   style={{ 
-                     zIndex: 9999, 
-                     position: 'relative',
-                     pointerEvents: 'auto',
-                     cursor: 'pointer'
-                   }}
-                 >
-                   <Plus className="w-4 h-4 mr-2" />
-                   Agregar Mascota
-                 </Button>
-              </div>
-            </div>
 
-            {/* Enhanced Filters */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  {/* First Row - Basic Filters */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {hasActivePetFilters && (
+                  <Button variant="ghost" onClick={clearPetFilters} className="text-red-600 hover:bg-red-50 min-h-[44px]">
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    Limpiar
+                  </Button>
+                )}
+
+                <span className="text-sm font-medium text-gray-600 ml-auto bg-white/60 px-3 py-2 rounded-full whitespace-nowrap">
+                  {filteredPets.length} de {displayPets.length} mascotas
+                </span>
+              </div>
+
+              {showPetFilters && (
+                <div className="pt-4 border-t border-gray-100/80 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="pet-search">Buscar</Label>
-                      <Input
-                        id="pet-search"
-                        placeholder="Nombre, raza o descripción..."
-                        value={petFilters.search}
-                        onChange={(e) => setPetFilters({...petFilters, search: e.target.value})}
-                      />
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Tamaño</label>
+                      <Select value={petFilters.size || 'all'} onValueChange={(v) => setPetFilters({ ...petFilters, size: v === 'all' ? '' : v })}>
+                        <SelectTrigger className="min-h-[44px] rounded-xl">
+                          <SelectValue placeholder="Tamaño" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="pequeño">Pequeño</SelectItem>
+                          <SelectItem value="mediano">Mediano</SelectItem>
+                          <SelectItem value="grande">Grande</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
-                      <Label htmlFor="pet-species-filter">Especie</Label>
-                      <select
-                        id="pet-species-filter"
-                        value={petFilters.species}
-                        onChange={(e) => setPetFilters({...petFilters, species: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">Todas las especies</option>
-                        <option value="Dog">Perro</option>
-                        <option value="Cat">Gato</option>
-                        <option value="Other">Otro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="pet-size-filter">Tamaño</Label>
-                      <select
-                        id="pet-size-filter"
-                        value={petFilters.size}
-                        onChange={(e) => setPetFilters({...petFilters, size: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">Todos los tamaños</option>
-                        <option value="pequeño">Pequeño</option>
-                        <option value="mediano">Mediano</option>
-                        <option value="grande">Grande</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="pet-age-filter">Edad</Label>
-                      <select
-                        id="pet-age-filter"
-                        value={petFilters.age}
-                        onChange={(e) => setPetFilters({...petFilters, age: e.target.value})}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      >
-                        <option value="">Todas las edades</option>
-                        <option value="1">1 año</option>
-                        <option value="2">2 años</option>
-                        <option value="3">3 años</option>
-                        <option value="4">4 años</option>
-                        <option value="5">5 años</option>
-                        <option value="6">6 años</option>
-                        <option value="7">7 años</option>
-                        <option value="8">8 años</option>
-                        <option value="9">9 años</option>
-                        <option value="10">10+ años</option>
-                      </select>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Edad</label>
+                      <Select value={petFilters.age || 'all'} onValueChange={(v) => setPetFilters({ ...petFilters, age: v === 'all' ? '' : v })}>
+                        <SelectTrigger className="min-h-[44px] rounded-xl">
+                          <SelectValue placeholder="Edad" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                            <SelectItem key={n} value={String(n)}>{n === 10 ? '10+ años' : `${n} año${n > 1 ? 's' : ''}`}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  
-                  {/* Second Row - Behavior & Training Filters */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label>Comportamiento</Label>
-                      <div className="flex gap-4 mt-2">
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={petFilters.good_with_kids}
-                            onChange={(e) => setPetFilters({...petFilters, good_with_kids: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">👶 Con niños</span>
-                        </label>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={petFilters.good_with_dogs}
-                            onChange={(e) => setPetFilters({...petFilters, good_with_dogs: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">🐕 Con perros</span>
-                        </label>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={petFilters.good_with_cats}
-                            onChange={(e) => setPetFilters({...petFilters, good_with_cats: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">🐱 Con gatos</span>
-                        </label>
-                      </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Características</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { key: 'good_with_kids' as const, label: '👶 Niños' },
+                        { key: 'good_with_dogs' as const, label: '🐕 Perros' },
+                        { key: 'good_with_cats' as const, label: '🐱 Gatos' },
+                        { key: 'house_trained' as const, label: '🏠 Educado' },
+                        { key: 'spayed_neutered' as const, label: '✂️ Esterilizado' },
+                        { key: 'special_needs' as const, label: '❤️ Especial' },
+                      ].map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setPetFilters({ ...petFilters, [key]: !petFilters[key] })}
+                          className={cn(
+                            'px-3 py-2 rounded-xl text-xs font-medium border transition-all',
+                            petFilters[key]
+                              ? 'bg-landing-aqua/15 border-landing-aqua/40 text-landing-aqua-dark'
+                              : 'bg-white/80 border-gray-200 text-gray-600 hover:border-landing-aqua/30'
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                    <div>
-                      <Label>Entrenamiento & Salud</Label>
-                      <div className="flex gap-4 mt-2">
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={petFilters.house_trained}
-                            onChange={(e) => setPetFilters({...petFilters, house_trained: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">🏠 Educado</span>
-                        </label>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={petFilters.spayed_neutered}
-                            onChange={(e) => setPetFilters({...petFilters, spayed_neutered: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">✂️ Esterilizado</span>
-                        </label>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={petFilters.special_needs}
-                            onChange={(e) => setPetFilters({...petFilters, special_needs: e.target.checked})}
-                            className="rounded"
-                          />
-                          <span className="text-sm">❤️ Necesidades especiales</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Clear Filters Button */}
-                  <div className="flex justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => setPetFilters({
-                        search: '',
-                        size: '',
-                        species: '',
-                        age: '',
-                        gender: '',
-                        house_trained: false,
-                        spayed_neutered: false,
-                        special_needs: false,
-                        good_with_kids: false,
-                        good_with_dogs: false,
-                        good_with_cats: false
-                      })}
-                      className="px-6"
-                    >
-                      Limpiar Filtros
-                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
 
           {petsLoading ? (
-            <Card>
-              <CardContent className="text-center py-8">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">🐾</span>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Cargando mascotas...</h3>
-                <p className="text-gray-500">Obteniendo datos de las mascotas del albergue...</p>
-              </CardContent>
-            </Card>
+            <MobileSectionCard className="p-8 text-center">
+              <Loader2 className="w-10 h-10 text-landing-aqua animate-spin mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">Cargando mascotas…</h3>
+              <p className="text-sm text-gray-500">Obteniendo datos del albergue</p>
+            </MobileSectionCard>
           ) : filteredPets.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-8">
-                <PawPrint className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                  {displayPets.length === 0 ? 'No hay mascotas' : 'No hay mascotas que coincidan con los filtros'}
-                </h3>
-                <p className="text-gray-600">
-                  {displayPets.length === 0 
-                    ? 'Agrega tu primera mascota para comenzar a gestionar adopciones.'
-                    : 'Intenta ajustar los filtros de búsqueda.'
-                  }
-                </p>
-              </CardContent>
-            </Card>
+            <MobileSectionCard className="p-8 text-center">
+              <PawPrint className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                {displayPets.length === 0 ? 'No hay mascotas' : 'Sin resultados'}
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                {displayPets.length === 0
+                  ? 'Agrega tu primera mascota para comenzar a gestionar adopciones.'
+                  : 'Prueba cambiar los filtros de búsqueda.'}
+              </p>
+              {displayPets.length === 0 && (
+                <Button
+                  onClick={() => { setShowAddPetForm(true); setActiveTab('add-pet'); }}
+                  className={cn(landingBtnPrimary, 'border-0 min-h-[44px] rounded-xl')}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar Mascota
+                </Button>
+              )}
+            </MobileSectionCard>
+          ) : petViewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPets.map((pet) => (
+                <MobileSectionCard key={pet.id} className="overflow-hidden p-0">
+                  <div className="h-44 bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center relative">
+                    {pet.image_url ? (
+                      <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <PawPrint className="w-16 h-16 text-landing-aqua" />
+                    )}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-white/90 hover:bg-white rounded-lg" onClick={() => handleEditPet(pet)} disabled={isUsingMockData}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-white/90 hover:bg-white rounded-lg" onClick={() => handleDeletePet(pet.id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-bold text-gray-900 truncate">{pet.name}</h4>
+                      {pet.age != null && <span className="text-xs text-gray-500 shrink-0">{pet.age} años</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {pet.breed && <Badge variant="secondary" className="text-[10px]">{pet.breed}</Badge>}
+                      {pet.size && <Badge variant="outline" className="text-[10px]">{pet.size}</Badge>}
+                      {pet.species && (
+                        <Badge variant="outline" className="text-[10px] border-landing-aqua/30 text-landing-aqua-dark">
+                          {pet.species === 'Dog' ? 'Perro' : pet.species === 'Cat' ? 'Gato' : pet.species}
+                        </Badge>
+                      )}
+                    </div>
+                    {pet.description && <p className="text-sm text-gray-600 line-clamp-2">{pet.description}</p>}
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {pet.good_with_kids && <span className="text-xs px-2 py-0.5 rounded-full bg-landing-mint/15">👶</span>}
+                      {pet.good_with_dogs && <span className="text-xs px-2 py-0.5 rounded-full bg-landing-aqua/15">🐕</span>}
+                      {pet.good_with_cats && <span className="text-xs px-2 py-0.5 rounded-full bg-landing-aqua/15">🐱</span>}
+                    </div>
+                  </div>
+                </MobileSectionCard>
+              ))}
+            </div>
           ) : (
-            <>
-              {/* Results count */}
-              <div className="text-sm text-gray-600 mb-4">
-                Mostrando {filteredPets.length} de {displayPets.length} mascotas
-              </div>
-
-              {/* Cards View */}
-              {petViewMode === 'cards' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredPets.map((pet) => (
-              <Card key={pet.id} className="overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center relative">
-                  {pet.image_url ? (
-                    <img 
-                      src={pet.image_url} 
-                      alt={pet.name} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <PawPrint className="w-20 h-20 text-blue-400" />
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 bg-white/90 hover:bg-white"
-                      onClick={() => handleEditPet(pet)}
-                      disabled={isUsingMockData}
-                      title={isUsingMockData ? "No se puede editar mascotas de ejemplo" : "Editar mascota"}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 bg-white/90 hover:bg-white"
-                      onClick={() => handleDeletePet(pet.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
+            <div className="space-y-3">
+              {filteredPets.map((pet) => (
+                <MobileSectionCard key={pet.id} className="p-4">
+                  <div className="flex gap-3">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 ring-2 ring-white shadow-sm">
+                      {pet.image_url ? (
+                        <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <PawPrint className="w-7 h-7 text-landing-aqua" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-bold text-gray-900 truncate">{pet.name}</h4>
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleEditPet(pet)} disabled={isUsingMockData}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDeletePet(pet.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {[pet.breed, pet.age != null ? `${pet.age} años` : null, pet.size].filter(Boolean).join(' · ')}
+                      </p>
+                      {pet.description && <p className="text-sm text-gray-600 line-clamp-2 mt-1">{pet.description}</p>}
+                    </div>
                   </div>
-                </div>
-                
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold text-gray-800">{pet.name}</h4>
-                    {pet.age && <span className="text-sm text-gray-500">{pet.age} años</span>}
-                  </div>
-                   
-                                     <div className="flex flex-wrap gap-2">
-                     {pet.breed && (
-                       <Badge variant="secondary" className="text-xs">
-                         <PawPrint className="w-3 h-3 mr-1" />
-                         {pet.breed}
-                       </Badge>
-                     )}
-                     {pet.size && (
-                       <Badge variant="outline" className="text-xs">
-                         {pet.size}
-                       </Badge>
-                     )}
-                     {pet.gender && (
-                       <Badge variant="outline" className="text-xs">
-                         {pet.gender === 'macho' ? '♂' : '♀'}
-                       </Badge>
-                     )}
-                   </div>
-                   
-                  {pet.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2">{pet.description}</p>
-                  )}
-                   
-                  <div className="flex items-center space-x-2">
-                    {pet.good_with_kids && (
-                      <Badge variant="outline" className="text-xs text-green-600">👶</Badge>
-                    )}
-                    {pet.good_with_dogs && (
-                      <Badge variant="outline" className="text-xs text-blue-600">🐕</Badge>
-                    )}
-                    {pet.good_with_cats && (
-                      <Badge variant="outline" className="text-xs text-blue-600">🐱</Badge>
-                    )}
-                                     </div>
-                 </CardContent>
-               </Card>
-               ))}
-                 </div>
-               )}
-
-               {/* List View */}
-               {petViewMode === 'list' && (
-                 <div className="space-y-3">
-                   {filteredPets.map((pet) => (
-                     <Card key={pet.id} className="p-4">
-                       <div className="flex items-center justify-between">
-                         <div className="flex items-center space-x-4">
-                           <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex items-center justify-center">
-                             {pet.image_url ? (
-                               <img 
-                                 src={pet.image_url} 
-                                 alt={pet.name} 
-                                 className="w-full h-full object-cover rounded-lg"
-                               />
-                             ) : (
-                               <PawPrint className="w-8 h-8 text-blue-400" />
-                             )}
-                           </div>
-                           <div>
-                             <h4 className="font-semibold text-gray-800">{pet.name}</h4>
-                             <div className="flex items-center space-x-2 text-sm text-gray-600">
-                               {pet.breed && <span>{pet.breed}</span>}
-                               {pet.age && <span>• {pet.age} años</span>}
-                               {pet.size && <span>• {pet.size}</span>}
-                               {pet.gender && <span>• {pet.gender === 'macho' ? '♂' : '♀'}</span>}
-                               {pet.color && <span>• {pet.color}</span>}
-                             </div>
-                             {pet.description && (
-                               <p className="text-sm text-gray-600 mt-1 line-clamp-2">{pet.description}</p>
-                             )}
-                           </div>
-                         </div>
-                         <div className="flex items-center space-x-2">
-                           <div className="flex items-center space-x-2">
-                             {pet.good_with_kids && (
-                               <Badge variant="outline" className="text-xs text-green-600">👶</Badge>
-                             )}
-                             {pet.good_with_dogs && (
-                               <Badge variant="outline" className="text-xs text-blue-600">🐕</Badge>
-                             )}
-                             {pet.good_with_cats && (
-                               <Badge variant="outline" className="text-xs text-blue-600">🐱</Badge>
-                             )}
-                           </div>
-                           <Button
-                             size="sm"
-                             variant="ghost"
-                             onClick={() => handleEditPet(pet)}
-                             className="h-8 w-8 p-0"
-                             disabled={isUsingMockData}
-                             title={isUsingMockData ? "No se puede editar mascotas de ejemplo" : "Editar mascota"}
-                           >
-                             <Edit className="w-4 h-4" />
-                           </Button>
-                           <Button
-                             size="sm"
-                             variant="ghost"
-                             onClick={() => handleDeletePet(pet.id)}
-                             className="h-8 w-8 p-0 text-red-500"
-                           >
-                             <Trash2 className="w-4 h-4" />
-                           </Button>
-                         </div>
-                       </div>
-                     </Card>
-                   ))}
-                 </div>
-               )}
-             </>
-           )}
+                </MobileSectionCard>
+              ))}
+            </div>
+          )}
          </TabsContent>
 
         {/* Quotes Tab */}
-        <TabsContent value="quotes" className="space-y-6">
-          {/* Quotes Header with Filters and View Toggle */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Solicitudes de Adopción</h3>
+        <TabsContent value="quotes" className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Solicitudes de Adopción</h3>
+
+          <div className={filterPanelClass}>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Mascota o solicitante…"
+                value={quoteFilters.search}
+                onChange={(e) => setQuoteFilters({ ...quoteFilters, search: e.target.value })}
+                className="pl-10 pr-4 min-h-[44px] rounded-xl border-gray-200/80 bg-white/90"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {QUOTE_STATUS_CHIPS.map((chip, index) => {
+                const active = quoteFilters.status === chip.id;
+                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                return (
+                  <button
+                    key={chip.id || 'all'}
+                    type="button"
+                    onClick={() => setQuoteFilters({ ...quoteFilters, status: chip.id })}
+                    className={cn(
+                      'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all text-center leading-tight',
+                      active
+                        ? `bg-gradient-to-r ${gradient} text-white shadow-md`
+                        : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 shadow-sm'
+                    )}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <Button
                   variant={quoteViewMode === 'cards' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setQuoteViewMode('cards')}
-                  className="h-8 px-3"
+                  className={cn('h-9 px-3', quoteViewMode === 'cards' && 'bg-white shadow-sm')}
                 >
                   <Grid className="w-4 h-4" />
                 </Button>
@@ -2460,255 +2273,167 @@ const ShelterDashboard: React.FC = () => {
                   variant={quoteViewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setQuoteViewMode('list')}
-                  className="h-8 px-3"
+                  className={cn('h-9 px-3', quoteViewMode === 'list' && 'bg-white shadow-sm')}
                 >
                   <List className="w-4 h-4" />
                 </Button>
               </div>
-            </div>
 
-            {/* Filters */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="quote-search">Buscar</Label>
-                    <Input
-                      id="quote-search"
-                      placeholder="Nombre de mascota o solicitante..."
-                      value={quoteFilters.search}
-                      onChange={(e) => setQuoteFilters({...quoteFilters, search: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quote-status-filter">Estado</Label>
-                    <select
-                      id="quote-status-filter"
-                      value={quoteFilters.status}
-                      onChange={(e) => setQuoteFilters({...quoteFilters, status: e.target.value})}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Todos los estados</option>
-                      <option value="pending">Pendiente</option>
-                      <option value="approved">Aprobada</option>
-                      <option value="rejected">Rechazada</option>
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => setQuoteFilters({
-                        search: '',
-                        status: '',
-                        dateRange: ''
-                      })}
-                      className="w-full"
-                    >
-                      Limpiar Filtros
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              {hasActiveQuoteFilters && (
+                <Button variant="ghost" onClick={clearQuoteFilters} className="text-red-600 hover:bg-red-50 min-h-[44px]">
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Limpiar
+                </Button>
+              )}
+
+              <span className="text-sm font-medium text-gray-600 ml-auto bg-white/60 px-3 py-2 rounded-full whitespace-nowrap">
+                {filteredQuotes.length} de {displayQuotes.length} solicitudes
+              </span>
+            </div>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                Solicitudes de Adopción
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {filteredQuotes.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                    {displayQuotes.length === 0 ? 'No hay solicitudes' : 'No hay solicitudes que coincidan con los filtros'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {displayQuotes.length === 0 
-                      ? 'Cuando los usuarios soliciten adoptar tus mascotas, aparecerán aquí.'
-                      : 'Intenta ajustar los filtros de búsqueda.'
-                    }
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Results count */}
-                  <div className="text-sm text-gray-600 mb-4">
-                    Mostrando {filteredQuotes.length} de {displayQuotes.length} solicitudes
-                  </div>
-
-                  {/* Cards View */}
-                  {quoteViewMode === 'cards' && (
-                    <div className="space-y-4">
-                      {filteredQuotes.map((quote) => (
-                  <div key={quote.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-gray-800">
-                          Solicitud para {quote.pet_name}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          Por: {quote.applicant_name} • {new Date(quote.created_at).toLocaleDateString()}
-                        </p>
+          {filteredQuotes.length === 0 ? (
+            <MobileSectionCard className="p-8 text-center">
+              <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                {displayQuotes.length === 0 ? 'No hay solicitudes' : 'Sin resultados'}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {displayQuotes.length === 0
+                  ? 'Cuando los usuarios soliciten adoptar tus mascotas, aparecerán aquí.'
+                  : 'Prueba cambiar los filtros de búsqueda.'}
+              </p>
+            </MobileSectionCard>
+          ) : quoteViewMode === 'cards' ? (
+            <div className="space-y-3">
+              {filteredQuotes.map((quote) => {
+                const petImage = displayPets.find((p) => p.id === quote.pet_id)?.image_url;
+                return (
+                  <MobileSectionCard key={quote.id} className="p-4">
+                    <div className="flex gap-3">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-2 ring-white shadow-sm">
+                        {petImage ? (
+                          <img src={petImage} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
+                            <PawPrint className="w-7 h-7 text-landing-aqua" />
+                          </div>
+                        )}
                       </div>
-                      <Badge 
-                        variant={quote.status === 'pending' ? 'secondary' : quote.status === 'approved' ? 'default' : 'destructive'}
-                      >
-                        {quote.status === 'pending' ? 'Pendiente' : quote.status === 'approved' ? 'Aprobada' : 'Rechazada'}
-                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-gray-900 truncate">{quote.pet_name || 'Mascota'}</h4>
+                            <p className="text-xs text-gray-500 mt-0.5">{quote.applicant_name || 'Solicitante'} · {formatDateShort(quote.created_at)}</p>
+                          </div>
+                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0', getQuoteStatusClass(quote.status))}>
+                            {getQuoteStatusLabel(quote.status)}
+                          </span>
+                        </div>
+                        {quote.message && (
+                          <p className="text-sm text-gray-600 mt-2 line-clamp-3 bg-gray-50/80 rounded-lg px-3 py-2">{quote.message}</p>
+                        )}
+                        <div className="grid grid-cols-2 gap-2 mt-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setSelectedApplication(quote); setShowChatModal(true); }}
+                            className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+                          >
+                            <MessageCircle className="w-4 h-4 mr-1" />
+                            Chat
+                          </Button>
+                          {quote.status === 'pending' ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleQuoteAction(quote.id, 'approved')}
+                              className={cn('min-h-[40px]', landingBtnPrimary, 'border-0')}
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Aprobar
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" disabled className="min-h-[40px] opacity-50">
+                              {getQuoteStatusLabel(quote.status)}
+                            </Button>
+                          )}
+                          {quote.status === 'pending' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleQuoteAction(quote.id, 'rejected')}
+                              className="min-h-[40px] col-span-2 border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Rechazar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    
-                    {quote.message && (
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded-md">
-                        {quote.message}
-                      </p>
-                    )}
-                    
-                      <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedApplication(quote);
-                          setShowChatModal(true);
-                        }}
-                      >
-                        <MessageCircle className="w-4 h-4 mr-1" />
-                        Chat
+                  </MobileSectionCard>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredQuotes.map((quote) => (
+                <MobileSectionCard key={quote.id} className="p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900 truncate">{quote.pet_name}</p>
+                      <p className="text-xs text-gray-500">{quote.applicant_name} · {formatDateShort(quote.created_at)}</p>
+                    </div>
+                    <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0', getQuoteStatusClass(quote.status))}>
+                      {getQuoteStatusLabel(quote.status)}
+                    </span>
+                    <div className="flex gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setSelectedApplication(quote); setShowChatModal(true); }}>
+                        <MessageCircle className="w-4 h-4 text-landing-aqua-dark" />
                       </Button>
                       {quote.status === 'pending' && (
                         <>
-                                                 <Button 
-                           size="sm" 
-                           onClick={() => handleQuoteAction(quote.id, 'approved')}
-                            className="bg-blue-600 hover:bg-blue-700"
-                         >
-                           Aprobar
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => handleQuoteAction(quote.id, 'rejected')}
-                         >
-                           Rechazar
-                         </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-landing-mint-dark" onClick={() => handleQuoteAction(quote.id, 'approved')}>
+                            <CheckCircle2 className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500" onClick={() => handleQuoteAction(quote.id, 'rejected')}>
+                            <XCircle className="w-4 h-4" />
+                          </Button>
                         </>
-                    )}
+                      )}
                     </div>
                   </div>
-                ))}
-                  </div>
-                )}
-
-                {/* List View */}
-                {quoteViewMode === 'list' && (
-                  <div className="space-y-3">
-                    {filteredQuotes.map((quote) => (
-                      <Card key={quote.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-gray-800">
-                                Solicitud para {quote.pet_name}
-                              </h4>
-                              <Badge 
-                                variant={quote.status === 'pending' ? 'secondary' : quote.status === 'approved' ? 'default' : 'destructive'}
-                              >
-                                {quote.status === 'pending' ? 'Pendiente' : quote.status === 'approved' ? 'Aprobada' : 'Rechazada'}
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-gray-600 mb-2">
-                              <span className="font-medium">Solicitante:</span> {quote.applicant_name} • 
-                              <span className="font-medium ml-2">Fecha:</span> {new Date(quote.created_at).toLocaleDateString()}
-                            </div>
-                            {quote.message && (
-                              <p className="text-gray-700 bg-gray-50 p-3 rounded-md text-sm">
-                                {quote.message}
-                              </p>
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <div className="flex gap-2 flex-col">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedApplication(quote);
-                                  setShowChatModal(true);
-                                }}
-                              >
-                                <MessageCircle className="w-4 h-4 mr-1" />
-                                Chat
-                              </Button>
-                            {quote.status === 'pending' && (
-                                <>
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handleQuoteAction(quote.id, 'approved')}
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                  Aprobar
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleQuoteAction(quote.id, 'rejected')}
-                                >
-                                  Rechazar
-                                </Button>
-                                </>
-                            )}
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+                </MobileSectionCard>
+              ))}
+            </div>
+          )}
       </TabsContent>
 
         {/* Add Pet Tab */}
-        <TabsContent value="add-pet" className="space-y-6">
+        <TabsContent value="add-pet" className="space-y-4">
           {!showAddPetForm && !editingPet ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <PawPrint className="w-20 h-20 text-gray-400 mx-auto mb-6" />
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Gestionar Mascotas</h3>
-                <p className="text-gray-600 mb-6">Agrega nuevas mascotas o edita las existentes desde la pestaña "Mascotas"</p>
-                <Button 
-                  onClick={() => {
-                    setShowAddPetForm(true);
-                    setActiveTab('add-pet');
-                  }} 
-                  className="bg-blue-600 hover:bg-blue-700"
-                  style={{ 
-                    zIndex: 9999, 
-                    position: 'relative',
-                    pointerEvents: 'auto',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Nueva Mascota
-                </Button>
-              </CardContent>
-            </Card>
+            <MobileSectionCard className="p-8 text-center">
+              <PawPrint className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Gestionar Mascotas</h3>
+              <p className="text-sm text-gray-500 mb-6">Agrega nuevas mascotas o edita las existentes desde la pestaña Mascotas</p>
+              <Button
+                onClick={() => {
+                  setShowAddPetForm(true);
+                  setActiveTab('add-pet');
+                }}
+                className={cn(landingBtnPrimary, 'border-0 min-h-[44px]')}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Agregar Nueva Mascota
+              </Button>
+            </MobileSectionCard>
           ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  {editingPet ? 'Editar Mascota' : 'Agregar Nueva Mascota'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
+            <MobileSectionCard className="p-4 md:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-6">
+                <Plus className="w-5 h-5 text-landing-aqua-dark" />
+                {editingPet ? 'Editar Mascota' : 'Agregar Nueva Mascota'}
+              </h3>
+              <div className="space-y-6">
                                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                    {/* Basic Information */}
                    <div className="space-y-4">
@@ -2999,10 +2724,10 @@ const ShelterDashboard: React.FC = () => {
                                setUploadingImage(false);
                              }
                            }}
-                           className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-blue-400"
+                           className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-center cursor-pointer hover:border-landing-aqua/40 transition-colors"
                          />
                          {uploadingImage && (
-                           <p className="text-sm text-blue-600 mt-2 text-center">Uploading image...</p>
+                           <p className="text-sm text-landing-aqua-dark mt-2 text-center">Subiendo imagen…</p>
                          )}
                          {newPet.image_url && (
                            <div className="mt-2">
@@ -3050,245 +2775,172 @@ const ShelterDashboard: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={editingPet ? handleUpdatePet : handleAddPet}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className={cn(landingBtnPrimary, 'border-0')}
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {editingPet ? 'Actualizar Mascota' : 'Agregar Mascota'}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </MobileSectionCard>
           )}
         </TabsContent>
 
          {/* Media Tab */}
-         <TabsContent value="media" className="space-y-6">
-           <Card>
-             <CardHeader>
-               <CardTitle className="flex items-center gap-2">
-                 <Image className="w-5 h-5" />
-                 Imágenes y Videos del Albergue
-               </CardTitle>
-             </CardHeader>
-             <CardContent className="space-y-8">
-               {/* Images Section */}
-               <div>
-                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                   <Image className="w-5 h-5" />
-                   Imágenes ({shelterImages.length})
-                 </h3>
-                 
-                 {shelterImages.length === 0 ? (
-                   <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                     <Image className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                     <h4 className="text-lg font-semibold text-gray-800 mb-2">No hay imágenes</h4>
-                     <p className="text-gray-600 mb-4">Estas son las imágenes que verán los clientes en tu perfil.</p>
-                     <div>
-                       <input
-                         type="file"
-                         accept="image/*"
-                         onChange={handleImageUpload}
-                         className="hidden"
-                         id="image-upload"
-                         disabled={uploadingImage}
-                       />
-                       <Button 
-                         className="bg-blue-600 hover:bg-blue-700"
-                         onClick={() => document.getElementById('image-upload')?.click()}
-                         disabled={uploadingImage}
-                       >
-                       <Upload className="w-4 h-4 mr-2" />
-                         {uploadingImage ? 'Subiendo...' : 'Subir Imagen'}
-                     </Button>
-                     </div>
-                   </div>
-                 ) : (
-                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                     {shelterImages.map((image) => (
-                       <div key={image.id} className="relative group">
-                         <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                           <img 
-                             src={image.image_url || '/placeholder.svg'} 
-                             alt={`Imagen del albergue ${image.id}`}
-                             className="w-full h-full object-cover"
-                           />
-                         </div>
-                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                           <div className="flex gap-2">
-                             <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={() => setPreviewImageUrl(image.image_url)}>
-                               <Eye className="w-4 h-4" />
-                             </Button>
-                             <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={async () => {
-                               const { error } = await supabase
-                                 .from('shelter_images')
-                                 .delete()
-                                 .eq('id', image.id);
-                               if (error) {
-                                 toast.error(`Error al eliminar: ${error.message}`);
-                               } else {
-                                 toast.success('Imagen eliminada correctamente');
-                                 queryClient.invalidateQueries({ queryKey: ['shelter-images', user.id] });
-                               }
-                             }}>
-                               <Trash2 className="w-4 h-4" />
-                             </Button>
-                           </div>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
+         <TabsContent value="media" className="space-y-4">
+           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+             <Image className="w-5 h-5 text-landing-aqua-dark" />
+             Imágenes y Videos
+           </h3>
 
-               {/* Videos Section */}
-               <div>
-                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                   <Video className="w-5 h-5" />
-                   Videos ({shelterVideos.length})
-                 </h3>
-                 
-                 {shelterVideos.length === 0 ? (
-                   <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                     <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                     <h4 className="text-lg font-semibold text-gray-800 mb-2">No hay videos</h4>
-                     <p className="text-gray-600 mb-4">Estos son los videos que verán los clientes en tu perfil.</p>
-                     <div>
-                       <input
-                         type="file"
-                         accept="video/*"
-                         onChange={handleVideoUpload}
-                         className="hidden"
-                         id="video-upload-first"
-                         disabled={uploadingVideo}
-                       />
-                       <button 
-                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 mx-auto"
-                         onClick={(e) => {
-                           e.preventDefault();
-                           e.stopPropagation();
-                           const fileInput = document.getElementById('video-upload-first') as HTMLInputElement;
-                           if (fileInput) {
-                             fileInput.click();
-                           }
-                         }}
-                         disabled={uploadingVideo}
-                         type="button"
-                         style={{ zIndex: 9999, position: 'relative' }}
-                       >
-                         <Upload className="w-4 h-4" />
-                         {uploadingVideo ? 'Subiendo...' : 'Subir Video'}
-                       </button>
-                     </div>
-                   </div>
-                 ) : (
-                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                     {shelterVideos.map((video) => (
-                       <div key={video.id} className="relative group">
-                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-cyan-100">
-                             <Play className="w-12 h-12 text-blue-600" />
-                           </div>
-                         </div>
-                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                           <div className="flex gap-2">
-                             <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={() => setPreviewVideoUrl(video.youtube_url)}>
-                               <Play className="w-4 h-4" />
-                             </Button>
-                             <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={async () => {
-                               const { error } = await supabase
-                                 .from('shelter_videos')
-                                 .delete()
-                                 .eq('id', video.id);
-                               if (error) {
-                                 toast.error(`Error al eliminar: ${error.message}`);
-                               } else {
-                                 toast.success('Video eliminado correctamente');
-                                 queryClient.invalidateQueries({ queryKey: ['shelter-videos', user.id] });
-                               }
-                             }}>
-                               <Trash2 className="w-4 h-4" />
-                             </Button>
-                           </div>
-                         </div>
-                         <div className="mt-2 text-sm text-gray-600 text-center">
-                           {video.title || video.youtube_url?.split('/').pop() || 'Video'}
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
+           <MobileSectionCard className="p-4 space-y-4">
+             <div className="flex items-center justify-between gap-3">
+               <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                 <Image className="w-4 h-4" />
+                 Imágenes ({shelterImages.length})
+               </h4>
+               <input
+                 type="file"
+                 accept="image/*"
+                 onChange={handleImageUpload}
+                 className="hidden"
+                 id="image-upload-header"
+                 disabled={uploadingImage}
+               />
+               <Button
+                 size="sm"
+                 className={cn(landingBtnPrimary, 'border-0 min-h-[40px]')}
+                 onClick={() => document.getElementById('image-upload-header')?.click()}
+                 disabled={uploadingImage}
+               >
+                 <Upload className="w-4 h-4 mr-1" />
+                 {uploadingImage ? 'Subiendo…' : 'Subir'}
+               </Button>
+             </div>
 
-               {/* Upload Section */}
-               <div className="border-t pt-6">
-                 <h3 className="text-lg font-semibold mb-4">Subir Nuevo Contenido</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="space-y-4">
-                     <Label>Subir Imagen</Label>
-                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                       <Image className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                       <p className="text-sm text-gray-600 mb-2">Arrastra una imagen aquí o haz clic para seleccionar</p>
-                       <p className="text-xs text-gray-500">PNG, JPG, GIF hasta 50MB</p>
-                       <div>
-                         <input
-                           type="file"
-                           accept="image/*"
-                           onChange={handleImageUpload}
-                           className="hidden"
-                           id="image-upload"
-                           disabled={uploadingImage}
-                         />
-                         <Button 
-                           className="bg-blue-600 hover:bg-blue-700"
-                           onClick={() => document.getElementById('image-upload')?.click()}
-                           disabled={uploadingImage}
-                         >
-                       <Upload className="w-4 h-4 mr-2" />
-                         {uploadingImage ? 'Subiendo...' : 'Subir Imagen'}
-                     </Button>
+             {shelterImages.length === 0 ? (
+               <div className="text-center py-8 border-2 border-dashed border-landing-aqua/20 rounded-xl bg-white/50">
+                 <Image className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                 <p className="text-sm text-gray-500">Estas imágenes aparecerán en el perfil público del albergue.</p>
+               </div>
+             ) : (
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                 {shelterImages.map((image) => (
+                   <div key={image.id} className="relative group">
+                     <div className="aspect-square bg-gray-100 rounded-xl overflow-hidden ring-2 ring-white shadow-sm">
+                       <img
+                         src={image.image_url || '/placeholder.svg'}
+                         alt=""
+                         className="w-full h-full object-cover"
+                       />
+                     </div>
+                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+                       <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={() => setPreviewImageUrl(image.image_url)}>
+                         <Eye className="w-4 h-4" />
+                       </Button>
+                       <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={async () => {
+                         const { error } = await supabase.from('shelter_images').delete().eq('id', image.id);
+                         if (error) toast.error(`Error al eliminar: ${error.message}`);
+                         else {
+                           toast.success('Imagen eliminada correctamente');
+                           queryClient.invalidateQueries({ queryKey: ['shelter-images', user.id] });
+                         }
+                       }}>
+                         <Trash2 className="w-4 h-4" />
+                       </Button>
                      </div>
                    </div>
-                   </div>
-                   
-                   <div className="space-y-4">
-                     <Label>Subir Video</Label>
-                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                       <Video className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                       <p className="text-sm text-gray-600 mb-2">Arrastra un video aquí o haz clic para seleccionar</p>
-                       <p className="text-xs text-gray-500">MP4, MOV hasta 50MB</p>
-                       <div>
-                         <input
-                           type="file"
-                           accept="video/*"
-                           onChange={handleVideoUpload}
-                           className="hidden"
-                           id="video-upload"
-                           disabled={uploadingVideo}
-                         />
-                         <button 
-                           className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 mx-auto"
-                           onClick={(e) => {
-                             e.preventDefault();
-                             e.stopPropagation();
-                             const fileInput = document.getElementById('video-upload') as HTMLInputElement;
-                             if (fileInput) {
-                               fileInput.click();
-                             }
-                           }}
-                           disabled={uploadingVideo}
-                           type="button"
-                           style={{ zIndex: 9999, position: 'relative' }}
-                         >
-                           <Upload className="w-4 h-4" />
-                           {uploadingVideo ? 'Subiendo...' : 'Seleccionar Video'}
-                         </button>
+                 ))}
+               </div>
+             )}
+           </MobileSectionCard>
+
+           <MobileSectionCard className="p-4 space-y-4">
+             <div className="flex items-center justify-between gap-3">
+               <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                 <Video className="w-4 h-4" />
+                 Videos ({shelterVideos.length})
+               </h4>
+               <input
+                 type="file"
+                 accept="video/*"
+                 onChange={handleVideoUpload}
+                 className="hidden"
+                 id="video-upload-header"
+                 disabled={uploadingVideo}
+               />
+               <Button
+                 size="sm"
+                 className={cn(landingBtnPrimary, 'border-0 min-h-[40px]')}
+                 onClick={() => document.getElementById('video-upload-header')?.click()}
+                 disabled={uploadingVideo}
+               >
+                 <Upload className="w-4 h-4 mr-1" />
+                 {uploadingVideo ? 'Subiendo…' : 'Subir'}
+               </Button>
+             </div>
+
+             {shelterVideos.length === 0 ? (
+               <div className="text-center py-8 border-2 border-dashed border-landing-mint/20 rounded-xl bg-white/50">
+                 <Video className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                 <p className="text-sm text-gray-500">Los videos aparecerán en el perfil público del albergue.</p>
+               </div>
+             ) : (
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                 {shelterVideos.map((video) => (
+                   <div key={video.id} className="relative group">
+                     <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden ring-2 ring-white shadow-sm">
+                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
+                         <Play className="w-10 h-10 text-landing-aqua-dark" />
                        </div>
                      </div>
+                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+                       <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={() => setPreviewVideoUrl(video.youtube_url)}>
+                         <Play className="w-4 h-4" />
+                       </Button>
+                       <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={async () => {
+                         const { error } = await supabase.from('shelter_videos').delete().eq('id', video.id);
+                         if (error) toast.error(`Error al eliminar: ${error.message}`);
+                         else {
+                           toast.success('Video eliminado correctamente');
+                           queryClient.invalidateQueries({ queryKey: ['shelter-videos', user.id] });
+                         }
+                       }}>
+                         <Trash2 className="w-4 h-4" />
+                       </Button>
+                     </div>
+                     <p className="mt-1.5 text-xs text-gray-500 text-center truncate">
+                       {video.title || video.youtube_url?.split('/').pop() || 'Video'}
+                     </p>
                    </div>
-                 </div>
+                 ))}
                </div>
-             </CardContent>
-           </Card>
+             )}
+           </MobileSectionCard>
+
+           <div className={filterPanelClass}>
+             <p className="text-sm font-medium text-gray-700">Subir nuevo contenido</p>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="border-2 border-dashed border-landing-aqua/25 rounded-xl p-5 text-center bg-white/60">
+                 <Image className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                 <p className="text-sm text-gray-600 mb-1">PNG, JPG, GIF hasta 50MB</p>
+                 <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" disabled={uploadingImage} />
+                 <Button className={cn(landingBtnPrimary, 'border-0 mt-2')} onClick={() => document.getElementById('image-upload')?.click()} disabled={uploadingImage}>
+                   <Upload className="w-4 h-4 mr-2" />
+                   {uploadingImage ? 'Subiendo…' : 'Seleccionar imagen'}
+                 </Button>
+               </div>
+               <div className="border-2 border-dashed border-landing-mint/25 rounded-xl p-5 text-center bg-white/60">
+                 <Video className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                 <p className="text-sm text-gray-600 mb-1">MP4, MOV hasta 50MB</p>
+                 <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" id="video-upload" disabled={uploadingVideo} />
+                 <Button className={cn(landingBtnPrimary, 'border-0 mt-2')} onClick={() => document.getElementById('video-upload')?.click()} disabled={uploadingVideo}>
+                   <Upload className="w-4 h-4 mr-2" />
+                   {uploadingVideo ? 'Subiendo…' : 'Seleccionar video'}
+                 </Button>
+               </div>
+             </div>
+           </div>
          </TabsContent>
        </Tabs>
       </div>
@@ -3320,7 +2972,7 @@ const ShelterDashboard: React.FC = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-blue-500" />
+              <MessageCircle className="w-5 h-5 text-landing-aqua-dark" />
               Chat con el Cliente
             </DialogTitle>
           </DialogHeader>
@@ -3351,7 +3003,7 @@ const ShelterDashboard: React.FC = () => {
               <div className="flex-1 bg-gray-50 rounded-lg p-4 mb-4 overflow-y-auto min-h-[300px] max-h-[400px]">
                 {loadingChat ? (
                   <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    <LandingSpinner size="sm" />
                   </div>
                 ) : chatMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
@@ -3364,7 +3016,20 @@ const ShelterDashboard: React.FC = () => {
                     {chatMessages.map((message) => {
                       const isOwnMessage = message.sender_id === user?.id;
                       const isSystemMessage = message.message_type === 'system';
-                      
+
+                      if (isSystemMessage) {
+                        return (
+                          <div key={message.id} className="flex justify-center px-2">
+                            <div className="text-center max-w-[90%] px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                              <p className="text-sm text-gray-800 leading-relaxed">{message.message}</p>
+                              <p className="text-[10px] text-gray-500 mt-1">
+                                Sistema • {formatTime(message.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={message.id}
@@ -3372,26 +3037,21 @@ const ShelterDashboard: React.FC = () => {
                         >
                           <div
                             className={`rounded-lg p-3 max-w-[70%] shadow-sm ${
-                              isSystemMessage
-                                ? 'bg-yellow-50 border border-yellow-200 mx-auto'
-                                : isOwnMessage
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-white text-gray-700'
+                              isOwnMessage
+                                ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white'
+                                : 'bg-white text-gray-900 border border-gray-100'
                             }`}
                           >
-                            <p className={`text-sm ${isOwnMessage ? 'text-white' : 'text-gray-700'}`}>
+                            <p className={`text-sm ${isOwnMessage ? 'text-white' : 'text-gray-900'}`}>
                               {message.message}
                             </p>
-                            <p className={`text-xs mt-1 ${
-                              isOwnMessage ? 'text-blue-100' : 'text-gray-500'
-                            }`}>
-                              {isSystemMessage 
-                                ? 'Sistema' 
-                                : isOwnMessage 
-                                ? 'Tú' 
-                                : selectedApplication.applicant_id === message.sender_id 
-                                ? 'Cliente' 
-                                : 'Albergue'} • {formatTime(message.created_at)}
+                            <p className={`text-xs mt-1 ${isOwnMessage ? 'text-white/70' : 'text-gray-500'}`}>
+                              {isOwnMessage
+                                ? 'Tú'
+                                : selectedApplication.applicant_id === message.sender_id
+                                  ? 'Cliente'
+                                  : 'Albergue'}{' '}
+                              • {formatTime(message.created_at)}
                             </p>
                           </div>
                         </div>
@@ -3419,7 +3079,7 @@ const ShelterDashboard: React.FC = () => {
                 />
                 <Button 
                   type="button" 
-                  className="bg-blue-500 hover:bg-blue-600"
+                  className={cn(landingBtnPrimary, 'border-0')}
                   onClick={sendMessage}
                   disabled={sending || loadingChat || !chatRoom || !newMessage.trim()}
                 >
@@ -3435,89 +3095,85 @@ const ShelterDashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Bottom Navigation Menu - Similar to client menu */}
-      <div 
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl"
-        style={{ height: '80px', boxSizing: 'border-box' }}
+      {/* Bottom Navigation Menu - Mobile Only */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 shadow-2xl backdrop-blur-md md:hidden"
+        style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}
       >
-        <div className="flex justify-around items-center h-full py-2 px-1">
-          {/* Dashboard */}
-          <button
-            onClick={() => handleTabChange('dashboard')}
-            className={`
-              w-full flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1
-              ${activeTab === 'dashboard'
-                ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg transform scale-105' 
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            <BarChart3 size={18} className="mb-1" />
-            <span className="text-xs font-medium truncate leading-tight">Dashboard</span>
-          </button>
+        <div className="mx-auto flex h-[58px] w-full max-w-lg items-end overflow-visible px-1">
+          <div className="relative flex min-w-0 flex-1 items-end justify-around">
+            <button
+              onClick={() => handleTabChange('dashboard')}
+              className={cn(
+                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
+                bottomNavActive('dashboard')
+                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
+                  : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <BarChart3 size={17} className="mb-0.5" />
+              <span className="text-[9px] font-medium truncate leading-tight">Dashboard</span>
+            </button>
 
-          {/* Perfil */}
-          <button
-            onClick={() => handleTabChange('profile')}
-            className={`
-              w-full flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1
-              ${activeTab === 'profile'
-                ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg transform scale-105' 
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            <Building2 size={18} className="mb-1" />
-            <span className="text-xs font-medium truncate leading-tight">Perfil</span>
-          </button>
+            <button
+              onClick={() => handleTabChange('profile')}
+              className={cn(
+                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
+                bottomNavActive('profile')
+                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
+                  : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <Building2 size={17} className="mb-0.5" />
+              <span className="text-[9px] font-medium truncate leading-tight">Perfil</span>
+            </button>
+          </div>
 
-          {/* Mascotas */}
-          <button
-            onClick={() => handleTabChange('pets')}
-            className={`
-              w-full flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1
-              ${activeTab === 'pets'
-                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transform scale-105' 
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            <PawPrint size={18} className="mb-1" />
-            <span className="text-xs font-medium truncate leading-tight">Mascotas</span>
-          </button>
+          <BlueprintMascotNavTab dashboard="shelter" />
 
-          {/* Solicitudes */}
-          <button
-            onClick={() => handleTabChange('quotes')}
-            className={`
-              w-full flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1
-              ${activeTab === 'quotes'
-                ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg transform scale-105' 
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            <MessageSquare size={18} className="mb-1" />
-            <span className="text-xs font-medium truncate leading-tight">Solicitudes</span>
-          </button>
+          <div className="relative flex min-w-0 flex-[1.35] items-end justify-around">
+            <button
+              onClick={() => handleTabChange('pets')}
+              className={cn(
+                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
+                bottomNavActive('pets')
+                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
+                  : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <PawPrint size={17} className="mb-0.5" />
+              <span className="text-[9px] font-medium truncate leading-tight">Mascotas</span>
+            </button>
 
-          {/* Media */}
-          <button
-            onClick={() => handleTabChange('media')}
-            className={`
-              w-full flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0 flex-1
-              ${activeTab === 'media'
-                ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg transform scale-105' 
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            <Image size={18} className="mb-1" />
-            <span className="text-xs font-medium truncate leading-tight">Media</span>
-          </button>
+            <button
+              onClick={() => handleTabChange('quotes')}
+              className={cn(
+                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
+                bottomNavActive('quotes')
+                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
+                  : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <MessageSquare size={17} className="mb-0.5" />
+              <span className="text-[9px] font-medium truncate leading-tight">Solicitudes</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('media')}
+              className={cn(
+                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
+                bottomNavActive('media')
+                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
+                  : 'text-gray-500 hover:text-gray-700',
+              )}
+            >
+              <Image size={17} className="mb-0.5" />
+              <span className="text-[9px] font-medium truncate leading-tight">Media</span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </DashboardShell>
   );
 };
 

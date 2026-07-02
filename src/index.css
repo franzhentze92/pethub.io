@@ -122,7 +122,11 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans dark:bg-background dark:text-foreground;
+    @apply bg-background text-foreground font-sans dark:bg-background dark:text-foreground overflow-x-hidden;
+  }
+
+  html {
+    @apply overflow-x-hidden;
   }
 
   pre, code {
@@ -158,4 +162,31 @@
 .markdown-preview ul,
 .markdown-preview ol {
   @apply my-4 ml-6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-drift,
+  .animate-pulse-glow,
+  .animate-orbit,
+  .animate-flow-line,
+  .animate-marquee,
+  .animate-run-across,
+  .animate-run-across-slow,
+  .animate-run-across-reverse,
+  .animate-dog-bob,
+  .animate-paw-fade,
+  .animate-float-rise,
+  .animate-ball-bounce,
+  .animate-tail-wag,
+  .animate-leg-run,
+  .animate-blueprint-node-in,
+  .animate-blueprint-line-in,
+  .animate-blueprint-connected-glow,
+  .animate-blueprint-float-soft,
+  .animate-blueprint-sparkle,
+  .animate-spin-slow {
+    animation: none !important;
+  }
 }

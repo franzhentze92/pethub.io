@@ -9,10 +9,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Package, DollarSign, Info, Image as ImageIcon, Tag, Scale, Ruler } from 'lucide-react';
+import { Package, DollarSign, Info, Image as ImageIcon, Tag, Scale, Ruler, Loader2, Sparkles } from 'lucide-react';
 import { ProviderProduct } from '@/hooks/useProvider';
 import { ProductMultipleImagesUpload } from './ProductMultipleImagesUpload';
+import { generateCatalogImage } from '@/lib/generateCatalogImage';
+import { useToast } from '@/hooks/use-toast';
 import { getPricingConfig, hasSizePricing, type PricingSystem } from '@/config/productPricing';
+import {
+  categorySupportsLifeStage,
+  getSubtypeFieldLabel,
+  getSubtypeOptionsForCategory,
+  LIFE_STAGE_OPTIONS,
+  PET_SPECIES_OPTIONS,
+} from '@/config/productFilters';
+import { cn } from '@/lib/utils';
+import { landingBtnPrimary } from '@/lib/landingTheme';
+import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
+
+const modalTabListClass =
+  'grid w-full bg-landing-aqua/10 p-1 rounded-xl border border-landing-aqua/15 h-auto gap-1';
+const modalTabTriggerClass =
+  'rounded-lg text-gray-600 data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm py-2.5';
+const modalInfoBannerClass =
+  'rounded-xl border border-landing-aqua/20 bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 p-4';
+const modalSectionCardClass =
+  'rounded-xl border border-landing-aqua/15 bg-white/80 shadow-sm';
+const modalOutlineBtnClass =
+  'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
 
 interface ProviderProductModalProps {
   isOpen: boolean;
@@ -20,6 +43,7 @@ interface ProviderProductModalProps {
   onSave: (product: Omit<ProviderProduct, 'id' | 'provider_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   product?: ProviderProduct | null;
   isEditing?: boolean;
+  initialDraft?: Omit<ProviderProduct, 'id' | 'provider_id' | 'created_at' | 'updated_at'> | null;
 }
 
 const PRODUCT_CATEGORIES = [
@@ -39,7 +63,8 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
   onClose,
   onSave,
   product,
-  isEditing = false
+  isEditing = false,
+  initialDraft = null,
 }) => {
   
   const [activeTab, setActiveTab] = useState('basic');
@@ -68,10 +93,18 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
     brand: '',
     weight_kg: '',
     dimensions_cm: '',
-    tags: [] as string[]
+    tags: [] as string[],
+    target_species: ['todos'] as string[],
+    product_subtype: '',
+    life_stage: '',
+    subscription_enabled: false,
   });
 
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [pendingProductData, setPendingProductData] = useState<Omit<ProviderProduct, 'id' | 'provider_id' | 'created_at' | 'updated_at'> | null>(null);
   const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
@@ -101,7 +134,43 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         brand: product.brand || '',
         weight_kg: product.weight_kg?.toString() || '',
         dimensions_cm: product.dimensions_cm || '',
-        tags: product.tags || []
+        tags: product.tags || [],
+        target_species: product.target_species?.length ? product.target_species : ['todos'],
+        product_subtype: product.product_subtype || '',
+        life_stage: product.life_stage || '',
+        subscription_enabled: product.subscription_enabled ?? false,
+      });
+    } else if (initialDraft && isOpen) {
+      setFormData({
+        product_name: initialDraft.product_name,
+        product_category: initialDraft.product_category,
+        description: initialDraft.description || '',
+        detailed_description: initialDraft.detailed_description || '',
+        price: initialDraft.price?.toString() || '',
+        price_small: '',
+        price_medium: '',
+        price_large: '',
+        price_extra_large: '',
+        price_xs: '',
+        price_s: '',
+        price_m: '',
+        price_l: '',
+        price_xl: '',
+        price_xxl: '',
+        currency: initialDraft.currency || 'GTQ',
+        stock_quantity: initialDraft.stock_quantity?.toString() || '0',
+        min_stock_alert: initialDraft.min_stock_alert?.toString() || '5',
+        is_active: initialDraft.is_active ?? true,
+        product_image_url: initialDraft.product_image_url || '',
+        secondary_images: initialDraft.secondary_images || [],
+        brand: initialDraft.brand || '',
+        weight_kg: initialDraft.weight_kg?.toString() || '',
+        dimensions_cm: initialDraft.dimensions_cm || '',
+        tags: initialDraft.tags || [],
+        target_species: initialDraft.target_species?.length ? initialDraft.target_species : ['todos'],
+        product_subtype: initialDraft.product_subtype || '',
+        life_stage: initialDraft.life_stage || '',
+        subscription_enabled: initialDraft.subscription_enabled ?? false,
       });
     } else {
       setFormData({
@@ -129,10 +198,14 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         brand: '',
         weight_kg: '',
         dimensions_cm: '',
-        tags: []
+        tags: [],
+        target_species: ['todos'],
+        product_subtype: '',
+        life_stage: '',
+        subscription_enabled: false,
       });
     }
-  }, [product, isEditing]);
+  }, [product, isEditing, initialDraft, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +220,9 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
       }
       if (!formData.product_category) {
         throw new Error('La categoría del producto es obligatoria');
+      }
+      if (!formData.target_species.length) {
+        throw new Error('Selecciona al menos una mascota para este producto');
       }
       // Validar que al menos un precio esté definido
       // Verificar precios por tamaño independientemente de la configuración de categoría
@@ -206,18 +282,73 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         brand: formData.brand,
         weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : undefined,
         dimensions_cm: formData.dimensions_cm,
-        tags: formData.tags
+        tags: formData.tags,
+        target_species: formData.target_species,
+        product_subtype: formData.product_subtype || null,
+        life_stage: formData.life_stage || null,
+        subscription_enabled: formData.subscription_enabled,
       };
       
-      await onSave(productData);
-      
-      // Success - modal will close and parent will show success toast
-      onClose();
+      setPendingProductData(productData);
+      setShowSaveConfirm(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const confirmSave = async () => {
+    if (!pendingProductData) return;
+    setShowSaveConfirm(false);
+    setLoading(true);
+    try {
+      await onSave(pendingProductData);
+      onClose();
+    } catch (error) {
+      console.error('Error saving product:', error);
+    } finally {
+      setLoading(false);
+      setPendingProductData(null);
+    }
+  };
+
+  const handleGenerateProductImage = async () => {
+    if (!product?.id) {
+      toast({
+        title: 'Guarda el producto primero',
+        description: 'La imagen con IA se puede generar después de crear el producto.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setGeneratingImage(true);
+    try {
+      const result = await generateCatalogImage({
+        type: 'product',
+        id: product.id,
+        force: Boolean(formData.product_image_url),
+      });
+
+      if (result.imageUrl) {
+        handleInputChange('product_image_url', result.imageUrl);
+        toast({
+          title: result.skipped ? 'Ya tenía imagen' : 'Imagen generada',
+          description: result.skipped
+            ? 'Este producto ya tenía una imagen principal.'
+            : `Se creó una imagen para "${result.name ?? formData.product_name}".`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'No se pudo generar la imagen',
+        description: error instanceof Error ? error.message : 'Error desconocido',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingImage(false);
     }
   };
 
@@ -227,6 +358,25 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
       [field]: value
     }));
   };
+
+  const toggleTargetSpecies = (species: string) => {
+    setFormData((prev) => {
+      if (species === 'todos') {
+        return { ...prev, target_species: ['todos'] };
+      }
+
+      const withoutTodos = prev.target_species.filter((item) => item !== 'todos');
+      const next = withoutTodos.includes(species)
+        ? withoutTodos.filter((item) => item !== species)
+        : [...withoutTodos, species];
+
+      return { ...prev, target_species: next.length > 0 ? next : ['todos'] };
+    });
+  };
+
+  const subtypeOptions = getSubtypeOptionsForCategory(formData.product_category);
+  const subtypeLabel = getSubtypeFieldLabel(formData.product_category);
+  const showLifeStage = categorySupportsLifeStage(formData.product_category);
 
   const addTag = () => {
     if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
@@ -253,21 +403,33 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto" aria-describedby="product-modal-description">
-        <DialogHeader>
-          <DialogTitle className="text-xl">
+      <DialogContent
+        className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0"
+        aria-describedby="product-modal-description"
+      >
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+          <DialogTitle className="text-xl flex items-center gap-2 text-gray-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+              <Package className="w-5 h-5" />
+            </span>
             {isEditing ? 'Editar Producto' : 'Agregar Nuevo Producto'}
           </DialogTitle>
-
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6" id="product-modal-description">
+
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5" id="product-modal-description">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basic">Información Básica</TabsTrigger>
-              <TabsTrigger value="details">Detalles</TabsTrigger>
-              <TabsTrigger value="inventory">Inventario</TabsTrigger>
+            <TabsList className={cn(modalTabListClass, 'grid-cols-3')}>
+              <TabsTrigger value="basic" className={modalTabTriggerClass}>
+                Información Básica
+              </TabsTrigger>
+              <TabsTrigger value="details" className={modalTabTriggerClass}>
+                Detalles
+              </TabsTrigger>
+              <TabsTrigger value="inventory" className={modalTabTriggerClass}>
+                Inventario
+              </TabsTrigger>
             </TabsList>
 
             {/* Basic Information Tab */}
@@ -286,7 +448,18 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
 
                 <div>
                   <Label htmlFor="product-category">Categoría *</Label>
-                  <Select value={formData.product_category} onValueChange={(value) => handleInputChange('product_category', value)}>
+                  <Select
+                    value={formData.product_category}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        product_category: value,
+                        product_subtype: '',
+                        life_stage: '',
+                        subscription_enabled: value === 'alimentos' ? true : prev.subscription_enabled,
+                      }))
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar categoría" />
                     </SelectTrigger>
@@ -302,6 +475,85 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </div>
               </div>
 
+              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+                <Label className="text-base font-semibold text-gray-900">¿Para qué mascota es? *</Label>
+                <p className="text-sm text-gray-600">
+                  Esto alimenta el filtro de marketplace. Si aplica a todas, elige &quot;Todas las mascotas&quot;.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {PET_SPECIES_OPTIONS.map((species) => {
+                    const selected = formData.target_species.includes(species.value);
+                    return (
+                      <button
+                        key={species.value}
+                        type="button"
+                        onClick={() => toggleTargetSpecies(species.value)}
+                        className={cn(
+                          'rounded-full px-3 py-1.5 text-sm font-medium border transition-colors',
+                          selected
+                            ? 'bg-landing-aqua/15 border-landing-aqua/40 text-landing-aqua-dark'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-landing-aqua/30',
+                        )}
+                      >
+                        {species.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {(subtypeOptions.length > 0 || showLifeStage) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {subtypeOptions.length > 0 && subtypeLabel && (
+                    <div>
+                      <Label>{subtypeLabel}</Label>
+                      <Select
+                        value={formData.product_subtype || 'none'}
+                        onValueChange={(value) =>
+                          handleInputChange('product_subtype', value === 'none' ? '' : value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar subtipo" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10000]">
+                          <SelectItem value="none">Sin especificar</SelectItem>
+                          {subtypeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {showLifeStage && (
+                    <div>
+                      <Label>Etapa de vida</Label>
+                      <Select
+                        value={formData.life_stage || 'none'}
+                        onValueChange={(value) =>
+                          handleInputChange('life_stage', value === 'none' ? '' : value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar etapa" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10000]">
+                          <SelectItem value="none">Sin especificar</SelectItem>
+                          {LIFE_STAGE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="product-description">Descripción Corta *</Label>
                 <Textarea
@@ -315,9 +567,12 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
               </div>
 
               {/* Precio General */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Precio General (Opcional)</Label>
-                <p className="text-sm text-gray-600 mb-3">Usa este campo si el producto no requiere diferenciación por tamaño de perro.</p>
+              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+                <Label className="text-base font-semibold flex items-center gap-2 text-gray-900">
+                  <DollarSign className="w-4 h-4 text-landing-aqua-dark" />
+                  Precio General (Opcional)
+                </Label>
+                <p className="text-sm text-gray-600">Usa este campo si el producto no requiere diferenciación por tamaño de perro.</p>
                 <div className="relative max-w-xs">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                     {formData.currency === 'GTQ' ? 'Q.' : '$'}
@@ -336,9 +591,12 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
               </div>
 
               {/* Precios por tamaño de perro */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Precios por Tamaño de Perro (Opcional)</Label>
-                <p className="text-sm text-gray-600 mb-3">O establece el precio para cada tamaño según el peso del perro. Si no aplica, déjalo vacío.</p>
+              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+                <Label className="text-base font-semibold flex items-center gap-2 text-gray-900">
+                  <Scale className="w-4 h-4 text-landing-aqua-dark" />
+                  Precios por Tamaño de Perro (Opcional)
+                </Label>
+                <p className="text-sm text-gray-600">O establece el precio para cada tamaño según el peso del perro. Si no aplica, déjalo vacío.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="price-small">
@@ -444,13 +702,15 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 rounded-xl border border-landing-mint/20 bg-landing-mint/5 px-4 py-3">
                 <Switch
                   id="product-active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => handleInputChange('is_active', checked)}
                 />
-                <Label htmlFor="product-active">Producto Activo</Label>
+                <Label htmlFor="product-active" className="text-landing-mint-dark font-medium">
+                  Producto activo en el marketplace
+                </Label>
               </div>
             </TabsContent>
 
@@ -498,22 +758,49 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="product-images">Imágenes del Producto</Label>
+              <div className={cn(modalSectionCardClass, 'p-4 space-y-4')}>
+                <div className="flex items-center justify-between gap-2 text-landing-aqua-dark">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    <Label htmlFor="product-images" className="text-base font-semibold">
+                      Imágenes del Producto
+                    </Label>
+                  </div>
+                  {isEditing && product?.id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={modalOutlineBtnClass}
+                      disabled={loading || generatingImage}
+                      onClick={handleGenerateProductImage}
+                    >
+                      {generatingImage ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                      )}
+                      {formData.product_image_url ? 'Regenerar con IA' : 'Generar con IA'}
+                    </Button>
+                  )}
+                </div>
                 <ProductMultipleImagesUpload
                   mainImageUrl={formData.product_image_url}
                   secondaryImages={formData.secondary_images}
                   onMainImageUpload={(url) => handleInputChange('product_image_url', url || '')}
                   onSecondaryImagesChange={(urls) => handleInputChange('secondary_images', urls)}
-                  disabled={loading}
+                  disabled={loading || generatingImage}
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Sube una imagen principal y hasta 5 imágenes secundarias del producto
                 </p>
               </div>
 
-              <div>
-                <Label htmlFor="product-tags">Etiquetas</Label>
+              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+                <Label htmlFor="product-tags" className="flex items-center gap-2 text-base font-semibold">
+                  <Tag className="w-4 h-4 text-landing-aqua-dark" />
+                  Etiquetas
+                </Label>
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input
@@ -523,19 +810,23 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                       onKeyPress={handleKeyPress}
                       placeholder="Agregar etiqueta y presionar Enter"
                     />
-                    <Button type="button" variant="outline" onClick={addTag}>
+                    <Button type="button" variant="outline" onClick={addTag} className={modalOutlineBtnClass}>
                       Agregar
                     </Button>
                   </div>
                   {formData.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {formData.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="flex items-center gap-1 border-landing-aqua/25 bg-landing-aqua/5 text-landing-aqua-dark"
+                        >
                           {tag}
                           <button
                             type="button"
                             onClick={() => removeTag(tag)}
-                            className="ml-1 text-gray-500 hover:text-gray-700"
+                            className="ml-1 text-landing-aqua-dark/70 hover:text-landing-aqua-dark"
                           >
                             ×
                           </button>
@@ -544,7 +835,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500">
                   Etiquetas para ayudar a los clientes a encontrar el producto
                 </p>
               </div>
@@ -552,20 +843,20 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
 
             {/* Inventory Tab */}
             <TabsContent value="inventory" className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-                <div className="flex items-center gap-2 text-blue-800">
+              <div className={modalInfoBannerClass}>
+                <div className="flex items-center gap-2 text-landing-aqua-dark">
                   <Info className="w-5 h-5" />
                   <span className="font-medium">Gestión de Inventario</span>
                 </div>
-                <p className="text-blue-700 text-sm mt-1">
+                <p className="text-gray-600 text-sm mt-1">
                   Controla el stock disponible y configura alertas para mantener un inventario saludable.
                 </p>
               </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="w-5 h-5" />
+
+              <Card className={cn(modalSectionCardClass, 'border-0 shadow-none')}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    <Package className="w-5 h-5 text-landing-aqua-dark" />
                     Control de Stock
                   </CardTitle>
                 </CardHeader>
@@ -603,18 +894,34 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                    <div className="flex items-center gap-2 text-yellow-800">
+                  <div className="flex items-center justify-between rounded-xl border border-landing-aqua/20 bg-landing-aqua/5 p-4">
+                    <div>
+                      <Label htmlFor="subscription-enabled" className="text-sm font-medium text-gray-900">
+                        Permitir suscripción
+                      </Label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Los clientes podrán recibir este producto de forma recurrente y pagar en cada entrega.
+                      </p>
+                    </div>
+                    <Switch
+                      id="subscription-enabled"
+                      checked={formData.subscription_enabled}
+                      onCheckedChange={(checked) => handleInputChange('subscription_enabled', checked)}
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-landing-mango/25 bg-gradient-to-br from-landing-mango/10 to-landing-tropical/10 p-4">
+                    <div className="flex items-center gap-2 text-landing-mango-dark">
                       <Info className="w-4 h-4" />
                       <span className="text-sm font-medium">Estado del Inventario</span>
                     </div>
                     <div className="mt-2 space-y-1 text-sm">
                       {parseInt(formData.stock_quantity) === 0 ? (
-                        <p className="text-red-600 font-medium">❌ Sin stock - Producto no disponible</p>
+                        <p className="text-red-600 font-medium">Sin stock — producto no disponible</p>
                       ) : parseInt(formData.stock_quantity) <= parseInt(formData.min_stock_alert) ? (
-                        <p className="text-orange-600 font-medium">⚠️ Stock bajo - Considera reabastecer</p>
+                        <p className="text-landing-mango-dark font-medium">Stock bajo — considera reabastecer</p>
                       ) : (
-                        <p className="text-green-600 font-medium">✅ Stock saludable</p>
+                        <p className="text-landing-mint-dark font-medium">Stock saludable</p>
                       )}
                       <p className="text-gray-600">
                         Stock actual: <span className="font-medium">{formData.stock_quantity || 0}</span> unidades
@@ -626,14 +933,14 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
             </TabsContent>
           </Tabs>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+          <DialogFooter className="-mx-6 -mb-5 mt-2 px-6 py-4 border-t border-landing-aqua/10 bg-gray-50/80 sm:justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className={modalOutlineBtnClass}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} data-blueprint-guided="save-product" className={cn(landingBtnPrimary, 'border-0 min-w-[160px]')}>
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {isEditing ? 'Actualizando...' : 'Creando...'}
                 </>
               ) : (
@@ -644,6 +951,31 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
         </form>
       </DialogContent>
     </Dialog>
+
+    <ActionConfirmDialog
+      open={showSaveConfirm}
+      onOpenChange={setShowSaveConfirm}
+      title={isEditing ? 'Confirmar actualización de producto' : 'Confirmar creación de producto'}
+      description="Revisa los datos del producto antes de guardar."
+      confirmLabel={isEditing ? 'Actualizar' : 'Crear producto'}
+      fields={
+        pendingProductData
+          ? [
+              { label: 'Nombre', value: pendingProductData.product_name },
+              { label: 'Categoría', value: pendingProductData.product_category },
+              { label: 'Precio', value: `Q${pendingProductData.price}` },
+              { label: 'Stock', value: String(pendingProductData.stock_quantity) },
+              ...(pendingProductData.brand ? [{ label: 'Marca', value: pendingProductData.brand }] : []),
+              { label: 'Activo', value: pendingProductData.is_active ? 'Sí' : 'No' },
+              { label: 'Suscripción', value: pendingProductData.subscription_enabled ? 'Habilitada' : 'No' },
+            ]
+          : []
+      }
+      onConfirm={confirmSave}
+      loading={loading}
+      onEdit={() => setShowSaveConfirm(false)}
+    />
+    </>
   );
 };
 

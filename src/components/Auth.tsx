@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Mail, Lock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import PageLoader from '@/components/PageLoader'
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true)
@@ -30,7 +31,7 @@ const Auth: React.FC = () => {
     if (user && !authLoading) {
       const checkRoleAndRedirect = async () => {
         // First check localStorage
-        let role = localStorage.getItem('user_role') as 'client' | 'provider' | 'shelter' | null
+        let role = localStorage.getItem('user_role') as 'client' | 'provider' | 'shelter' | 'delivery' | null
         console.log('Auth: User is authenticated, checking role from localStorage:', role)
         
         // If no role in localStorage, try to get it from the database
@@ -49,8 +50,24 @@ const Auth: React.FC = () => {
           }
         }
         
+        // Check if user is admin
+        if (user.email === 'admin@pethubgt.com') {
+          console.log('Auth: Admin user detected, redirecting to admin dashboard')
+          localStorage.setItem('user_role', 'admin')
+          navigate('/admin-dashboard')
+          return
+        }
+        
+        // Check if user is delivery
+        if (user.email === 'delivery@pehtubgt.com') {
+          console.log('Auth: Delivery user detected, redirecting to delivery orders')
+          localStorage.setItem('user_role', 'delivery')
+          navigate('/delivery/orders')
+          return
+        }
+        
         // Validate role - only accept valid roles
-        const validRoles = ['client', 'provider', 'shelter']
+        const validRoles = ['client', 'provider', 'shelter', 'delivery']
         const isValidRole = role && validRoles.includes(role)
         
         if (isValidRole) {
@@ -58,13 +75,16 @@ const Auth: React.FC = () => {
           console.log('Auth: Valid role found, redirecting to dashboard:', role)
           switch (role) {
             case 'client':
-              navigate('/marketplace/products')
+              navigate('/dashboard')
               break
             case 'provider':
               navigate('/provider')
               break
             case 'shelter':
               navigate('/shelter-dashboard')
+              break
+            case 'delivery':
+              navigate('/delivery/orders')
               break
           }
         } else {
@@ -130,16 +150,7 @@ const Auth: React.FC = () => {
 
   // Show loading while checking authentication
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🐾</span>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-700">Verificando autenticación...</h2>
-        </div>
-      </div>
-    )
+    return <PageLoader message="Verificando autenticación…" />;
   }
 
   return (

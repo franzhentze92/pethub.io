@@ -11,7 +11,7 @@ export const Privacy: React.FC = () => {
       
       <main className="pt-20">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-purple-600 to-pink-600 py-20 relative overflow-hidden">
+        <section className="bg-gradient-to-r from-landing-aqua to-landing-mango py-20 relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
@@ -21,7 +21,7 @@ export const Privacy: React.FC = () => {
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
               Tu <span className="text-yellow-300">Privacidad</span> es Nuestra Prioridad
             </h1>
-            <p className="text-xl text-purple-100 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-white/80 max-w-3xl mx-auto leading-relaxed">
               En PetHub, protegemos y respetamos tu información personal. 
               Conoce cómo recopilamos, usamos y protegemos tus datos.
             </p>
@@ -33,7 +33,7 @@ export const Privacy: React.FC = () => {
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <Link 
               to="/" 
-              className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium transition-colors"
+              className="inline-flex items-center gap-2 text-landing-aqua-dark hover:text-landing-mango-dark font-medium transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Volver al Inicio
@@ -47,8 +47,8 @@ export const Privacy: React.FC = () => {
             <div className="prose prose-lg max-w-none">
               
               {/* Last Updated */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
-                <p className="text-blue-800">
+              <div className="bg-landing-aqua/10 border-l-4 border-landing-aqua p-4 mb-8">
+                <p className="text-landing-aqua-dark">
                   <strong>Última actualización:</strong> 15 de enero de 2024
                 </p>
               </div>
@@ -56,7 +56,7 @@ export const Privacy: React.FC = () => {
               {/* Introduction */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <FileText className="w-8 h-8 text-purple-600 mr-3" />
+                  <FileText className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Introducción
                 </h2>
                 <p className="text-lg text-gray-600 leading-relaxed mb-4">
@@ -73,7 +73,7 @@ export const Privacy: React.FC = () => {
               {/* Information We Collect */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Database className="w-8 h-8 text-purple-600 mr-3" />
+                  <Database className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Información que Recopilamos
                 </h2>
                 
@@ -113,14 +113,14 @@ export const Privacy: React.FC = () => {
               {/* How We Use Information */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Eye className="w-8 h-8 text-purple-600 mr-3" />
+                  <Eye className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Cómo Usamos tu Información
                 </h2>
                 
                 <div className="space-y-4">
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-purple-600 text-sm font-bold">1</span>
+                    <div className="w-6 h-6 bg-landing-aqua/15 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-landing-aqua-dark text-sm font-bold">1</span>
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Proporcionar Servicios</h3>
@@ -129,8 +129,8 @@ export const Privacy: React.FC = () => {
                   </div>
                   
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-purple-600 text-sm font-bold">2</span>
+                    <div className="w-6 h-6 bg-landing-aqua/15 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-landing-aqua-dark text-sm font-bold">2</span>
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Comunicación</h3>
@@ -139,8 +139,8 @@ export const Privacy: React.FC = () => {
                   </div>
                   
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-purple-600 text-sm font-bold">3</span>
+                    <div className="w-6 h-6 bg-landing-aqua/15 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-landing-aqua-dark text-sm font-bold">3</span>
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Mejora del Servicio</h3>
@@ -149,8 +149,8 @@ export const Privacy: React.FC = () => {
                   </div>
                   
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-purple-600 text-sm font-bold">4</span>
+                    <div className="w-6 h-6 bg-landing-aqua/15 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-landing-aqua-dark text-sm font-bold">4</span>
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">Seguridad</h3>
@@ -163,7 +163,7 @@ export const Privacy: React.FC = () => {
               {/* Data Protection */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Lock className="w-8 h-8 text-purple-600 mr-3" />
+                  <Lock className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Protección de Datos
                 </h2>
                 
@@ -187,29 +187,29 @@ export const Privacy: React.FC = () => {
               {/* Your Rights */}
               <div className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-                  <UserCheck className="w-8 h-8 text-purple-600 mr-3" />
+                  <UserCheck className="w-8 h-8 text-landing-aqua-dark mr-3" />
                   Tus Derechos
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3">Acceso y Corrección</h3>
-                    <p className="text-blue-700">Puedes acceder, actualizar o corregir tu información personal en cualquier momento desde tu cuenta.</p>
+                  <div className="bg-landing-aqua/10 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-landing-aqua-dark mb-3">Acceso y Corrección</h3>
+                    <p className="text-landing-aqua-dark">Puedes acceder, actualizar o corregir tu información personal en cualquier momento desde tu cuenta.</p>
                   </div>
                   
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3">Eliminación</h3>
-                    <p className="text-blue-700">Puedes solicitar la eliminación de tu cuenta y datos personales en cualquier momento.</p>
+                  <div className="bg-landing-aqua/10 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-landing-aqua-dark mb-3">Eliminación</h3>
+                    <p className="text-landing-aqua-dark">Puedes solicitar la eliminación de tu cuenta y datos personales en cualquier momento.</p>
                   </div>
                   
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3">Portabilidad</h3>
-                    <p className="text-blue-700">Puedes solicitar una copia de tus datos en un formato estructurado y legible.</p>
+                  <div className="bg-landing-aqua/10 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-landing-aqua-dark mb-3">Portabilidad</h3>
+                    <p className="text-landing-aqua-dark">Puedes solicitar una copia de tus datos en un formato estructurado y legible.</p>
                   </div>
                   
-                  <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3">Oposición</h3>
-                    <p className="text-blue-700">Puedes oponerte al procesamiento de tus datos para fines de marketing.</p>
+                  <div className="bg-landing-aqua/10 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-landing-aqua-dark mb-3">Oposición</h3>
+                    <p className="text-landing-aqua-dark">Puedes oponerte al procesamiento de tus datos para fines de marketing.</p>
                   </div>
                 </div>
               </div>
@@ -224,7 +224,7 @@ export const Privacy: React.FC = () => {
                   </p>
                   <ul className="text-gray-600 space-y-2">
                     <li><strong>Email:</strong> privacidad@pethub.com</li>
-                    <li><strong>Dirección:</strong> Zona 10, Guatemala City, Guatemala</li>
+                    <li><strong>Dirección:</strong> Operaciones regionales — Latinoamérica</li>
                     <li><strong>Teléfono:</strong> +502 1234-5678</li>
                   </ul>
                 </div>

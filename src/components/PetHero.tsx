@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Star, Zap, Smile, Frown, Droplets, Coffee } from 'lucide-react';
+import { PetAvatar } from '@/components/PetAvatar';
+import { cn } from '@/lib/utils';
+import { formatSpeciesLabel } from '@/utils/petLabels';
 
 interface Pet {
   id: string;
@@ -28,16 +31,6 @@ const PetHero: React.FC<PetHeroProps> = ({
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showMoodBubble, setShowMoodBubble] = useState(true);
-
-  const getPetEmoji = (species: string) => {
-    switch (species.toLowerCase()) {
-      case 'dog': return '🐕';
-      case 'cat': return '🐱';
-      case 'bird': return '🐦';
-      case 'fish': return '🐠';
-      default: return '🐾';
-    }
-  };
 
   const getMoodMessage = () => {
     const messages = {
@@ -152,28 +145,14 @@ const PetHero: React.FC<PetHeroProps> = ({
         >
           {/* Pet Image */}
           <div className="relative w-full h-full">
-            {pet.image_url ? (
-              <img
-                src={pet.image_url}
-                alt={pet.name}
-                className={`
-                  w-full h-full rounded-full object-cover border-4 border-white shadow-2xl
-                  transition-all duration-500
-                  ${isAnimating ? 'animate-pulse' : ''}
-                `}
-              />
-            ) : (
-              <div className={`
-                w-full h-full bg-gradient-to-br from-purple-400 to-pink-500 rounded-full 
-                flex items-center justify-center text-white border-4 border-white shadow-2xl
-                transition-all duration-500
-                ${isAnimating ? 'animate-pulse' : ''}
-              `}>
-                <span className="text-6xl">
-                  {getPetEmoji(pet.species)}
-                </span>
-              </div>
-            )}
+            <PetAvatar
+              pet={pet}
+              size="hero"
+              className={cn(
+                'w-full h-full border-4 border-white shadow-2xl transition-all duration-500',
+                isAnimating ? 'animate-pulse' : '',
+              )}
+            />
             
             {/* Level Badge */}
             <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
@@ -220,7 +199,7 @@ const PetHero: React.FC<PetHeroProps> = ({
             {pet.name}
           </h2>
           <p className="text-gray-600">
-            {pet.species} • {pet.breed && `${pet.breed} •`} Nivel {level}
+            {formatSpeciesLabel(pet.species)} • {pet.breed && `${pet.breed} •`} Nivel {level}
           </p>
           
           {/* Happiness Bar */}

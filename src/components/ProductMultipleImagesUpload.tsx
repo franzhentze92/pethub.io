@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { LandingSpinner } from '@/components/PageLoader';
 import { useDropzone } from 'react-dropzone';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -15,6 +16,10 @@ interface ProductMultipleImagesUploadProps {
   onMainImageUpload: (url: string | null) => void;
   onSecondaryImagesChange: (urls: string[]) => void;
   disabled?: boolean;
+  storageBucket?: string;
+  storageFolder?: string;
+  mainLabel?: string;
+  entityLabel?: string;
 }
 
 export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadProps> = ({
@@ -22,7 +27,11 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
   secondaryImages = [],
   onMainImageUpload,
   onSecondaryImagesChange,
-  disabled = false
+  disabled = false,
+  storageBucket = 'product-images',
+  storageFolder = 'product-images',
+  mainLabel = 'producto',
+  entityLabel = 'producto',
 }) => {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
@@ -47,22 +56,22 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
     // Generate unique filename
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `product-images/${fileName}`;
+    const filePath = `${storageFolder}/${fileName}`;
 
     // Upload to Supabase storage
     const { error: uploadError } = await supabase.storage
-      .from('product-images')
+      .from(storageBucket)
       .upload(filePath, file);
 
     if (uploadError) throw uploadError;
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
-      .from('product-images')
+      .from(storageBucket)
       .getPublicUrl(filePath);
 
     return publicUrl;
-  }, [user]);
+  }, [user, storageBucket, storageFolder]);
 
   const onDropMain = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0 || !user) return;
@@ -163,8 +172,8 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
             <div className="relative group">
               <img
                 src={mainImageUrl}
-                alt="Imagen principal del producto"
-                className="w-full h-48 object-cover rounded-lg border-2 border-emerald-500"
+                alt={`Imagen principal del ${entityLabel}`}
+                className="w-full h-48 object-cover rounded-xl border-2 border-landing-aqua/40 ring-1 ring-landing-aqua/10"
               />
               <div className="absolute top-2 right-2 flex space-x-2">
                 <Button
@@ -189,7 +198,7 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
                 </Button>
               </div>
               <div className="absolute bottom-2 left-2">
-                <Badge className="bg-emerald-500 text-white">
+                <Badge className="bg-gradient-to-r from-landing-aqua to-landing-mint text-white border-0">
                   <Star className="w-3 h-3 mr-1" />
                   Principal
                 </Badge>
@@ -198,10 +207,10 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
           </div>
         )}
 
-        <Card className={`border-2 border-dashed transition-colors ${
+        <Card className={`border-2 border-dashed transition-colors rounded-xl ${
           isMainDragActive 
-            ? 'border-emerald-400 bg-emerald-50' 
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-landing-aqua bg-landing-aqua/10' 
+            : 'border-landing-aqua/25 hover:border-landing-aqua/40 bg-white/50'
         }`}>
           <CardContent className="p-4">
             <div {...getMainRootProps()} className="text-center cursor-pointer">
@@ -209,20 +218,20 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
               
               <div className="flex flex-col items-center space-y-2">
                 <div className={`p-2 rounded-full ${
-                  isMainDragActive ? 'bg-emerald-100' : 'bg-gray-100'
+                  isMainDragActive ? 'bg-landing-aqua/20' : 'bg-landing-aqua/10'
                 }`}>
                   {uploading && uploadingIndex === null ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" />
+                    <LandingSpinner size="sm" />
                   ) : (
                     <Upload className={`h-6 w-6 ${
-                      isMainDragActive ? 'text-emerald-600' : 'text-gray-600'
+                      isMainDragActive ? 'text-landing-aqua-dark' : 'text-landing-aqua-dark/70'
                     }`} />
                   )}
                 </div>
                 
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {uploading && uploadingIndex === null ? 'Subiendo imagen...' : 'Subir imagen principal'}
+                    {uploading && uploadingIndex === null ? 'Subiendo imagen...' : `Subir imagen principal del ${mainLabel}`}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     {isMainDragActive 
@@ -283,10 +292,10 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
         )}
 
         {secondaryImages.length < MAX_SECONDARY_IMAGES && (
-          <Card className={`border-2 border-dashed transition-colors ${
+          <Card className={`border-2 border-dashed transition-colors rounded-xl ${
             isSecondaryDragActive 
-              ? 'border-blue-400 bg-blue-50' 
-              : 'border-gray-300 hover:border-gray-400'
+              ? 'border-landing-mint bg-landing-mint/10' 
+              : 'border-landing-aqua/25 hover:border-landing-aqua/40 bg-white/50'
           }`}>
             <CardContent className="p-4">
               <div {...getSecondaryRootProps()} className="text-center cursor-pointer">
@@ -294,13 +303,13 @@ export const ProductMultipleImagesUpload: React.FC<ProductMultipleImagesUploadPr
                 
                 <div className="flex flex-col items-center space-y-2">
                   <div className={`p-2 rounded-full ${
-                    isSecondaryDragActive ? 'bg-blue-100' : 'bg-gray-100'
+                    isSecondaryDragActive ? 'bg-landing-mint/20' : 'bg-landing-mint/10'
                   }`}>
                     {uploading && uploadingIndex !== null ? (
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                      <LandingSpinner size="sm" />
                     ) : (
                       <ImageIcon className={`h-6 w-6 ${
-                        isSecondaryDragActive ? 'text-blue-600' : 'text-gray-600'
+                        isSecondaryDragActive ? 'text-landing-mint-dark' : 'text-landing-mint-dark/70'
                       }`} />
                     )}
                   </div>

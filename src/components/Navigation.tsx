@@ -1,231 +1,231 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Activity, 
-  ShoppingBag, 
-  Heart, 
-  Settings,
-  Package,
-  Clock,
-  Stethoscope,
-  Bell,
-  X,
-  Menu,
-  Plus,
-  PawPrint,
-  Search,
-  Users,
-  HeartHandshake,
-  Utensils,
-  Dumbbell,
-  Wrench,
-  ShoppingCart,
-  MessageCircle,
-  Scissors
+import {
+  Home, Activity, ShoppingBag, Heart, Settings, Package,
+  Stethoscope, Bell, PawPrint, Search, HeartHandshake, Utensils,
+  ShoppingCart, Shield, RefreshCw,
 } from 'lucide-react';
-import { useAppContext } from '@/contexts/AppContext';
-import { useNavigation } from '@/contexts/NavigationContext';
+import { landingFeatureGradients } from '@/lib/landingTheme';
+import { useAuth } from '@/contexts/AuthContext';
+import { isPetHubAdminUser } from '@/lib/pethubAdminAccess';
+import { usePetBuddy } from '@/contexts/PetBuddyContext';
+import PetBuddyNavTab from '@/components/pet-buddy/PetBuddyNavTab';
+
+type NavIcon = React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: NavIcon;
+  gradientIndex: number;
+  path?: string;
+  expandable?: boolean;
+}
 
 const Navigation: React.FC = () => {
-  const { activeSection, setActiveSection } = useAppContext();
-  const { isMobileMenuOpen, setIsMobileMenuOpen } = useNavigation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { setIsOpen } = usePetBuddy();
   const [expandedButton, setExpandedButton] = useState<string | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
+  const showPetHubAdmin = isPetHubAdminUser(user?.email);
 
-  console.log('Navigation: Component rendered, location.pathname:', location.pathname);
-
-  // Close expanded menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
         setExpandedButton(null);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navItems = [
-    { id: 'pet-room', label: 'Mi Mascota', icon: Heart, color: 'from-pink-500 to-purple-600' },
-    { id: 'dashboard', label: 'Inicio', icon: Home, color: 'from-blue-500 to-purple-600' },
-    { id: 'trazabilidad', label: 'Ejercicio', icon: Activity, color: 'from-green-500 to-teal-600' },
-    { id: 'feeding-schedules', label: 'Nutrición', icon: Clock, color: 'from-emerald-500 to-green-600' },
-    { id: 'veterinaria', label: 'Veterinaria', icon: Stethoscope, color: 'from-red-500 to-pink-600' },
-    { id: 'recordatorios', label: 'Recordatorios', icon: Bell, color: 'from-purple-500 to-indigo-600' },
-    { id: 'parejas', label: 'Parejas', icon: Heart, color: 'from-pink-500 to-purple-600' },
-    { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, color: 'from-orange-500 to-red-600' },
-    { id: 'orders', label: 'Órdenes', icon: Package, color: 'from-indigo-500 to-blue-600' },
-    { id: 'adopcion', label: 'Adopción', icon: Heart, color: 'from-purple-500 to-pink-600' },
-    { id: 'mascotas-perdidas', label: 'Mascotas Perdidas', icon: Search, color: 'from-orange-500 to-red-600' },
-    { id: 'ajustes', label: 'Ajustes', icon: Settings, color: 'from-gray-500 to-slate-600' },
+  const careOptions: NavItem[] = [
+    { id: 'nutrition', label: 'Nutrición', icon: Utensils, gradientIndex: 2, path: '/feeding-schedules' },
+    { id: 'exercise', label: 'Ejercicio', icon: Activity, gradientIndex: 1, path: '/trazabilidad' },
+    { id: 'veterinary', label: 'Veterinaria', icon: Stethoscope, gradientIndex: 3, path: '/veterinaria' },
+    { id: 'recordatorios', label: 'Recordatorios', icon: Bell, gradientIndex: 5, path: '/recordatorios' },
   ];
 
-  // Care sub-options
-  const careOptions = [
-    { id: 'nutrition', label: 'Nutrición', icon: Utensils, color: 'from-orange-500 to-red-500', path: '/feeding-schedules' },
-    { id: 'exercise', label: 'Ejercicio', icon: Activity, color: 'from-green-500 to-blue-500', path: '/trazabilidad' },
-    { id: 'veterinary', label: 'Veterinaria', icon: Stethoscope, color: 'from-blue-500 to-purple-500', path: '/veterinaria' },
-    { id: 'recordatorios', label: 'Recordatorios', icon: Bell, color: 'from-purple-500 to-indigo-500', path: '/recordatorios' },
+  const shopOptions: NavItem[] = [
+    { id: 'products', label: 'Marketplace', icon: Package, gradientIndex: 1, path: '/marketplace/products' },
+    { id: 'orders', label: 'Mis Órdenes', icon: ShoppingCart, gradientIndex: 0, path: '/client-orders' },
+    { id: 'subscriptions', label: 'Suscripciones', icon: RefreshCw, gradientIndex: 2, path: '/my-subscriptions' },
   ];
 
-  // Shop sub-options
-  const shopOptions = [
-    { id: 'products', label: 'Productos', icon: Package, color: 'from-green-500 to-emerald-500', path: '/marketplace/products' },
-    { id: 'services', label: 'Servicios', icon: Scissors, color: 'from-blue-500 to-cyan-500', path: '/marketplace/services' },
-    { id: 'orders', label: 'Mis Órdenes', icon: ShoppingCart, color: 'from-purple-500 to-indigo-500', path: '/client-orders' },
+  const socialOptions: NavItem[] = [
+    { id: 'adopcion', label: 'Adopción', icon: Heart, gradientIndex: 1, path: '/adopcion' },
+    { id: 'parejas', label: 'Parejas', icon: HeartHandshake, gradientIndex: 4, path: '/parejas' },
+    { id: 'mascotas-perdidas', label: 'Mascotas Perdidas', icon: Search, gradientIndex: 3, path: '/mascotas-perdidas' },
   ];
 
-  // Social sub-options
-  const socialOptions = [
-    { id: 'adopcion', label: 'Adopción', icon: Heart, color: 'from-green-500 to-emerald-500', path: '/adopcion' },
-    { id: 'parejas', label: 'Parejas', icon: HeartHandshake, color: 'from-rose-500 to-pink-500', path: '/parejas' },
-    { id: 'mascotas-perdidas', label: 'Mascotas Perdidas', icon: Search, color: 'from-orange-500 to-red-500', path: '/mascotas-perdidas' },
-  ];
+  const leftNavItems = useMemo<NavItem[]>(
+    () => [
+      { id: 'dashboard', label: 'Inicio', icon: Home, gradientIndex: 0, path: '/dashboard' },
+      { id: 'shop', label: 'Tienda', icon: ShoppingBag, gradientIndex: 2, expandable: true },
+      { id: 'care', label: 'Cuidado', icon: Heart, gradientIndex: 1, expandable: true },
+    ],
+    [],
+  );
 
-  // Simplified navigation items for bottom menu (mobile-first game-like navigation)
-  const bottomNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, color: 'from-blue-500 to-purple-600', path: '/dashboard' },
-    { id: 'shop', label: 'Tienda', icon: ShoppingBag, color: 'from-orange-500 to-red-600', expandable: true },
-    { id: 'care', label: 'Cuidado', icon: Heart, color: 'from-pink-500 to-purple-600', expandable: true },
-    { id: 'social', label: 'Social', icon: PawPrint, color: 'from-blue-500 to-cyan-600', expandable: true },
-    { id: 'profile', label: 'Ajustes', icon: Settings, color: 'from-gray-500 to-slate-600', path: '/ajustes' },
-  ];
+  const rightNavItems = useMemo<NavItem[]>(() => {
+    const items: NavItem[] = [
+      { id: 'social', label: 'Social', icon: PawPrint, gradientIndex: 4, expandable: true },
+      { id: 'profile', label: 'Ajustes', icon: Settings, gradientIndex: 5, path: '/ajustes' },
+    ];
+    if (showPetHubAdmin) {
+      items.push({
+        id: 'pethub-admin',
+        label: 'Admin',
+        icon: Shield,
+        gradientIndex: 3,
+        path: '/pethub-admin',
+      });
+    }
+    return items;
+  }, [showPetHubAdmin]);
 
+  const gradientAt = (index: number) =>
+    landingFeatureGradients[index % landingFeatureGradients.length];
+
+  const closePetBuddy = useCallback(() => setIsOpen(false), [setIsOpen]);
+
+  const isBottomActive = (item: NavItem) =>
+    location.pathname === item.path ||
+    (item.id === 'shop' && location.pathname.startsWith('/marketplace')) ||
+    (item.id === 'shop' && location.pathname === '/client-orders') ||
+    (item.id === 'shop' && location.pathname === '/my-subscriptions') ||
+    (item.id === 'dashboard' && location.pathname === '/dashboard') ||
+    (item.id === 'profile' && (location.pathname === '/ajustes' || location.pathname === '/pet-hub-blueprint')) ||
+    (item.id === 'social' && ['/adopcion', '/parejas', '/mascotas-perdidas'].includes(location.pathname)) ||
+    (item.id === 'care' && ['/feeding-schedules', '/trazabilidad', '/veterinaria', '/recordatorios'].includes(location.pathname)) ||
+    (item.id === 'pethub-admin' && location.pathname.startsWith('/pethub-admin'));
+
+  const popupAlignClass = (itemId: string, side: 'left' | 'right') => {
+    if (side === 'right') return 'right-0 left-auto translate-x-0';
+    return 'left-0 translate-x-0';
+  };
+
+  const getSubmenuOptions = (itemId: string) => {
+    if (itemId === 'care') return careOptions;
+    if (itemId === 'social') return socialOptions;
+    return shopOptions;
+  };
+
+  const expandedSide =
+    expandedButton && ['shop', 'care'].includes(expandedButton)
+      ? 'left'
+      : expandedButton === 'social'
+        ? 'right'
+        : null;
+
+  const renderNavItem = (item: NavItem, side: 'left' | 'right') => {
+    const gradient = gradientAt(item.gradientIndex);
+    const active = isBottomActive(item) || expandedButton === item.id;
+
+    return (
+      <div key={item.id} className={`relative min-w-0 flex-1 ${expandedButton === item.id ? 'z-[120]' : ''}`}>
+        <button
+          type="button"
+          onClick={() => {
+            if (item.expandable) {
+              closePetBuddy();
+              setExpandedButton(expandedButton === item.id ? null : item.id);
+            } else if (item.path) {
+              closePetBuddy();
+              navigate(item.path);
+              setExpandedButton(null);
+            }
+          }}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-lg py-1 transition-colors duration-200 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-landing-aqua/40 focus-visible:ring-inset ${
+            active ? 'text-landing-aqua-dark' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <span
+            className={`flex h-6 w-8 items-center justify-center rounded-full transition-colors duration-200 ${
+              active && !item.expandable
+                ? `bg-gradient-to-r ${gradient} text-white shadow-sm`
+                : active && item.expandable
+                  ? 'bg-landing-aqua/15 text-landing-aqua-dark'
+                  : ''
+            }`}
+          >
+            <item.icon size={18} strokeWidth={active ? 2.25 : 2} />
+          </span>
+          <span
+            className={`mt-0.5 w-full truncate px-0.5 text-center text-[9px] font-medium leading-none ${
+              active ? 'font-semibold text-landing-aqua-dark' : ''
+            }`}
+          >
+            {item.label}
+          </span>
+        </button>
+
+        {item.expandable && expandedButton === item.id && (
+          <div
+            className={`absolute bottom-full z-[120] mb-2 max-w-[calc(100vw-1rem)] min-w-[11.5rem] rounded-2xl border border-landing-aqua/20 bg-white/95 p-1.5 shadow-xl backdrop-blur-md ${popupAlignClass(item.id, side)}`}
+          >
+            {getSubmenuOptions(item.id).map((option) => {
+              const optGradient = gradientAt(option.gradientIndex);
+              const optActive = location.pathname === option.path;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    if (option.path) navigate(option.path);
+                    setExpandedButton(null);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all ${
+                    optActive
+                      ? `bg-gradient-to-r ${optGradient} text-white shadow-sm`
+                      : 'text-gray-700 hover:bg-landing-aqua/10'
+                  }`}
+                >
+                  <option.icon size={18} />
+                  <span className="text-sm font-medium">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
-
-      {/* Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setIsMobileMenuOpen(false)} />
+      {expandedButton && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-[90] bg-black/20 md:bg-transparent"
+          onClick={() => setExpandedButton(null)}
+        />
       )}
 
-      {/* Navigation Menu - Slide from Left (Visible on all screens for testing) */}
-      {isMobileMenuOpen && (
-        <div className="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out">
-          <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-2 rounded-xl">
-                  <PawPrint size={20} className="text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-800">PetHub</h2>
-              </div>
-              <button
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <X size={24} className="text-gray-600" />
-              </button>
-            </div>
+      <div
+        ref={navRef}
+        className="fixed inset-x-0 bottom-0 z-[100] w-full max-w-[100dvw] overflow-visible border-t border-landing-aqua/20 bg-white/95 shadow-[0_-4px_24px_rgba(0,240,200,0.08)] backdrop-blur-md"
+        style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}
+      >
+        <div className="mx-auto flex h-[58px] w-full max-w-lg items-end overflow-visible px-1">
+          <div
+            className={`relative flex min-w-0 flex-1 items-end justify-around ${expandedSide === 'left' ? 'z-[130]' : ''}`}
+          >
+            {leftNavItems.map((item) => renderNavItem(item, 'left'))}
+          </div>
 
-            {/* Navigation Items */}
-            <div className="flex-1 overflow-y-auto p-4 pb-20">
-              <div className="space-y-2">
-                {navItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.id === 'pet-room') {
-                        window.location.href = '/pet-room';
-                      } else {
-                        setActiveSection(item.id);
-                      }
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`
-                      w-full flex items-center space-x-4 p-4 rounded-xl transition-all duration-200 text-left
-                      ${activeSection === item.id 
-                        ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
-                        : 'text-gray-700 hover:bg-gray-100'
-                      }
-                    `}
-                  >
-                    <item.icon size={24} />
-                    <span className="font-medium">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+          <PetBuddyNavTab onToggle={() => setExpandedButton(null)} menuOpen={!!expandedButton} />
 
+          <div
+            className={`relative flex min-w-0 flex-1 items-end justify-around ${expandedSide === 'right' ? 'z-[130]' : ''}`}
+          >
+            {rightNavItems.map((item) => renderNavItem(item, 'right'))}
           </div>
         </div>
-      )}
-
-      {/* Mobile Bottom Navigation - Simplified Layout - Always Fixed */}
-      <div 
-        ref={navRef} 
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl md:block"
-        style={{ height: '80px', boxSizing: 'border-box' }}
-      >
-        <div className="flex justify-around items-center h-full py-2 px-1">
-          {/* Navigation items */}
-          {bottomNavItems.map((item) => (
-            <div key={item.id} className="relative flex-1">
-              <button
-                onClick={() => {
-                  if (item.expandable) {
-                    setExpandedButton(expandedButton === item.id ? null : item.id);
-                  } else if (item.path) {
-                    navigate(item.path);
-                  } else {
-                    setActiveSection(item.id);
-                  }
-                }}
-                className={`
-                  w-full flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 min-w-0
-                  ${(location.pathname === item.path || 
-                      (item.id === 'shop' && location.pathname.startsWith('/marketplace')) || 
-                      (item.id === 'dashboard' && location.pathname === '/dashboard') ||
-                      (item.id === 'social' && (location.pathname === '/adopcion' || location.pathname === '/parejas' || location.pathname === '/mascotas-perdidas')))
-                    ? `bg-gradient-to-r ${item.color} text-white shadow-lg transform scale-105` 
-                    : 'text-gray-500 hover:text-gray-700'
-                  }
-                  ${expandedButton === item.id ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : ''}
-                `}
-              >
-                <item.icon size={18} className="mb-1" />
-                <span className="text-xs font-medium truncate leading-tight">{item.label}</span>
-              </button>
-              
-              {/* Expanded Options */}
-              {item.expandable && expandedButton === item.id && (
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[200px]">
-                  {(item.id === 'care' ? careOptions : 
-                    item.id === 'social' ? socialOptions : 
-                    shopOptions).map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => {
-                        navigate(option.path);
-                        setExpandedButton(null);
-                      }}
-                      className={`
-                        w-full flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 text-left
-                        ${location.pathname === option.path 
-                          ? `bg-gradient-to-r ${option.color} text-white shadow-md` 
-                          : 'text-gray-700 hover:bg-gray-100'
-                        }
-                      `}
-                    >
-                      <option.icon size={16} />
-                      <span className="text-sm font-medium">{option.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
-
     </>
   );
 };

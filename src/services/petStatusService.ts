@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { subDays, differenceInDays, parseISO, isAfter, startOfDay } from 'date-fns';
+import { subDays, differenceInDays, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 
 export interface PetStatus {
   health: StatusBar;
@@ -109,12 +109,30 @@ export class PetStatusService {
       message = 'Salud al día';
     }
 
-    // Check for recent vaccinations
-    const recentVaccinations = allHealthEvents.filter(e => 
-      e.type === 'vaccination' && isAfter(parseISO(e.date), ninetyDaysAgo)
+    // Check vaccination status from structured records
+    const { data: petVaccinations } = await supabase
+      .from('pet_vaccinations')
+      .select('administered_at, next_due_date, reminder_completed_at')
+      .eq('pet_id', petId)
+      .order('administered_at', { ascending: false })
+      .limit(20);
+
+    const today = startOfDay(new Date());
+    const overdueVaccinations = (petVaccinations ?? []).filter((v) => {
+      if (!v.next_due_date || v.reminder_completed_at) return false;
+      return isBefore(parseISO(v.next_due_date), today);
+    });
+
+    const recentVaccinations = (petVaccinations ?? []).filter((v) =>
+      isAfter(parseISO(v.administered_at), ninetyDaysAgo),
     );
 
-    if (recentVaccinations.length === 0 && daysSinceLastVisit < 180) {
+    if (overdueVaccinations.length > 0) {
+      value = Math.max(40, value - overdueVaccinations.length * 15);
+      status = 'warning';
+      label = 'Atención';
+      message = 'Hay vacunas vencidas en el calendario';
+    } else if (recentVaccinations.length === 0 && daysSinceLastVisit < 180) {
       value = Math.max(60, value - 10);
       if (value < 70) status = 'warning';
       message = 'Considera revisar el calendario de vacunación';

@@ -130,7 +130,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${window.location.origin}/login?type=signup`,
         // Auto-confirm email in development (if enabled in Supabase settings)
         // Note: This requires Supabase project to have "Enable email confirmations" disabled
         // Or use the SQL trigger to auto-confirm emails
@@ -151,11 +151,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   const signOut = async () => {
-    // Clear user role from localStorage when signing out
     localStorage.removeItem('user_role')
     localStorage.removeItem('is_new_user')
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+
+    const isSessionMissingError = (error: unknown): boolean => {
+      if (!(error instanceof Error)) return false
+      return (
+        error.name === 'AuthSessionMissingError' ||
+        error.message.toLowerCase().includes('session missing') ||
+        error.message.toLowerCase().includes('auth session missing')
+      )
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (session) {
+        const { error } = await supabase.auth.signOut({ scope: 'local' })
+        if (error && !isSessionMissingError(error)) {
+          throw error
+        }
+      }
+    } catch (error) {
+      if (!isSessionMissingError(error)) {
+        throw error
+      }
+    } finally {
+      setSession(null)
+      setUser(null)
+    }
   }
 
   const value = {

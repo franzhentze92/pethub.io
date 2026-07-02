@@ -1,24 +1,33 @@
-import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingCart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 interface CartIconProps {
-  onOpenCart: () => void;
+  onOpenCart?: () => void;
 }
 
 const CartIcon: React.FC<CartIconProps> = ({ onOpenCart }) => {
+  const navigate = useNavigate();
   const { getItemCount } = useCart();
   const itemCount = getItemCount();
+
+  const handleClick = () => {
+    if (onOpenCart) {
+      onOpenCart();
+    } else {
+      navigate('/cart');
+    }
+  };
 
   return (
     <Button
       variant="outline"
       size="sm"
-      onClick={onOpenCart}
+      onClick={handleClick}
       className="relative bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-      disabled={itemCount === 0}
+      disabled={false}
     >
       <ShoppingCart className="w-5 h-5" />
       {itemCount > 0 && (

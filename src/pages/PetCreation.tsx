@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LandingSpinner } from '@/components/PageLoader';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,8 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCreatePet } from '@/hooks/useSettings';
 import { supabase } from '@/lib/supabase';
-import { 
-  PawPrint, Heart, Sparkles, Camera, Upload, X, Loader2, 
+import PetAvatarStylizer from '@/components/PetAvatarStylizer';
+import { buildPetGalleryUrls, getStylizeSourceUrl, syncPetImages } from '@/utils/petImages';
+import { SPECIES_FORM_OPTIONS, GENDER_FORM_OPTIONS, isDogSpecies, SPECIES_ES } from '@/utils/petLabels';
+import {
+  PawPrint, Heart, Sparkles, Camera, Upload, X, Loader2,
   ArrowRight, Star, Gift, PartyPopper
 } from 'lucide-react';
 
@@ -22,17 +26,22 @@ const PetCreation: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
-    species: 'Dog',
+    species: SPECIES_ES.PERRO,
     breed: '',
     age: '',
     weight: '',
+    gender: '',
     microchip: '',
     available_for_breeding: false,
   });
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+
+  const getDisplayImageUrl = () => selectedImageUrl ?? previewUrl ?? imageUrl;
 
   const steps = [
     { id: 1, title: "Welcome!", description: "Let's bring your pet to life" },
@@ -282,6 +291,8 @@ const PetCreation: React.FC = () => {
         .getPublicUrl(filePath);
 
       setImageUrl(publicUrl);
+      setSelectedImageUrl(publicUrl);
+      setGalleryUrls((prev) => (prev.includes(publicUrl) ? prev : [...prev, publicUrl]));
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Error al subir la imagen. Inténtalo de nuevo.');
@@ -304,19 +315,32 @@ const PetCreation: React.FC = () => {
 
   const handleCreatePet = async () => {
     if (!user?.id) return;
+
+    if (formData.available_for_breeding && !formData.gender) {
+      alert('Selecciona el género de tu mascota para publicarla en Parejas.');
+      return;
+    }
     
     try {
-      await createPet.mutateAsync({
+      const primaryImage = getDisplayImageUrl();
+      const allGalleryUrls = buildPetGalleryUrls(galleryUrls, primaryImage);
+
+      const created = await createPet.mutateAsync({
         name: formData.name,
         species: formData.species,
         breed: formData.breed || null,
         age: formData.age ? parseInt(formData.age) : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
+        gender: formData.gender || null,
         microchip: formData.microchip || null,
         available_for_breeding: formData.available_for_breeding,
-        image_url: imageUrl,
+        image_url: primaryImage,
         owner_id: user.id,
       });
+
+      if (allGalleryUrls.length > 0) {
+        await syncPetImages(created.id, allGalleryUrls);
+      }
       
       // Trigger celebration
       setShowCelebration(true);
@@ -334,7 +358,15 @@ const PetCreation: React.FC = () => {
   const removeImage = () => {
     setImageUrl(null);
     setPreviewUrl(null);
+    setSelectedImageUrl(null);
+    setGalleryUrls([]);
   };
+
+  const handleStylizedImageCreated = (url: string) => {
+    setGalleryUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
+  };
+
+  const stylizeSourceUrl = getStylizeSourceUrl(galleryUrls);
 
   if (showCelebration) {
     return (
@@ -352,9 +384,9 @@ const PetCreation: React.FC = () => {
           
           <div className="bg-white rounded-2xl p-6 shadow-xl mb-6">
             <div className="w-24 h-24 mx-auto mb-4 relative">
-              {previewUrl || imageUrl ? (
+              {getDisplayImageUrl() ? (
                 <img
-                  src={previewUrl || imageUrl || ''}
+                  src={getDisplayImageUrl() || ''}
                   alt={formData.name}
                   className="w-24 h-24 rounded-full object-cover border-4 border-purple-200"
                 />
@@ -382,7 +414,7 @@ const PetCreation: React.FC = () => {
             <p className="text-sm text-gray-500 mb-4">
               Te llevaremos a tu nueva habitación en un momento...
             </p>
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
+            <LandingSpinner size="sm" className="mx-auto" />
           </div>
         </div>
       </div>
@@ -482,18 +514,42 @@ const PetCreation: React.FC = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Dog">🐕 Perro</SelectItem>
-                          <SelectItem value="Cat">🐱 Gato</SelectItem>
-                          <SelectItem value="Bird">🐦 Ave</SelectItem>
-                          <SelectItem value="Fish">🐠 Pez</SelectItem>
-                          <SelectItem value="Other">🐾 Otro</SelectItem>
+                          {SPECIES_FORM_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label === 'Perro' ? '🐕 Perro' :
+                               option.label === 'Gato' ? '🐱 Gato' :
+                               option.label === 'Ave' ? '🐦 Ave' :
+                               option.label === 'Pez' ? '🐠 Pez' : '🐾 Otro'}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
-                      <Label htmlFor="breed">Raza</Label>
-                      {formData.species === 'Dog' ? (
+                      <Label htmlFor="gender">Género</Label>
+                      <Select
+                        value={formData.gender}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+                        required={formData.available_for_breeding}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GENDER_FORM_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="breed">Raza</Label>
+                    {isDogSpecies(formData.species) ? (
                         <Select 
                           value={formData.breed} 
                           onValueChange={(value) => setFormData(prev => ({ ...prev, breed: value }))}
@@ -517,7 +573,6 @@ const PetCreation: React.FC = () => {
                           placeholder="Raza (opcional)"
                         />
                       )}
-                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -555,15 +610,15 @@ const PetCreation: React.FC = () => {
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <Camera className="w-12 h-12 text-purple-600 mx-auto mb-2" />
-                  <p className="text-gray-600">¡Agrega una foto de tu mascota!</p>
+                  <p className="text-gray-600">¡Agrega una foto y elige un estilo nostálgico!</p>
                 </div>
                 
                 <div className="flex items-center space-x-6">
                   <div className="relative">
-                    {previewUrl || imageUrl ? (
+                    {getDisplayImageUrl() ? (
                       <div className="relative">
                         <img
-                          src={previewUrl || imageUrl || ''}
+                          src={getDisplayImageUrl() || ''}
                           alt="Pet"
                           className="w-24 h-24 rounded-full object-cover border-4 border-purple-200"
                         />
@@ -614,11 +669,23 @@ const PetCreation: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {stylizeSourceUrl && (
+                  <PetAvatarStylizer
+                    sourceImageUrl={stylizeSourceUrl}
+                    onPrimarySelect={setSelectedImageUrl}
+                    onStylizedImageCreated={handleStylizedImageCreated}
+                    species={formData.species}
+                    breed={formData.breed}
+                    name={formData.name}
+                    disabled={uploading}
+                  />
+                )}
                 
                 <div className="bg-blue-50 rounded-lg p-4">
                   <p className="text-sm text-blue-800">
                     <Sparkles className="w-4 h-4 inline mr-2" />
-                    Una foto hermosa ayudará a tu mascota a sentirse más especial
+                    Transforma la foto de tu mascota en un avatar con estilo retro de los 90s o 2000s
                   </p>
                 </div>
               </div>
@@ -628,9 +695,9 @@ const PetCreation: React.FC = () => {
             {currentStep === 4 && (
               <div className="text-center space-y-6">
                 <div className="relative">
-                  {previewUrl || imageUrl ? (
+                  {getDisplayImageUrl() ? (
                     <img
-                      src={previewUrl || imageUrl || ''}
+                      src={getDisplayImageUrl() || ''}
                       alt={formData.name}
                       className="w-32 h-32 rounded-full object-cover border-4 border-purple-200 mx-auto"
                     />

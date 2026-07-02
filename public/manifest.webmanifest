@@ -1,0 +1,17 @@
+{
+  "name": "PetHub",
+  "short_name": "PetHub",
+  "description": "Cuidado integral para tus mascotas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/placeholder.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
