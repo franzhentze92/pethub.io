@@ -7,6 +7,13 @@
   RewriteRule . /index.html [L]
 </IfModule>
 
+# Service worker and manifest — always revalidate
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
 # Cache static assets (Vite hashes filenames — safe to cache long)
 <IfModule mod_expires.c>
   ExpiresActive On

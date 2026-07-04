@@ -1,4 +1,17 @@
-/* PetHub service worker — push notifications (works with app closed) */
+/* PetHub service worker — PWA installability + push notifications */
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(fetch(event.request));
+});
 
 self.addEventListener('push', (event) => {
   let payload = { title: 'PetHub', body: 'Tienes un recordatorio', url: '/feeding-schedules' };
@@ -16,8 +29,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: payload.icon || '/placeholder.svg',
-      badge: '/placeholder.svg',
+      icon: payload.icon || '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       tag: payload.tag || 'pethub-feeding',
       renotify: true,
       data: { url: payload.url || '/feeding-schedules' },

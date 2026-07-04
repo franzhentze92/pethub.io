@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { registerPwaServiceWorker } from './pwa';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -26,13 +27,7 @@ export function getPushPermission(): NotificationPermission | 'unsupported' {
 }
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) return null;
-  try {
-    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-  } catch (e) {
-    console.error('Service worker registration failed:', e);
-    return null;
-  }
+  return registerPwaServiceWorker();
 }
 
 export async function subscribeToPushNotifications(userId: string): Promise<boolean> {

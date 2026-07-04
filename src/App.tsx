@@ -22,6 +22,7 @@ import { Terms } from '@/pages/landing/Terms';
 import { LandingNavbar } from '@/components/landing/LandingNavbar';
 import { LandingFooter } from '@/components/landing/LandingFooter';
 import { ScrollToTop } from '@/components/ScrollToTop';
+import PwaInstallPrompt from '@/components/pwa/PwaInstallPrompt';
 import Auth from '@/components/Auth';
 import Index from '@/pages/Index';
 import NotFound from '@/pages/NotFound';
@@ -38,6 +39,7 @@ function App() {
           <TooltipProvider>
             <Router>
               <ScrollToTop />
+              <PwaInstallPrompt />
               <Routes>
                 {/* Landing pages with navbar and footer */}
                 <Route path="/" element={
