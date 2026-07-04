@@ -35,7 +35,13 @@ import {
 } from 'lucide-react';
 import { DashboardStatCard } from './dashboard/DashboardStatCard';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import {
+  plainPageAccentBtn,
+  plainPageAccentOutlineBtn,
+  plainPageAccentTabActive,
+  plainPageAccentUi,
+  type PlainPageAccent,
+} from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import OrderItemPetsList from './OrderItemPetsList';
 import { attachPetsToOrderItems, fetchPetsForOrderItems, type OrderItemPet } from '@/utils/orderItemPets';
@@ -43,7 +49,7 @@ import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
 import { markMarketplaceNotificationsRead } from '@/utils/marketplaceNotifications';
 
 const filterPanelClass =
-  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
+  'rounded-2xl bg-white border border-gray-100 shadow-sm p-4 space-y-4';
 
 const STATUS_CHIPS = [
   { id: 'all', label: 'Todos' },
@@ -95,7 +101,14 @@ interface ProviderOrderItem {
   pets?: OrderItemPet[];
 }
 
-const ProviderOrders: React.FC = () => {
+interface ProviderOrdersProps {
+  accent?: PlainPageAccent;
+}
+
+const ProviderOrders: React.FC<ProviderOrdersProps> = ({ accent = 'mango' }) => {
+  const ui = plainPageAccentUi(accent);
+  const btn = plainPageAccentBtn[accent];
+  const outlineBtn = plainPageAccentOutlineBtn[accent];
   const { user } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
@@ -304,11 +317,11 @@ const ProviderOrders: React.FC = () => {
       case 'pending':
         return { variant: 'secondary' as const, icon: Clock, label: 'Pendiente', className: 'bg-landing-tropical/30 text-landing-mango-dark' };
       case 'confirmed':
-        return { variant: 'default' as const, icon: CheckCircle, label: 'Confirmada', className: 'bg-landing-aqua/20 text-landing-aqua-dark' };
+        return { variant: 'default' as const, icon: CheckCircle, label: 'Confirmada', className: ui.badge };
       case 'processing':
         return { variant: 'default' as const, icon: Package, label: 'Procesando', className: 'bg-landing-mango/15 text-landing-mango-dark' };
       case 'shipped':
-        return { variant: 'default' as const, icon: Truck, label: 'Enviada', className: 'bg-landing-aqua/15 text-landing-aqua-dark' };
+        return { variant: 'default' as const, icon: Truck, label: 'Enviada', className: ui.badge };
       case 'delivered':
         return { variant: 'default' as const, icon: CheckCircle, label: 'Entregada', className: 'bg-landing-mint/20 text-landing-mint-dark' };
       case 'cancelled':
@@ -746,8 +759,8 @@ const ProviderOrders: React.FC = () => {
             {previewImage ? (
               <img src={previewImage} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
-                <Package className="w-7 h-7 text-landing-aqua-dark" />
+              <div className={cn('w-full h-full flex items-center justify-center', ui.bgLight)}>
+                <Package className={cn('w-7 h-7', ui.text)} />
               </div>
             )}
           </div>
@@ -790,7 +803,7 @@ const ProviderOrders: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => handleViewDetails(order)}
-            className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+            className={cn('min-h-[40px]', outlineBtn)}
           >
             <Eye className="w-4 h-4 mr-1" />
             Detalles
@@ -830,6 +843,7 @@ const ProviderOrders: React.FC = () => {
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <DashboardStatCard
+          variant="plain"
           label="Ingresos"
           value={`Q.${totalRevenue.toFixed(0)}`}
           footer={`Este mes: Q.${monthlyRevenue.toFixed(0)}`}
@@ -837,6 +851,7 @@ const ProviderOrders: React.FC = () => {
           gradientIndex={0}
         />
         <DashboardStatCard
+          variant="plain"
           label="Órdenes"
           value={String(totalOrders)}
           footer={`Promedio Q.${averageOrderValue.toFixed(0)}`}
@@ -844,6 +859,7 @@ const ProviderOrders: React.FC = () => {
           gradientIndex={1}
         />
         <DashboardStatCard
+          variant="plain"
           label="Pendientes"
           value={String(pendingOrders)}
           footer={totalOrders > 0 ? `${((pendingOrders / totalOrders) * 100).toFixed(0)}% del total` : undefined}
@@ -851,6 +867,7 @@ const ProviderOrders: React.FC = () => {
           gradientIndex={2}
         />
         <DashboardStatCard
+          variant="plain"
           label="Entregadas"
           value={String(deliveredOrders)}
           footer={paidRevenue > 0 ? `Pagado: Q.${paidRevenue.toFixed(0)}` : undefined}
@@ -871,9 +888,8 @@ const ProviderOrders: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-4 gap-2">
-          {STATUS_CHIPS.map((chip, index) => {
+          {STATUS_CHIPS.map((chip) => {
             const active = statusFilter === chip.id;
-            const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
             return (
               <button
                 key={chip.id}
@@ -882,8 +898,8 @@ const ProviderOrders: React.FC = () => {
                 className={cn(
                   'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all duration-200 text-center leading-tight',
                   active
-                    ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-                    : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 hover:text-landing-aqua-dark shadow-sm'
+                    ? cn(plainPageAccentTabActive[accent], 'shadow-md')
+                    : cn('bg-white border border-gray-200 text-gray-600 shadow-sm', ui.hoverBg),
                 )}
               >
                 {chip.label}
@@ -897,8 +913,9 @@ const ProviderOrders: React.FC = () => {
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              'flex items-center gap-2 min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10',
-              showFilters && 'bg-landing-aqua/10'
+              'flex items-center gap-2 min-h-[44px]',
+              outlineBtn,
+              showFilters && ui.bgLight,
             )}
           >
             <Filter className="w-4 h-4" />
@@ -1264,8 +1281,8 @@ const ProviderOrders: React.FC = () => {
                 ))}
               </div>
 
-              <MobileSectionCard className="p-4 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10">
-                <h4 className="font-bold text-landing-aqua-dark text-sm mb-1">Tus ganancias</h4>
+              <MobileSectionCard className={cn('p-4 border', ui.bgSoft, ui.border)}>
+                <h4 className={cn('font-bold text-sm mb-1', ui.text)}>Tus ganancias</h4>
                 <p className="text-2xl font-bold text-gray-900">
                   Q.{selectedOrder.order_items.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)}
                 </p>

@@ -10,7 +10,7 @@ export type PublicFeatureRole = PublicRoleId;
 export const PUBLIC_FEATURE_ROLES: PublicFeatureRole[] = ['client', 'provider', 'shelter'];
 
 export const roleLabels: Record<PublicFeatureRole, string> = {
-  client: 'Dueño',
+  client: 'Cliente',
   provider: 'Proveedor',
   shelter: 'Refugio',
 };
@@ -39,8 +39,8 @@ export const roleBenefitProfiles: RoleBenefitProfile[] = [
     heroTitleLead: 'Cuida, compra y conecta — todo en ',
     heroTitleAccent: 'un solo lugar',
     heroSubtitle:
-      'Como dueño, PetHub te da control real sobre la salud, el bienestar y la vida diaria de tus mascotas. Sin apps sueltas ni papeles perdidos.',
-    sectionTitle: 'Lo que puedes hacer como dueño',
+      'Como cliente, PetHub te da control real sobre la salud, el bienestar y la vida diaria de tus mascotas. Sin apps sueltas ni papeles perdidos.',
+    sectionTitle: 'Lo que puedes hacer como cliente',
     sectionSubtitle:
       'No es una lista de módulos: son resultados concretos que obtienes desde el primer día.',
     outcomes: [
@@ -75,7 +75,7 @@ export const roleBenefitProfiles: RoleBenefitProfile[] = [
       'Compras accesorios en el marketplace y el gasto aparece automáticamente en el Pet Journey.',
       'Ves un perfil en adopción, chateas con el refugio y envías tu solicitud sin salir de PetHub.',
     ],
-    ctaHint: 'Crea tu cuenta como dueño y registra tu primera mascota en minutos.',
+    ctaHint: 'Crea tu cuenta como cliente y registra tu primera mascota en minutos.',
   },
   {
     id: 'provider',
@@ -113,7 +113,7 @@ export const roleBenefitProfiles: RoleBenefitProfile[] = [
       },
     ],
     scenarios: [
-      'Subes croquetas con fotos y precios por talla; los dueños las encuentran en el marketplace al instante.',
+      'Subes croquetas con fotos y precios por talla; los clientes las encuentran en el marketplace al instante.',
       'Un cliente reserva grooming para el sábado — lo confirmas desde tu celular en segundos.',
       'Revisas cuánto vendiste este mes y qué productos necesitas reponer.',
       'Tu perfil verificado y tus reseñas te ayudan a ganar clientes nuevos en la plataforma.',

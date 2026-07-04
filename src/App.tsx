@@ -116,6 +116,7 @@ function App() {
                 <Route path="/ajustes" element={<Index />} />
                 <Route path="/pet-hub-blueprint" element={<Index />} />
                 <Route path="/parejas" element={<Index />} />
+                <Route path="/paseos" element={<Index />} />
                 <Route path="/mascotas-perdidas" element={<Index />} />
                 <Route path="/client-orders" element={<Index />} />
                 <Route path="/my-subscriptions" element={<Index />} />
@@ -144,6 +145,7 @@ function App() {
                 <Route path="/admin/adoptions" element={<Index />} />
                 <Route path="/admin/breeding" element={<Index />} />
                 <Route path="/admin/lost-pets" element={<Index />} />
+                <Route path="/admin/dog-walks" element={<Index />} />
                 <Route path="/admin/shelters" element={<Index />} />
                 <Route path="/admin/providers" element={<Index />} />
                 <Route path="/admin/financial-analysis" element={<Index />} />

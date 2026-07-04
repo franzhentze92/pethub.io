@@ -10,7 +10,7 @@ export const LandingFooter: React.FC = () => {
           {/* Company Info */}
           <div className="md:col-span-2">
             <div className="flex items-center space-x-2 mb-3 md:mb-4">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-r from-landing-aqua to-landing-mango rounded-lg flex items-center justify-center">
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-landing-aqua rounded-lg flex items-center justify-center">
                 <PawPrint className="w-4 h-4 md:w-5 md:h-5 text-white" />
               </div>
               <span className="text-lg md:text-xl font-bold">PetHub</span>

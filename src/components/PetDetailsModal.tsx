@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, Edit, Home, PawPrint, Trash2, Heart } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import {
+  plainPageAccentBtn,
+  plainPageAccentOutlineBtn,
+  plainPageAccentUi,
+  type PlainPageAccent,
+} from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import {
   PetPhotoCarousel,
@@ -33,6 +38,7 @@ interface PetDetailsModalProps {
   onEdit: (pet: Pet) => void;
   onDelete: (pet: Pet) => void;
   onJourney: (petId: string) => void;
+  accent?: PlainPageAccent;
 }
 
 const InfoChip = ({ label, value }: { label: string; value: React.ReactNode }) => (
@@ -49,7 +55,11 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
   onEdit,
   onDelete,
   onJourney,
+  accent = 'aqua',
 }) => {
+  const ui = plainPageAccentUi(accent);
+  const primaryBtnClass = plainPageAccentBtn[accent];
+  const outlineBtnClass = plainPageAccentOutlineBtn[accent];
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [currentPhoto, setCurrentPhoto] = useState(0);
 
@@ -78,10 +88,11 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
           'flex flex-col gap-0 p-0 overflow-hidden',
           'w-[calc(100vw-0.5rem)] max-w-lg',
           'max-h-[96dvh] sm:max-h-[92dvh]',
-          'rounded-2xl border-landing-aqua/15'
+          'rounded-2xl border',
+          ui.borderLight,
         )}
       >
-        <div className="shrink-0 px-4 pt-4 pb-2 border-b border-gray-100">
+        <div className={cn('shrink-0 px-4 pt-4 pb-2 border-b', ui.bgSoft, ui.borderLight)}>
           <DialogTitle className="text-lg font-bold text-gray-900">{pet.name}</DialogTitle>
           <p className="text-sm text-gray-500 mt-0.5">
             {formatSpeciesLabel(pet.species)}
@@ -101,8 +112,8 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
               setApi={setCarouselApi}
               className="rounded-xl"
               fallback={
-                <div className="w-full h-full bg-gradient-to-br from-landing-aqua/30 to-landing-mint/30 flex items-center justify-center rounded-xl">
-                  <PawPrint className="w-10 h-10 text-white/80" />
+                <div className={cn('w-full h-full flex items-center justify-center rounded-xl', ui.bgLight)}>
+                  <PawPrint className={cn('w-10 h-10', ui.iconMuted)} />
                 </div>
               }
             />
@@ -134,9 +145,9 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
             {pet.microchip && <InfoChip label="Microchip" value={pet.microchip} />}
 
             {pet.available_for_breeding && (
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-landing-mint/10 border border-landing-mint/20">
-                <Heart className="w-4 h-4 text-landing-mint-dark" />
-                <span className="text-sm font-medium text-landing-mint-dark">Disponible para reproducción</span>
+              <div className={cn('flex items-center gap-2 p-3 rounded-xl border', ui.bgSoft, ui.borderLight)}>
+                <Heart className={cn('w-4 h-4', ui.text)} />
+                <span className={cn('text-sm font-medium', ui.text)}>Disponible para reproducción</span>
               </div>
             )}
           </div>
@@ -144,7 +155,7 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
 
         <div className="shrink-0 p-4 border-t border-gray-100 bg-white/95 flex flex-col gap-2">
           <Button
-            className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+            className={cn('w-full min-h-[48px] border-0', primaryBtnClass)}
             onClick={() => {
               onClose();
               onJourney(pet.id);
@@ -156,7 +167,7 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
-              className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark text-xs"
+              className={cn('min-h-[44px] text-xs', outlineBtnClass)}
               onClick={() => {
                 onClose();
                 onJourney(pet.id);
@@ -167,7 +178,7 @@ const PetDetailsModal: React.FC<PetDetailsModalProps> = ({
             </Button>
             <Button
               variant="outline"
-              className="min-h-[44px] text-xs"
+              className={cn('min-h-[44px] text-xs', outlineBtnClass)}
               onClick={() => {
                 onClose();
                 onEdit(pet);

@@ -731,6 +731,7 @@ export interface Database {
           notify_breeding: boolean
           notify_adoption: boolean
           notify_lost_pets: boolean
+          notify_dog_walks: boolean
           notify_orders: boolean
           notify_vet: boolean
           notify_account: boolean
@@ -740,11 +741,13 @@ export interface Database {
           push_breeding: boolean
           push_adoption: boolean
           push_lost_pets: boolean
+          push_dog_walks: boolean
           push_vet: boolean
           dismissed_account_prompts: string[]
           read_adoption_notifications: string[]
           read_breeding_notifications: string[]
           read_lost_pet_notifications: string[]
+          read_dog_walk_notifications: string[]
           read_order_notifications: string[]
           read_exercise_notifications: string[]
           read_vet_notifications: string[]
@@ -758,6 +761,7 @@ export interface Database {
           notify_breeding?: boolean
           notify_adoption?: boolean
           notify_lost_pets?: boolean
+          notify_dog_walks?: boolean
           notify_orders?: boolean
           notify_vet?: boolean
           notify_account?: boolean
@@ -767,11 +771,13 @@ export interface Database {
           push_breeding?: boolean
           push_adoption?: boolean
           push_lost_pets?: boolean
+          push_dog_walks?: boolean
           push_vet?: boolean
           dismissed_account_prompts?: string[]
           read_adoption_notifications?: string[]
           read_breeding_notifications?: string[]
           read_lost_pet_notifications?: string[]
+          read_dog_walk_notifications?: string[]
           read_order_notifications?: string[]
           read_exercise_notifications?: string[]
           read_vet_notifications?: string[]
@@ -785,6 +791,7 @@ export interface Database {
           notify_breeding?: boolean
           notify_adoption?: boolean
           notify_lost_pets?: boolean
+          notify_dog_walks?: boolean
           notify_orders?: boolean
           notify_vet?: boolean
           notify_account?: boolean
@@ -794,11 +801,13 @@ export interface Database {
           push_breeding?: boolean
           push_adoption?: boolean
           push_lost_pets?: boolean
+          push_dog_walks?: boolean
           push_vet?: boolean
           dismissed_account_prompts?: string[]
           read_adoption_notifications?: string[]
           read_breeding_notifications?: string[]
           read_lost_pet_notifications?: string[]
+          read_dog_walk_notifications?: string[]
           read_order_notifications?: string[]
           read_exercise_notifications?: string[]
           read_vet_notifications?: string[]

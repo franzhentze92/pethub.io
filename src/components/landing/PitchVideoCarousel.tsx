@@ -55,7 +55,7 @@ export const PitchVideoCarousel: React.FC<PitchVideoCarouselProps> = ({
           />
         ))}
 
-        <div className="absolute top-0 inset-x-0 z-20 h-12 bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
+        <div className="absolute top-0 inset-x-0 z-20 h-12 bg-black/40 pointer-events-none" />
       </PhoneMockup>
 
       <div className="flex justify-center gap-1.5">

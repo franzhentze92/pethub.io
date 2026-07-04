@@ -17,6 +17,7 @@ import {
   PawPrint, Heart, Sparkles, Camera, Upload, X, Loader2,
   ArrowRight, Star, Gift, PartyPopper
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const PetCreation: React.FC = () => {
   const { user } = useAuth();
@@ -263,7 +264,7 @@ const PetCreation: React.FC = () => {
       if (!file) return;
 
       if (file.size > 5 * 1024 * 1024) {
-        alert('El archivo es demasiado grande. Máximo 5MB.');
+        toast.warning('El archivo es demasiado grande. Máximo 5MB.');
         return;
       }
 
@@ -295,7 +296,7 @@ const PetCreation: React.FC = () => {
       setGalleryUrls((prev) => (prev.includes(publicUrl) ? prev : [...prev, publicUrl]));
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Error al subir la imagen. Inténtalo de nuevo.');
+      toast.error('Error al subir la imagen. Inténtalo de nuevo.');
     } finally {
       setUploading(false);
     }
@@ -317,7 +318,7 @@ const PetCreation: React.FC = () => {
     if (!user?.id) return;
 
     if (formData.available_for_breeding && !formData.gender) {
-      alert('Selecciona el género de tu mascota para publicarla en Parejas.');
+      toast.warning('Selecciona el género de tu mascota para publicarla en Parejas.');
       return;
     }
     

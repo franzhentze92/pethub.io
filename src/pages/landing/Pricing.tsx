@@ -20,7 +20,7 @@ export const Pricing: React.FC = () => {
         'Funcionalidades básicas de adopción'
       ],
       popular: false,
-      color: 'from-gray-500 to-gray-600'
+      color: 'bg-gray-600'
     },
     {
       name: 'Premium',
@@ -38,7 +38,7 @@ export const Pricing: React.FC = () => {
         'Exportación de datos'
       ],
       popular: true,
-      color: 'from-landing-aqua to-landing-mint'
+      color: 'bg-landing-aqua'
     },
     {
       name: 'Profesional',
@@ -56,7 +56,7 @@ export const Pricing: React.FC = () => {
         'White-label disponible'
       ],
       popular: false,
-      color: 'from-landing-aqua to-landing-mint'
+      color: 'bg-landing-aqua'
     }
   ];
 
@@ -96,7 +96,7 @@ export const Pricing: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-landing-aqua to-landing-mint py-20">
+      <section className="bg-landing-aqua py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Planes y Precios
@@ -130,7 +130,7 @@ export const Pricing: React.FC = () => {
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-landing-aqua to-landing-mint text-white px-4 py-2">
+                    <Badge className="bg-landing-mint text-gray-900 px-4 py-2">
                       Más Popular
                     </Badge>
                   </div>
@@ -280,7 +280,7 @@ export const Pricing: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-landing-aqua to-landing-mint">
+      <section className="py-20 bg-landing-mint">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-6">
             ¿Listo para Comenzar?

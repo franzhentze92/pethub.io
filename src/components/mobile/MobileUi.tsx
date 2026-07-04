@@ -1,4 +1,6 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
+import { type PlainPageAccent } from '@/lib/landingTheme';
 
 interface MobileInfoRowProps {
   label: string;
@@ -16,10 +18,21 @@ export const MobileInfoRow: React.FC<MobileInfoRowProps> = ({ label, value, last
 interface MobileSectionCardProps {
   children: React.ReactNode;
   className?: string;
+  variant?: 'glass' | 'plain';
 }
 
-export const MobileSectionCard: React.FC<MobileSectionCardProps> = ({ children, className = '' }) => (
-  <div className={`rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden ${className}`}>
+export const MobileSectionCard: React.FC<MobileSectionCardProps> = ({
+  children,
+  className = '',
+  variant = 'glass',
+}) => (
+  <div
+    className={
+      variant === 'plain'
+        ? `rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden ${className}`
+        : `rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden ${className}`
+    }
+  >
     {children}
   </div>
 );
@@ -29,6 +42,8 @@ interface MobileFabProps {
   label: string;
   icon: React.ReactNode;
   className?: string;
+  variant?: 'gradient' | 'solid';
+  accent?: PlainPageAccent;
   'data-blueprint-guided'?: string;
 }
 
@@ -37,16 +52,35 @@ export const MobileFab: React.FC<MobileFabProps> = ({
   label,
   icon,
   className = '',
+  variant = 'gradient',
+  accent = 'aqua',
   'data-blueprint-guided': dataBlueprintGuided,
-}) => (
+}) => {
+  const solidClass =
+    accent === 'tropical'
+      ? 'bg-landing-tropical hover:bg-landing-tropical-dark text-gray-900'
+      : accent === 'mango'
+        ? 'bg-landing-mango hover:bg-landing-mango-dark text-gray-900'
+        : accent === 'mint'
+          ? 'bg-landing-mint hover:bg-landing-mint-dark text-gray-900'
+          : 'bg-landing-aqua hover:bg-landing-aqua-dark text-white';
+
+  return (
   <button
     type="button"
     onClick={onClick}
     data-blueprint-guided={dataBlueprintGuided}
-    className={`fixed right-4 z-[80] flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint text-white font-semibold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] ${className}`}
+    className={cn(
+      'fixed right-4 z-[80] flex items-center gap-2 px-4 py-3 rounded-full font-semibold text-sm shadow-lg hover:shadow-xl active:scale-95 transition-all bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))]',
+      variant === 'solid'
+        ? solidClass
+        : 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white',
+      className,
+    )}
     aria-label={label}
   >
     {icon}
     <span>{label}</span>
   </button>
-);
+  );
+};

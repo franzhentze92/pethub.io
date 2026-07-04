@@ -10,6 +10,7 @@ import { Loader2, Upload, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useCreateAdoptionPet, useUpdateAdoptionPet } from '@/hooks/useAdoption'
 import { ADOPTION_SPECIES_FORM_OPTIONS, normalizeSpeciesToSpanish, SPECIES_ES } from '@/utils/petLabels'
+import { toast } from 'sonner'
 
 interface AdoptionPetModalProps {
   isOpen: boolean
@@ -72,7 +73,10 @@ const AdoptionPetModal: React.FC<AdoptionPetModalProps> = ({ isOpen, onClose, ow
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 50 * 1024 * 1024) return alert('Máximo 50MB')
+    if (file.size > 50 * 1024 * 1024) {
+      toast.warning('Máximo 50MB')
+      return
+    }
 
     setUploading(true)
     try {
@@ -97,7 +101,7 @@ const AdoptionPetModal: React.FC<AdoptionPetModalProps> = ({ isOpen, onClose, ow
       setImageUrl(publicUrl)
     } catch (err) {
       console.error(err)
-      alert('No se pudo subir la imagen')
+      toast.error('No se pudo subir la imagen')
     } finally {
       setUploading(false)
     }

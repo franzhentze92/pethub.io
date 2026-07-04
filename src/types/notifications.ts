@@ -5,6 +5,7 @@ export type NotificationType =
   | 'breeding'
   | 'adoption'
   | 'lost_pet'
+  | 'dog_walk'
   | 'orders'
   | 'reminder'
   | 'account';
@@ -32,6 +33,7 @@ export interface AppNotification {
   adoptionApplicationId?: string;
   breedingMatchId?: string;
   lostPetId?: string;
+  dogWalkRequestId?: string;
   petId?: string;
   petReminderId?: string;
   vaccinationId?: string;
@@ -50,6 +52,7 @@ export interface UserNotificationPreferences {
   notify_breeding: boolean;
   notify_adoption: boolean;
   notify_lost_pets: boolean;
+  notify_dog_walks: boolean;
   notify_orders: boolean;
   notify_vet: boolean;
   notify_account: boolean;
@@ -59,11 +62,13 @@ export interface UserNotificationPreferences {
   push_breeding: boolean;
   push_adoption: boolean;
   push_lost_pets: boolean;
+  push_dog_walks: boolean;
   push_vet: boolean;
   dismissed_account_prompts: string[];
   read_adoption_notifications: string[];
   read_breeding_notifications: string[];
   read_lost_pet_notifications: string[];
+  read_dog_walk_notifications: string[];
   read_order_notifications: string[];
   read_exercise_notifications: string[];
   read_vet_notifications: string[];
@@ -80,6 +85,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Omit<
   notify_breeding: true,
   notify_adoption: true,
   notify_lost_pets: true,
+  notify_dog_walks: true,
   notify_orders: true,
   notify_vet: true,
   notify_account: true,
@@ -89,11 +95,13 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: Omit<
   push_breeding: true,
   push_adoption: true,
   push_lost_pets: true,
+  push_dog_walks: true,
   push_vet: true,
   dismissed_account_prompts: [],
   read_adoption_notifications: [],
   read_breeding_notifications: [],
   read_lost_pet_notifications: [],
+  read_dog_walk_notifications: [],
   read_order_notifications: [],
   read_exercise_notifications: [],
   read_vet_notifications: [],

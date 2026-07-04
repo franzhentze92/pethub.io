@@ -34,11 +34,11 @@ export const BrowserFrame: React.FC<BrowserFrameProps> = ({
       <div className="w-12 shrink-0 hidden sm:block" />
     </div>
     <div
-      className="relative overflow-y-auto bg-gradient-to-br from-landing-aqua/5 via-white to-landing-mint/5"
+      className="relative overflow-y-auto bg-landing-aqua/5"
       style={{ maxHeight }}
     >
       {children}
-      <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none z-10" />
+      <div className="absolute bottom-0 inset-x-0 h-20 bg-white/90 pointer-events-none z-10" />
     </div>
   </div>
 );

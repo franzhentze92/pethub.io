@@ -25,7 +25,7 @@ import { toast } from 'sonner';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn, plainPageAccentOutlineBtn } from '@/lib/landingTheme';
 import { PetPhotoCarousel } from '@/components/mobile/PetPhotoCarousel';
 import { getPrimaryPetImageUrl } from '@/utils/petImages';
 import { cn } from '@/lib/utils';
@@ -53,14 +53,18 @@ const EMPTY_PETS: any[] = [];
 const EMPTY_FAVORITE_IDS: string[] = [];
 const EMPTY_LISTINGS: any[] = [];
 
+const adoptionBtnPrimary = plainPageAccentBtn.mango;
+const adoptionBtnSolicitar = plainPageAccentBtn.aqua;
+const adoptionBtnOutline = plainPageAccentOutlineBtn.mango;
+
 const AdoptionSourceBadge: React.FC<{ shelterId?: string | null }> = ({ shelterId }) =>
   shelterId ? (
-    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-landing-mango to-landing-tropical text-white shadow-sm flex items-center gap-1">
+    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-landing-mango text-gray-900 shadow-sm flex items-center gap-1">
       <Building2 className="w-3 h-3" />
       Albergue
     </span>
   ) : (
-    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/95 text-landing-aqua-dark shadow-sm flex items-center gap-1">
+    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/95 text-landing-mango-dark shadow-sm flex items-center gap-1">
       <UserRound className="w-3 h-3" />
       Particular
     </span>
@@ -106,7 +110,7 @@ const ApplicantRequestCard: React.FC<{
         <button
           type="button"
           onClick={onViewApplicantProfile}
-          className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-gradient-to-br from-landing-aqua/30 to-landing-mint/30 ring-2 ring-white shadow-sm flex items-center justify-center active:scale-95 transition-transform"
+          className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-landing-mango/10 ring-2 ring-white shadow-sm flex items-center justify-center active:scale-95 transition-transform"
         >
           {app.applicant_avatar_url ? (
             <img
@@ -115,7 +119,7 @@ const ApplicantRequestCard: React.FC<{
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="text-sm font-bold text-landing-aqua-dark">{initials}</span>
+            <span className="text-sm font-bold text-landing-mango-dark">{initials}</span>
           )}
         </button>
         <div className="flex-1 min-w-0">
@@ -125,7 +129,7 @@ const ApplicantRequestCard: React.FC<{
             className="w-full text-left"
           >
           {showPetLabel && petName && (
-            <p className="text-[11px] text-landing-aqua-dark font-medium mb-0.5">
+            <p className="text-[11px] text-landing-mango-dark font-medium mb-0.5">
               Interesado en {petName}
             </p>
           )}
@@ -151,7 +155,7 @@ const ApplicantRequestCard: React.FC<{
             type="button"
             variant="outline"
             size="sm"
-            className="min-h-[36px] text-[11px] border-landing-aqua/30 text-landing-aqua-dark"
+            className="min-h-[36px] text-[11px] border-landing-mango/30 text-landing-mango-dark"
             onClick={onViewAdoptionPet}
           >
             <PawPrint className="w-3.5 h-3.5 mr-1 shrink-0" />
@@ -205,26 +209,26 @@ const ApplicantRequestCard: React.FC<{
         {app.applicant_phone && (
           <a
             href={`tel:${app.applicant_phone.replace(/\s/g, '')}`}
-            className="flex items-center gap-2 min-h-[36px] px-3 py-2 rounded-lg bg-white border border-gray-100 hover:border-landing-aqua/30 transition-colors"
+            className="flex items-center gap-2 min-h-[36px] px-3 py-2 rounded-lg bg-white border border-gray-100 hover:border-landing-mango/30 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
-            <Phone className="w-3.5 h-3.5 text-landing-aqua-dark shrink-0" />
+            <Phone className="w-3.5 h-3.5 text-landing-mango-dark shrink-0" />
             <span className="font-medium text-gray-800">{app.applicant_phone}</span>
           </a>
         )}
         {app.applicant_email && (
           <a
             href={`mailto:${app.applicant_email}`}
-            className="flex items-center gap-2 min-h-[36px] px-3 py-2 rounded-lg bg-white border border-gray-100 hover:border-landing-aqua/30 transition-colors"
+            className="flex items-center gap-2 min-h-[36px] px-3 py-2 rounded-lg bg-white border border-gray-100 hover:border-landing-mango/30 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
-            <Mail className="w-3.5 h-3.5 text-landing-aqua-dark shrink-0" />
+            <Mail className="w-3.5 h-3.5 text-landing-mango-dark shrink-0" />
             <span className="truncate text-gray-800">{app.applicant_email}</span>
           </a>
         )}
         {app.applicant_address && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-white border border-gray-100">
-            <MapPin className="w-3.5 h-3.5 text-landing-aqua-dark shrink-0 mt-0.5" />
+            <MapPin className="w-3.5 h-3.5 text-landing-mango-dark shrink-0 mt-0.5" />
             <span className="text-gray-800 leading-snug">{app.applicant_address}</span>
           </div>
         )}
@@ -248,7 +252,7 @@ const ApplicantRequestCard: React.FC<{
           <Button
             type="button"
             size="sm"
-            className={`flex-1 min-h-[36px] text-xs ${landingBtnPrimary}`}
+            className={`flex-1 min-h-[36px] text-xs ${adoptionBtnPrimary}`}
             onClick={onApprove}
             disabled={reviewPending}
           >
@@ -272,7 +276,7 @@ const ApplicantRequestCard: React.FC<{
           type="button"
           size="sm"
           variant="outline"
-          className="w-full min-h-[36px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+          className="w-full min-h-[36px] text-xs border-landing-mango/30 text-landing-mango-dark"
           onClick={onOpenChat}
         >
           <MessageCircle className="w-4 h-4 mr-2" />
@@ -1027,7 +1031,7 @@ const Adopcion: React.FC = () => {
     switch (status) {
       case 'available': return 'bg-landing-mint/20 text-landing-mint-dark';
       case 'removed': return 'bg-gray-100 text-gray-600';
-      case 'adopted': return 'bg-landing-aqua/20 text-landing-aqua-dark';
+      case 'adopted': return 'bg-landing-mango/20 text-landing-mango-dark';
       default: return 'bg-landing-tropical/30 text-landing-mango-dark';
     }
   };
@@ -1041,16 +1045,23 @@ const Adopcion: React.FC = () => {
     { id: 'chats', label: 'Chats', shortLabel: 'Chats', icon: MessagesSquare, gradientIndex: 4 },
   ];
 
-  const petCardClass = 'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden active:scale-[0.99] transition-all cursor-pointer';
+  const petCardClass = 'rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden active:scale-[0.99] transition-all cursor-pointer';
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Adopción</h1>
         <p className="text-sm text-gray-500">Encuentra tu compañero perfecto</p>
       </div>
 
-      <MobileTabStrip tabs={adoptionTabs} activeTab={activeTab} onChange={setActiveTab} />
+      <MobileTabStrip
+        tabs={adoptionTabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        variant="solid"
+        accent="mango"
+        rowSizes={[3, 3]}
+      />
 
       <div className="space-y-4">
         {/* Application Feedback */}
@@ -1083,7 +1094,7 @@ const Adopcion: React.FC = () => {
                 }
                 setShowOfferDialog(true);
               }}
-              className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+              className={`w-full min-h-[48px] ${adoptionBtnPrimary}`}
             >
               <Megaphone className="w-4 h-4 mr-2" />
               Ofrecer mi mascota en adopción
@@ -1094,7 +1105,7 @@ const Adopcion: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 flex-1 sm:flex-initial min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10 ${showFilters ? 'bg-landing-aqua/10' : ''}`}
+                className={`flex items-center gap-2 flex-1 sm:flex-initial min-h-[44px] border-landing-mango/30 text-landing-mango-dark hover:bg-landing-mango/10 ${showFilters ? 'bg-landing-mango/10' : ''}`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="text-sm">Filtros</span>
@@ -1165,13 +1176,13 @@ const Adopcion: React.FC = () => {
                         <p className="text-xs text-gray-500 line-clamp-1">{pet.breed || 'Mestizo'} · {pet.age ?? 'N/A'} {pet.age === 1 ? 'año' : 'años'}</p>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <MapPin className="w-3 h-3 shrink-0 text-landing-aqua-dark" />
+                        <MapPin className="w-3 h-3 shrink-0 text-landing-mango-dark" />
                         <span className="truncate">{pet.location || 'Sin ubicación'}</span>
                       </div>
                       <div className="flex flex-col gap-1.5 pt-1">
                         <Button
                           size="sm"
-                          className={`w-full min-h-[36px] text-xs ${landingBtnPrimary}`}
+                          className={`w-full min-h-[36px] text-xs ${adoptionBtnPrimary}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setDetailsPet(pet);
@@ -1184,7 +1195,7 @@ const Adopcion: React.FC = () => {
                           className={`w-full min-h-[36px] text-xs ${
                             appliedPetIds.has(pet.id)
                               ? 'bg-gray-200 text-gray-500 cursor-not-allowed hover:bg-gray-200'
-                              : 'bg-gradient-to-r from-landing-mango to-landing-tropical hover:from-landing-mango-dark hover:to-landing-tropical text-white'
+                              : adoptionBtnSolicitar
                           }`}
                           data-blueprint-guided={
                             pet.id === blueprintAdoptionPetId ? 'apply-adoption' : undefined
@@ -1233,7 +1244,7 @@ const Adopcion: React.FC = () => {
                 }
                 setShowOfferDialog(true);
               }}
-              className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+              className={`w-full min-h-[48px] ${adoptionBtnPrimary}`}
             >
               <Plus className="w-4 h-4 mr-2" />
               Nueva publicación
@@ -1242,7 +1253,7 @@ const Adopcion: React.FC = () => {
             {listingsLoading ? (
               <div className="space-y-3">
                 {[...Array(2)].map((_, i) => (
-                  <MobileSectionCard key={i} className="p-4">
+                  <MobileSectionCard variant="plain" key={i} className="p-4">
                     <div className="animate-pulse flex gap-3">
                       <div className="w-20 h-20 bg-gray-200 rounded-xl shrink-0" />
                       <div className="flex-1 space-y-2">
@@ -1254,8 +1265,8 @@ const Adopcion: React.FC = () => {
                 ))}
               </div>
             ) : myListings.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
-                <Megaphone className="w-12 h-12 text-landing-aqua/30 mx-auto mb-3" />
+              <MobileSectionCard variant="plain" className="p-8 text-center">
+                <Megaphone className="w-12 h-12 text-landing-mango/30 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Sin publicaciones</h3>
                 <p className="text-sm text-gray-500">
                   Publica una de tus mascotas para que otras personas puedan adoptarla.
@@ -1268,7 +1279,7 @@ const Adopcion: React.FC = () => {
                   const pendingCount = listingApps.filter((app: any) => app.status === 'pending').length;
 
                   return (
-                    <MobileSectionCard key={listing.id}>
+                    <MobileSectionCard variant="plain" key={listing.id}>
                       <div className="p-4 space-y-3">
                         <div className="flex items-start gap-3">
                           <button
@@ -1313,7 +1324,7 @@ const Adopcion: React.FC = () => {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="w-full min-h-[36px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+                          className="w-full min-h-[36px] text-xs border-landing-mango/30 text-landing-mango-dark"
                           onClick={() => openAdoptionPetProfile(listing)}
                         >
                           <PawPrint className="w-3.5 h-3.5 mr-1" />
@@ -1337,7 +1348,7 @@ const Adopcion: React.FC = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="w-full min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10"
+                              className="w-full min-h-[40px] border-landing-mango/30 text-landing-mango-dark hover:bg-landing-mango/10"
                               onClick={() => handleReactivateListing(listing.id)}
                               disabled={reactivateListing.isPending}
                             >
@@ -1442,7 +1453,7 @@ const Adopcion: React.FC = () => {
                       </div>
                       <Button
                         size="sm"
-                        className={`w-full min-h-[36px] text-xs ${landingBtnPrimary}`}
+                        className={`w-full min-h-[36px] text-xs ${adoptionBtnPrimary}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setDetailsPet(pet);
@@ -1476,7 +1487,7 @@ const Adopcion: React.FC = () => {
                 className={cn(
                   'min-h-[44px] rounded-xl text-sm font-medium transition-all',
                   requestsView === 'sent'
-                    ? 'bg-gradient-to-r from-landing-mango to-landing-tropical text-white shadow-sm'
+                    ? 'bg-landing-mango text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 )}
               >
@@ -1488,7 +1499,7 @@ const Adopcion: React.FC = () => {
                 className={cn(
                   'min-h-[44px] rounded-xl text-sm font-medium transition-all relative',
                   requestsView === 'received'
-                    ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-sm'
+                    ? 'bg-landing-mango text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 )}
               >
@@ -1514,7 +1525,7 @@ const Adopcion: React.FC = () => {
                   ))}
                 </div>
               ) : myApplications.length === 0 ? (
-                <MobileSectionCard className="p-8 text-center">
+                <MobileSectionCard variant="plain" className="p-8 text-center">
                   <CheckCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-1">Sin solicitudes enviadas</h3>
                   <p className="text-sm text-gray-500">
@@ -1528,7 +1539,7 @@ const Adopcion: React.FC = () => {
                     const cancellable = canCancelApplication(application.status);
 
                     return (
-                      <MobileSectionCard key={application.id}>
+                      <MobileSectionCard variant="plain" key={application.id}>
                         <div className="p-4 space-y-3">
                           <div className="flex items-start gap-3">
                             <button
@@ -1543,7 +1554,7 @@ const Adopcion: React.FC = () => {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center text-2xl">
+                                <div className="w-full h-full bg-landing-mango/10 flex items-center justify-center text-2xl">
                                   🐾
                                 </div>
                               )}
@@ -1571,7 +1582,7 @@ const Adopcion: React.FC = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="min-h-[36px] text-[11px] border-landing-aqua/30 text-landing-aqua-dark"
+                              className="min-h-[36px] text-[11px] border-landing-mango/30 text-landing-mango-dark"
                               onClick={() => openAdoptionPetProfile(application.adoption_pets)}
                             >
                               <PawPrint className="w-3.5 h-3.5 mr-1 shrink-0" />
@@ -1595,7 +1606,7 @@ const Adopcion: React.FC = () => {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="w-full min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10"
+                                className="w-full min-h-[40px] border-landing-mango/30 text-landing-mango-dark hover:bg-landing-mango/10"
                                 onClick={() => setActiveTab('chats')}
                               >
                                 <MessagesSquare className="w-4 h-4 mr-2" />
@@ -1634,8 +1645,8 @@ const Adopcion: React.FC = () => {
                 ))}
               </div>
             ) : incomingApplications.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
-                <Inbox className="w-12 h-12 mx-auto mb-3 text-landing-aqua/30" />
+              <MobileSectionCard variant="plain" className="p-8 text-center">
+                <Inbox className="w-12 h-12 mx-auto mb-3 text-landing-mango/30" />
                 <h3 className="text-lg font-semibold text-gray-700 mb-1">Sin solicitudes recibidas</h3>
                 <p className="text-sm text-gray-500 mb-4">
                   Cuando alguien quiera adoptar una mascota que publicaste, la verás aquí
@@ -1644,7 +1655,7 @@ const Adopcion: React.FC = () => {
                   type="button"
                   variant="outline"
                   onClick={() => setActiveTab('mis-publicaciones')}
-                  className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark"
+                  className="min-h-[44px] border-landing-mango/30 text-landing-mango-dark"
                 >
                   Ir a mis publicaciones
                 </Button>
@@ -1694,7 +1705,7 @@ const Adopcion: React.FC = () => {
                   loadAdoptionChatRooms(allChatApplications);
                 }}
                 disabled={loadingChatList}
-                className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark shrink-0"
+                className="min-h-[40px] border-landing-mango/30 text-landing-mango-dark shrink-0"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${loadingChatList ? 'animate-spin' : ''}`} />
                 Actualizar
@@ -1702,11 +1713,11 @@ const Adopcion: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <MobileSectionCard className="p-3 text-center">
+              <MobileSectionCard variant="plain" className="p-3 text-center">
                 <p className="text-xs text-gray-500">Disponibles</p>
                 <p className="text-xl font-bold text-gray-900">{activeChatApplications.length}</p>
               </MobileSectionCard>
-              <MobileSectionCard className="p-3 text-center">
+              <MobileSectionCard variant="plain" className="p-3 text-center">
                 <p className="text-xs text-gray-500">Con mensajes</p>
                 <p className="text-xl font-bold text-landing-mint-dark">
                   {Object.keys(chatRoomsByApplicationId).filter((id) => chatRoomsByApplicationId[id]?.lastMessage).length}
@@ -1717,7 +1728,7 @@ const Adopcion: React.FC = () => {
             {(applicationsLoading || incomingLoading || loadingChatList) ? (
               <div className="space-y-3">
                 {[...Array(2)].map((_, i) => (
-                  <MobileSectionCard key={i} className="p-4">
+                  <MobileSectionCard variant="plain" key={i} className="p-4">
                     <div className="animate-pulse flex gap-3">
                       <div className="w-16 h-16 bg-gray-200 rounded-xl shrink-0" />
                       <div className="flex-1 space-y-2">
@@ -1729,8 +1740,8 @@ const Adopcion: React.FC = () => {
                 ))}
               </div>
             ) : sortedChatApplications.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
-                <MessagesSquare className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+              <MobileSectionCard variant="plain" className="p-8 text-center">
+                <MessagesSquare className="h-12 w-12 text-landing-mango/30 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Sin chats abiertos</h3>
                 <p className="text-sm text-gray-500 mb-4">
                   Cuando una solicitud sea aprobada, podrás chatear aquí para coordinar la adopción.
@@ -1743,7 +1754,7 @@ const Adopcion: React.FC = () => {
                       setRequestsView('sent');
                       setActiveTab('mis-solicitudes');
                     }}
-                    className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark"
+                    className="min-h-[44px] border-landing-mango/30 text-landing-mango-dark"
                   >
                     Ver solicitudes enviadas
                   </Button>
@@ -1771,7 +1782,7 @@ const Adopcion: React.FC = () => {
                   const cardImageAlt = listingPet?.name || 'Mascota';
 
                   return (
-                    <MobileSectionCard key={application.id}>
+                    <MobileSectionCard variant="plain" key={application.id}>
                       <div className="p-4 space-y-3">
                         <div className="flex items-start gap-3">
                           <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100 ring-2 ring-white shadow-sm">
@@ -1811,7 +1822,7 @@ const Adopcion: React.FC = () => {
                         </div>
 
                         {chatRoom?.lastMessage ? (
-                          <div className="p-3 rounded-xl bg-landing-aqua/5 border border-landing-aqua/10">
+                          <div className="p-3 rounded-xl bg-landing-mango/5 border border-landing-mango/10">
                             <p className="text-xs text-gray-600 line-clamp-2">{chatRoom.lastMessage}</p>
                             {chatRoom.lastMessageAt && (
                               <p className="text-[10px] text-gray-400 mt-1">
@@ -1834,7 +1845,7 @@ const Adopcion: React.FC = () => {
                         <Button
                           type="button"
                           onClick={() => handleOpenChat(application)}
-                          className={`w-full min-h-[44px] ${landingBtnPrimary}`}
+                          className={`w-full min-h-[44px] ${adoptionBtnPrimary}`}
                         >
                           <MessageCircle className="w-4 h-4 mr-2" />
                           {chatRoom ? 'Continuar chat' : 'Abrir chat'}
@@ -1879,9 +1890,9 @@ const Adopcion: React.FC = () => {
           }}
         >
           <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[90dvh] flex flex-col p-0 overflow-hidden rounded-2xl">
-            <DialogHeader className="px-4 pt-5 pb-3 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+            <DialogHeader className="px-4 pt-5 pb-3 border-b border-gray-100 bg-landing-mango/10">
               <DialogTitle className="flex items-center gap-2 text-lg">
-                <MessageCircle className="w-5 h-5 text-landing-aqua-dark" />
+                <MessageCircle className="w-5 h-5 text-landing-mango-dark" />
                 {selectedApplication && user?.id === selectedApplication.applicant_id
                   ? `Chat sobre ${selectedApplication.adoption_pets?.name || 'adopción'}`
                   : `Chat con ${selectedApplication?.applicant_name || 'solicitante'}`}
@@ -1963,7 +1974,7 @@ const Adopcion: React.FC = () => {
                             <div
                               className={`rounded-2xl p-3 max-w-[85%] shadow-sm ${
                                 isOwnMessage
-                                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white rounded-br-md'
+                                  ? 'bg-landing-mango text-gray-900 rounded-br-md'
                                   : 'bg-white text-gray-900 border border-gray-100 rounded-bl-md'
                               }`}
                             >
@@ -1999,7 +2010,7 @@ const Adopcion: React.FC = () => {
                   />
                   <Button
                     type="button"
-                    className={landingBtnPrimary}
+                    className={adoptionBtnPrimary}
                     onClick={sendMessage}
                     disabled={sending || loadingChat || !chatRoom || !newMessage.trim()}
                   >
@@ -2019,8 +2030,8 @@ const Adopcion: React.FC = () => {
           open={!!applicationToCancel}
           onOpenChange={(open) => !open && setApplicationToCancel(null)}
         >
-          <AlertDialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-2xl border-landing-aqua/15 p-0 overflow-hidden">
-            <AlertDialogHeader className="px-4 pt-5 pb-3 text-left bg-gradient-to-r from-red-50 to-orange-50 border-b border-gray-100">
+          <AlertDialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-2xl border-landing-mango/30 p-0 overflow-hidden">
+            <AlertDialogHeader className="px-4 pt-5 pb-3 text-left bg-red-50 border-b border-gray-100">
               <AlertDialogTitle className="text-lg font-bold text-gray-900">
                 ¿Cancelar solicitud?
               </AlertDialogTitle>

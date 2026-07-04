@@ -29,6 +29,7 @@ import AdminNutritionRecordsPage from '../pages/AdminNutritionRecordsPage';
 import AdminAdoptionApplicationsPage from '../pages/AdminAdoptionApplicationsPage';
 import AdminBreedingMatchesPage from '../pages/AdminBreedingMatchesPage';
 import AdminLostPetsPage from '../pages/AdminLostPetsPage';
+import AdminDogWalksPage from '../pages/AdminDogWalksPage';
 import AdminDeliveryPage from '../pages/AdminDeliveryPage';
 import AdminDeliveryExpensesPage from '../pages/AdminDeliveryExpensesPage';
 import AdminCostsPage from '../pages/AdminCostsPage';
@@ -41,6 +42,7 @@ import DeliveryDashboard from './DeliveryDashboard';
 import FeedingSchedulesPage from '../pages/FeedingSchedulesPage';
 import Recordatorios from '../pages/Recordatorios';
 import Parejas from '../pages/Parejas';
+import Paseos from '../pages/Paseos';
 import MascotasPerdidas from '../pages/MascotasPerdidas';
 import PetRoom from './PetRoom';
 import MealJournal from './MealJournal';
@@ -51,7 +53,9 @@ import PetHubBlueprint from '../pages/PetHubBlueprint';
 import PetJourney from '../pages/PetJourney';
 import ShelterDetails from './ShelterDetails';
 import PetHubAdminRouter from '../pages/pethub-admin/PetHubAdminRouter';
-import { landingGradients } from '@/lib/landingTheme';
+import { landingGradients, resolvePlainPageAccent } from '@/lib/landingTheme';
+import { ProviderDashboardThemeProvider, useProviderDashboardThemeOptional } from '@/contexts/ProviderDashboardThemeContext';
+import { ShelterDashboardThemeProvider, useShelterDashboardThemeOptional } from '@/contexts/ShelterDashboardThemeContext';
 import { PetBuddyProvider } from '@/contexts/PetBuddyContext';
 import { BlueprintGuidedTourProvider } from '@/contexts/BlueprintGuidedTourContext';
 import { BlueprintGuidedTourGuide } from '@/components/blueprint/BlueprintGuidedTourGuide';
@@ -71,6 +75,56 @@ function PetBuddyWidgetGate() {
       hideFloatingTrigger={usesCenterNavAvatar}
       centeredPanel={usesCenterNavAvatar}
     />
+  );
+}
+
+function AppLayoutBody({
+  usesSharedHeader,
+  userRole,
+  isDeliveryUser,
+  isAdminUser,
+  user,
+  isPlainPage,
+  isProvider,
+  isShelter,
+  plainPageAccent,
+  renderContent,
+}: {
+  usesSharedHeader: boolean;
+  userRole: string | null;
+  isDeliveryUser: boolean;
+  isAdminUser: boolean;
+  user: ReturnType<typeof useAuth>['user'];
+  isPlainPage: boolean;
+  isProvider: boolean;
+  isShelter: boolean;
+  plainPageAccent: ReturnType<typeof resolvePlainPageAccent>;
+  renderContent: () => React.ReactNode;
+}) {
+  const providerTheme = useProviderDashboardThemeOptional();
+  const shelterTheme = useShelterDashboardThemeOptional();
+  const portalTheme = isProvider ? providerTheme : isShelter ? shelterTheme : null;
+  const headerAccent = portalTheme?.accent ?? plainPageAccent ?? 'aqua';
+  const headerVariant = isProvider || isShelter || isPlainPage ? 'solid' : 'gradient';
+
+  return (
+    <div className={`min-h-screen overflow-x-hidden ${isPlainPage || isProvider || isShelter ? 'bg-white' : landingGradients.pageBg}`}>
+      {usesSharedHeader && (
+        <AppMobileHeader
+          showCart={userRole === 'client'}
+          variant={headerVariant}
+          accent={headerAccent}
+        />
+      )}
+      <main className="pb-[calc(3.75rem+env(safe-area-inset-bottom))] overflow-x-hidden">
+        {renderContent()}
+      </main>
+
+      {userRole === 'client' && !isDeliveryUser && !isAdminUser && <Navigation />}
+      {userRole === 'client' && !isDeliveryUser && !isAdminUser && user && <PetBuddyWidgetGate />}
+      {(userRole === 'provider' || userRole === 'shelter') && user && <PetBuddyWidgetGate />}
+      <BlueprintGuidedTourGuide />
+    </div>
   );
 }
 
@@ -180,6 +234,9 @@ const AppLayout: React.FC = () => {
       if (location.pathname === '/admin/lost-pets') {
         return <AdminLostPetsPage />;
       }
+      if (location.pathname === '/admin/dog-walks') {
+        return <AdminDogWalksPage />;
+      }
       // Check if we're on the shelters page
       if (location.pathname === '/admin/shelters') {
         return <AdminSheltersPage />;
@@ -240,6 +297,9 @@ const AppLayout: React.FC = () => {
       }
       if (pathname === '/parejas') {
         return <Parejas />;
+      }
+      if (pathname === '/paseos') {
+        return <Paseos />;
       }
       if (pathname === '/mascotas-perdidas') {
         return <MascotasPerdidas />;
@@ -316,6 +376,8 @@ const AppLayout: React.FC = () => {
           return <Recordatorios />;
         case 'parejas':
           return <Parejas />;
+        case 'paseos':
+          return <Paseos />;
         case 'comunicacion':
           return <Comunicacion />;
         case 'marketplace':
@@ -361,24 +423,38 @@ const AppLayout: React.FC = () => {
     !isAdminUser &&
     (userRole === 'client' || userRole === 'provider' || userRole === 'shelter');
 
+  const plainPageAccent = resolvePlainPageAccent(location.pathname);
+  const isPlainPage = plainPageAccent !== null;
+  const isProvider = userRole === 'provider';
+  const isShelter = userRole === 'shelter';
+
+  const layoutBody = (
+    <AppLayoutBody
+      usesSharedHeader={usesSharedHeader}
+      userRole={userRole}
+      isDeliveryUser={isDeliveryUser}
+      isAdminUser={isAdminUser}
+      user={user}
+      isPlainPage={isPlainPage}
+      isProvider={isProvider}
+      isShelter={isShelter}
+      plainPageAccent={plainPageAccent}
+      renderContent={renderContent}
+    />
+  );
+
   return (
     <NavigationProvider>
       <PetAvatarVisibilityProvider>
         <PetBuddyProvider>
           <BlueprintGuidedTourProvider>
-          <div className={`min-h-screen overflow-x-hidden ${landingGradients.pageBg}`}>
-            {usesSharedHeader && (
-              <AppMobileHeader showCart={userRole === 'client'} />
+            {isProvider ? (
+              <ProviderDashboardThemeProvider>{layoutBody}</ProviderDashboardThemeProvider>
+            ) : isShelter ? (
+              <ShelterDashboardThemeProvider>{layoutBody}</ShelterDashboardThemeProvider>
+            ) : (
+              layoutBody
             )}
-            <main className="pb-[calc(3.75rem+env(safe-area-inset-bottom))] overflow-x-hidden">
-              {renderContent()}
-            </main>
-
-            {userRole === 'client' && !isDeliveryUser && !isAdminUser && <Navigation />}
-            {userRole === 'client' && !isDeliveryUser && !isAdminUser && user && <PetBuddyWidgetGate />}
-            {(userRole === 'provider' || userRole === 'shelter') && user && <PetBuddyWidgetGate />}
-            <BlueprintGuidedTourGuide />
-          </div>
           </BlueprintGuidedTourProvider>
         </PetBuddyProvider>
       </PetAvatarVisibilityProvider>

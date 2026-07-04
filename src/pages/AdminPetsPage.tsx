@@ -30,6 +30,7 @@ import { supabase } from '@/lib/supabase';
 import PageHeader from '@/components/PageHeader';
 import AdminSidebar from '@/components/AdminSidebar';
 import PageLoader from '@/components/PageLoader';
+import { toast } from 'sonner';
 
 interface Pet {
   id: string;
@@ -360,7 +361,7 @@ const AdminPetsPage: React.FC = () => {
       console.log('CSV exportado exitosamente');
     } catch (error) {
       console.error('Error al exportar CSV:', error);
-      alert('Error al exportar el archivo CSV');
+      toast.error('Error al exportar el archivo CSV');
     }
   };
 

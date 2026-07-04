@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MapPin, Navigation } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Fix for default marker icons in React-Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -90,7 +91,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const handleGetCurrentLocation = () => {
     if (readOnly) return;
     if (!navigator.geolocation) {
-      alert('La geolocalización no está disponible en tu navegador');
+      toast.warning('La geolocalización no está disponible en tu navegador');
       return;
     }
 
@@ -105,7 +106,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       },
       (error) => {
         console.error('Error getting location:', error);
-        alert('No se pudo obtener tu ubicación. Por favor, haz clic en el mapa para seleccionarla.');
+        toast.error('No se pudo obtener tu ubicación. Por favor, haz clic en el mapa para seleccionarla.');
         setIsLocating(false);
       }
     );

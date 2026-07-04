@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowRight, CheckCircle2, AlertCircle, CircleDashed, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { landingBtnPrimary, solidIconBgAt } from '@/lib/landingTheme';
 import type { BlueprintDashboard } from '@/lib/blueprint/blueprintMascots';
 import { BLUEPRINT_MASCOTS } from '@/lib/blueprint/blueprintMascots';
 import type { BlueprintSectionView } from '@/lib/blueprint/types';
@@ -109,9 +109,9 @@ export const BlueprintWizardPanel: React.FC<BlueprintWizardPanelProps> = ({
             </div>
             <div className="flex items-start gap-3">
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${
-                  landingFeatureGradients[nextSection.gradientIndex % landingFeatureGradients.length]
-                } text-white shadow-sm`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                  solidIconBgAt(nextSection.gradientIndex)
+                } shadow-sm`}
               >
                 <nextSection.icon size={20} />
               </div>

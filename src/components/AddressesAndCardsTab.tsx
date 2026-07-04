@@ -11,7 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import LocationPicker from './LocationPicker';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnPrimary, plainPageAccentBtn, plainPageAccentOutlineBtn, plainPageAccentUi, type PlainPageAccent } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
 import { MobileSectionCard } from './mobile/MobileUi';
 import { MobileFormDialog, MobileFormActions } from './mobile/MobileFormDialog';
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
@@ -49,9 +50,16 @@ interface PaymentCard {
 interface AddressesAndCardsTabProps {
   userId: string;
   section?: 'addresses' | 'cards';
+  plainUi?: boolean;
+  plainAccent?: PlainPageAccent;
 }
 
-const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, section = 'addresses' }) => {
+const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({
+  userId,
+  section = 'addresses',
+  plainUi = false,
+  plainAccent = 'aqua',
+}) => {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [cards, setCards] = useState<PaymentCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -403,14 +411,21 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
     setCardForm(prev => ({ ...prev, card_number: formatCardNumber(value) }));
   };
 
+  const ui = plainPageAccentUi(plainAccent);
+  const cardVariant = plainUi ? 'plain' as const : 'glass' as const;
+  const primaryBtnClass = plainUi ? plainPageAccentBtn[plainAccent] : landingBtnPrimary;
+  const outlineBtnClass = plainUi
+    ? plainPageAccentOutlineBtn[plainAccent]
+    : 'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
+
   return (
     <div className="space-y-4 pb-4">
       {/* Addresses */}
       {section === 'addresses' && (
-      <MobileSectionCard>
+      <MobileSectionCard variant={cardVariant}>
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-landing-mango to-landing-tropical flex items-center justify-center shrink-0">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white ${plainUi ? 'bg-landing-mango' : 'bg-gradient-to-br from-landing-mango to-landing-tropical'}`}>
               <MapPin className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -421,7 +436,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
           <Button
             data-blueprint-guided="add-address"
             onClick={() => handleOpenAddressModal()}
-            className={`w-full sm:w-auto min-h-[44px] shrink-0 ${landingBtnPrimary}`}
+            className={`w-full sm:w-auto min-h-[44px] shrink-0 ${primaryBtnClass}`}
           >
             <Plus size={18} className="mr-2" />
             Agregar
@@ -439,7 +454,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
           <div className="text-center py-8">
             <MapPin className="w-12 h-12 mx-auto text-landing-mango/40 mb-3" />
             <p className="text-sm text-gray-600 mb-4">No tienes direcciones guardadas</p>
-            <Button data-blueprint-guided="add-address" onClick={() => handleOpenAddressModal()} variant="outline" className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark">
+            <Button data-blueprint-guided="add-address" onClick={() => handleOpenAddressModal()} variant="outline" className={cn('min-h-[44px]', outlineBtnClass)}>
               Agregar primera dirección
             </Button>
           </div>
@@ -463,7 +478,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
                     )}
                   </div>
                   <div className="flex gap-0.5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-10 w-10 text-landing-aqua-dark" onClick={() => handleOpenAddressModal(address)}>
+                    <Button variant="ghost" size="icon" className={cn('h-10 w-10', plainUi ? ui.text : 'text-landing-aqua-dark')} onClick={() => handleOpenAddressModal(address)}>
                       <Edit size={18} />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500" onClick={() => handleDeleteAddress(address.id)}>
@@ -474,7 +489,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
                 <div className="space-y-1.5 text-sm text-gray-600">
                   <p className="font-medium text-gray-800">{address.full_name}</p>
                   <p className="flex items-center gap-2">
-                    <Phone size={14} className="shrink-0 text-landing-aqua-dark" />
+                    <Phone size={14} className={cn('shrink-0', plainUi ? ui.text : 'text-landing-aqua-dark')} />
                     {address.phone}
                   </p>
                   <p className="flex items-start gap-2">
@@ -497,10 +512,10 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
 
       {/* Payment cards */}
       {section === 'cards' && (
-      <MobileSectionCard>
+      <MobileSectionCard variant={cardVariant}>
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint flex items-center justify-center shrink-0">
+            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', plainUi ? ui.iconBg : 'bg-gradient-to-br from-landing-aqua to-landing-mint text-white')}>
               <CreditCard className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -511,7 +526,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
           <Button
             data-blueprint-guided="add-card"
             onClick={() => handleOpenCardModal()}
-            className={`w-full sm:w-auto min-h-[44px] shrink-0 bg-gradient-to-r from-landing-aqua to-landing-mint hover:from-landing-aqua-dark hover:to-landing-mint-dark text-white`}
+            className={`w-full sm:w-auto min-h-[44px] shrink-0 ${primaryBtnClass}`}
           >
             <Plus size={18} className="mr-2" />
             Agregar
@@ -527,9 +542,9 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
           </div>
         ) : cards.length === 0 ? (
           <div className="text-center py-8">
-            <CreditCard className="w-12 h-12 mx-auto text-landing-aqua/40 mb-3" />
+            <CreditCard className={cn('w-12 h-12 mx-auto mb-3', plainUi ? ui.iconMuted : 'text-landing-aqua/40')} />
             <p className="text-sm text-gray-600 mb-4">No tienes tarjetas guardadas</p>
-            <Button data-blueprint-guided="add-card" onClick={() => handleOpenCardModal()} variant="outline" className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark">
+            <Button data-blueprint-guided="add-card" onClick={() => handleOpenCardModal()} variant="outline" className={cn('min-h-[44px]', outlineBtnClass)}>
               Agregar primera tarjeta
             </Button>
           </div>
@@ -539,21 +554,23 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
               <div
                 key={card.id}
                 className={`rounded-xl border p-4 ${
-                  card.is_default ? 'border-landing-aqua/50 bg-landing-aqua/5' : 'border-gray-100 bg-gray-50/50'
+                  card.is_default
+                    ? cn(plainUi ? cn(ui.borderActive, ui.bgSoft) : 'border-landing-aqua/50 bg-landing-aqua/5')
+                    : 'border-gray-100 bg-gray-50/50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-semibold text-gray-900">{card.label}</h4>
                     {card.is_default && (
-                      <Badge className="bg-landing-aqua/20 text-landing-aqua-dark border-landing-aqua/30 text-xs">
+                      <Badge className={cn('text-xs', plainUi ? ui.badge : 'bg-landing-aqua/20 text-landing-aqua-dark border-landing-aqua/30')}>
                         <Star size={10} className="mr-1" />
                         Default
                       </Badge>
                     )}
                   </div>
                   <div className="flex gap-0.5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-10 w-10 text-landing-aqua-dark" onClick={() => handleOpenCardModal(card)}>
+                    <Button variant="ghost" size="icon" className={cn('h-10 w-10', plainUi ? ui.text : 'text-landing-aqua-dark')} onClick={() => handleOpenCardModal(card)}>
                       <Edit size={18} />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500" onClick={() => handleDeleteCard(card.id)}>
@@ -569,7 +586,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
                   <span className="text-xs text-gray-500">
                     Exp. {card.expiry_month.toString().padStart(2, '0')}/{card.expiry_year}
                   </span>
-                  <Badge variant="outline" className="text-xs border-landing-aqua/20">
+                  <Badge variant="outline" className={cn('text-xs', plainUi ? ui.borderLight : 'border-landing-aqua/20')}>
                     {card.card_type}
                   </Badge>
                 </div>
@@ -587,6 +604,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
         onOpenChange={setAddressModalOpen}
         title={editingAddress ? 'Editar Dirección' : 'Agregar Nueva Dirección'}
         description="Datos de entrega para tus pedidos"
+        accent={plainUi ? plainAccent : 'aqua'}
         footer={
           <MobileFormActions
             formId={addressFormId}
@@ -594,6 +612,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
             submitLabel={editingAddress ? 'Actualizar' : 'Guardar'}
             loading={savingAddress}
             submitDisabled={savingAddress}
+            accent={plainUi ? plainAccent : 'aqua'}
           />
         }
       >
@@ -688,7 +707,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
             />
           </div>
 
-          <div className="flex items-center gap-3 min-h-[44px] p-3 rounded-xl bg-landing-mint/5 border border-landing-mint/20">
+          <div className={cn('flex items-center gap-3 min-h-[44px] p-3 rounded-xl border', plainUi ? cn(ui.bgSoft, ui.borderLight) : 'bg-landing-mint/5 border-landing-mint/20')}>
             <Checkbox
               id="address-default"
               checked={addressForm.is_default}
@@ -707,6 +726,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
         onOpenChange={setCardModalOpen}
         title={editingCard ? 'Editar Tarjeta' : 'Agregar Nueva Tarjeta'}
         description="Método de pago para tus compras"
+        accent={plainUi ? plainAccent : 'aqua'}
         footer={
           <MobileFormActions
             formId={cardFormId}
@@ -714,6 +734,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
             submitLabel={editingCard ? 'Actualizar' : 'Guardar'}
             loading={savingCard}
             submitDisabled={savingCard}
+            accent={plainUi ? plainAccent : 'aqua'}
           />
         }
       >
@@ -812,7 +833,7 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
             </div>
           </div>
 
-          <div className="flex items-center gap-3 min-h-[44px] p-3 rounded-xl bg-landing-mint/5 border border-landing-mint/20">
+          <div className={cn('flex items-center gap-3 min-h-[44px] p-3 rounded-xl border', plainUi ? cn(ui.bgSoft, ui.borderLight) : 'bg-landing-mint/5 border-landing-mint/20')}>
             <Checkbox
               id="card-default"
               checked={cardForm.is_default}
@@ -823,8 +844,8 @@ const AddressesAndCardsTab: React.FC<AddressesAndCardsTabProps> = ({ userId, sec
             </Label>
           </div>
 
-          <div className="bg-landing-aqua/10 border border-landing-aqua/20 p-3 rounded-xl">
-            <p className="text-sm text-landing-aqua-dark">
+          <div className={cn('p-3 rounded-xl', plainUi ? cn(ui.bgSoft, ui.borderLight, 'border') : 'bg-landing-aqua/10 border border-landing-aqua/20')}>
+            <p className={cn('text-sm', plainUi ? ui.text : 'text-landing-aqua-dark')}>
               Tu información de pago está protegida. Solo almacenamos los últimos 4 dígitos de tu tarjeta.
             </p>
           </div>

@@ -21,7 +21,7 @@ export const RoleBenefitsExplorer: React.FC<RoleBenefitsExplorerProps> = ({
 
   return (
     <section className="relative py-20 md:py-28 overflow-hidden bg-white">
-      <div className="absolute inset-0 bg-gradient-to-b from-landing-aqua/5 via-transparent to-landing-mint/5 pointer-events-none" />
+      <div className="absolute inset-0 bg-landing-aqua/5 pointer-events-none" />
       <LandingPetDecorations preset="section" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -44,7 +44,7 @@ export const RoleBenefitsExplorer: React.FC<RoleBenefitsExplorerProps> = ({
               onClick={() => onRoleChange(role.id as PublicFeatureRole)}
               className={`px-4 md:px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
                 activeRoleId === role.id
-                  ? `bg-gradient-to-r ${role.gradient} text-white shadow-lg scale-105`
+                  ? `${role.gradient} ${role.colorText} shadow-lg scale-105`
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
               }`}
             >
@@ -64,8 +64,8 @@ export const RoleBenefitsExplorer: React.FC<RoleBenefitsExplorerProps> = ({
                   key={outcome.title}
                   className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md hover:border-landing-aqua/20 transition-all"
                 >
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${roleData.gradient} flex items-center justify-center mb-3 shadow-sm`}>
-                    <outcome.icon className="w-5 h-5 text-white" />
+                  <div className={`w-10 h-10 rounded-xl ${roleData.gradient} flex items-center justify-center mb-3 shadow-sm`}>
+                    <outcome.icon className={`w-5 h-5 ${roleData.colorText}`} />
                   </div>
                   <h3 className="text-sm font-bold text-gray-900 mb-1.5 leading-snug">{outcome.title}</h3>
                   <p className="text-xs text-gray-600 leading-relaxed">{outcome.description}</p>
@@ -81,7 +81,7 @@ export const RoleBenefitsExplorer: React.FC<RoleBenefitsExplorerProps> = ({
               <ul className="space-y-3">
                 {profile.scenarios.map((scenario) => (
                   <li key={scenario} className="flex items-start gap-3 text-sm text-gray-700 leading-relaxed">
-                    <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 bg-gradient-to-r ${roleData.gradient}`} />
+                    <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${roleData.gradient}`} />
                     {scenario}
                   </li>
                 ))}

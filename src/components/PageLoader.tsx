@@ -1,7 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { landingGradients } from '@/lib/landingTheme';
 
 export type PageLoaderVariant = 'full' | 'inline' | 'skeleton';
 export type SpinnerSize = 'sm' | 'md' | 'lg';
@@ -22,9 +21,8 @@ export const LandingSpinner: React.FC<LandingSpinnerProps> = ({ size = 'md', cla
   return (
     <div
       className={cn(
-        'flex items-center justify-center shadow-lg ring-2 ring-white/60',
+        'flex items-center justify-center shadow-lg ring-2 ring-white/60 bg-landing-aqua',
         s.box,
-        landingGradients.primary,
         className
       )}
     >
@@ -124,12 +122,10 @@ export const PageLoader: React.FC<PageLoaderProps> = ({
   return (
     <div
       className={cn(
-        'min-h-screen flex items-center justify-center relative overflow-hidden',
-        landingGradients.pageBg,
+        'min-h-screen flex items-center justify-center bg-white',
         className
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/5 via-transparent to-landing-mint/10 pointer-events-none" />
       <div className="relative z-10">{content}</div>
     </div>
   );

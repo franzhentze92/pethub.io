@@ -4,7 +4,7 @@ import {
   MapPin, Calendar, PawPrint, Users, Heart, ShieldCheck, Weight,
   Stethoscope, DollarSign, AlertCircle, CheckCircle, XCircle, Phone, Zap, Home,
 } from 'lucide-react';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import { formatSpeciesLabel } from '@/utils/petLabels';
 import { PetPhotoCarousel } from '@/components/mobile/PetPhotoCarousel';
@@ -51,7 +51,7 @@ const InfoChip = ({
   value: React.ReactNode;
 }) => (
   <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/70 border border-gray-100">
-    <span className="text-landing-aqua-dark shrink-0 mt-0.5">{icon}</span>
+    <span className="text-landing-mango-dark shrink-0 mt-0.5">{icon}</span>
     <div className="min-w-0">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="text-sm font-semibold text-gray-900">{value}</p>
@@ -97,7 +97,7 @@ const AdoptionPetDetails: React.FC<AdoptionPetDetailsProps> = ({
           'flex flex-col gap-0 p-0 overflow-hidden',
           'w-[calc(100vw-0.5rem)] max-w-lg',
           'max-h-[96dvh] sm:max-h-[92dvh]',
-          'rounded-2xl border-landing-aqua/15'
+          'rounded-2xl border-landing-mango/15'
         )}
       >
         {/* Hero image */}
@@ -154,7 +154,7 @@ const AdoptionPetDetails: React.FC<AdoptionPetDetailsProps> = ({
         {/* Scrollable body */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-5">
           {pet.description && (
-            <div className="rounded-xl bg-landing-aqua/5 border border-landing-aqua/15 p-4">
+            <div className="rounded-xl bg-landing-mango/5 border border-landing-mango/15 p-4">
               <SectionTitle>Descripción</SectionTitle>
               <p className="text-sm text-gray-700 mt-2 leading-relaxed">{pet.description}</p>
             </div>
@@ -239,8 +239,8 @@ const AdoptionPetDetails: React.FC<AdoptionPetDetailsProps> = ({
           )}
 
           {pet.medical_notes && (
-            <div className="rounded-xl bg-landing-aqua/5 border border-landing-aqua/20 p-4">
-              <h4 className="font-semibold text-landing-aqua-dark mb-1.5 flex items-center gap-2 text-sm">
+            <div className="rounded-xl bg-landing-mango/5 border border-landing-mango/20 p-4">
+              <h4 className="font-semibold text-landing-mango-dark mb-1.5 flex items-center gap-2 text-sm">
                 <Stethoscope className="w-4 h-4" />
                 Notas médicas
               </h4>
@@ -252,20 +252,20 @@ const AdoptionPetDetails: React.FC<AdoptionPetDetailsProps> = ({
             <div className="rounded-xl border border-gray-100 bg-white/70 p-4">
               <SectionTitle>Albergue</SectionTitle>
               <div className="flex items-start gap-3 mt-3">
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-landing-aqua to-landing-mint text-white flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-full bg-landing-mango text-gray-900 flex items-center justify-center shrink-0">
                   <Users className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900">{pet.shelters.name}</p>
                   {pet.shelters.location && (
                     <p className="flex items-center gap-1.5 text-sm text-gray-600 mt-1">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 text-landing-aqua-dark" />
+                      <MapPin className="w-3.5 h-3.5 shrink-0 text-landing-mango-dark" />
                       {pet.shelters.location}
                     </p>
                   )}
                   {pet.shelters.phone && (
                     <p className="flex items-center gap-1.5 text-sm text-gray-600 mt-1">
-                      <Phone className="w-3.5 h-3.5 shrink-0 text-landing-aqua-dark" />
+                      <Phone className="w-3.5 h-3.5 shrink-0 text-landing-mango-dark" />
                       {pet.shelters.phone}
                     </p>
                   )}
@@ -276,7 +276,7 @@ const AdoptionPetDetails: React.FC<AdoptionPetDetailsProps> = ({
               </div>
             </div>
           ) : !pet.shelter_id ? (
-            <div className="rounded-xl border border-landing-aqua/15 bg-landing-aqua/5 p-4">
+            <div className="rounded-xl border border-landing-mango/15 bg-landing-mango/5 p-4">
               <SectionTitle>Dueño particular</SectionTitle>
               <p className="text-sm text-gray-600 mt-2 leading-relaxed">
                 Esta mascota la ofrece directamente su dueño actual, no un albergue.
@@ -332,7 +332,7 @@ const AdoptionPetDetails: React.FC<AdoptionPetDetailsProps> = ({
                 'w-full sm:flex-1 min-h-[48px] rounded-xl font-semibold text-sm transition-colors',
                 hasApplied || isOwnListing
                   ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : landingBtnPrimary
+                  : plainPageAccentBtn.aqua
               )}
               data-blueprint-guided={!hasApplied && !isOwnListing ? 'apply-adoption' : undefined}
               onClick={onApply}

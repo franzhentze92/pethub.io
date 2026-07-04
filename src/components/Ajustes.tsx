@@ -12,9 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import AddressesAndCardsTab from './AddressesAndCardsTab';
 import { DashboardShell } from './dashboard/DashboardShell';
+import PageHeader from './PageHeader';
 import { MobileTabStrip } from './mobile/MobileTabStrip';
 import { MobileInfoRow, MobileSectionCard, MobileFab } from './mobile/MobileUi';
-import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { landingBtnSolidTropical, plainPageAccentBtn, plainPageAccentUi, type PlainPageAccent } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+
+const SETTINGS_ACCENT: PlainPageAccent = 'tropical';
+const settingsUi = plainPageAccentUi(SETTINGS_ACCENT);
+const settingsBtn = plainPageAccentBtn[SETTINGS_ACCENT];
 import { getPetImageUrls } from '@/utils/petImages';
 import { PetAvatar } from '@/components/PetAvatar';
 import { formatSpeciesLabel } from '@/utils/petLabels';
@@ -103,40 +109,41 @@ const Ajustes: React.FC = () => {
     .slice(0, 2);
 
   return (
-    <DashboardShell>
-      {/* Mobile-first page title */}
-      <div className="space-y-1 mt-1">
-        <h1 className="text-2xl font-bold text-gray-900">Ajustes</h1>
-        <p className="text-sm text-gray-500">Perfil, mascotas, pagos y notificaciones</p>
-      </div>
+    <DashboardShell variant="plain">
+      <PageHeader
+        variant="solid"
+        accent="tropical"
+        title="Ajustes"
+        subtitle="Perfil, mascotas, pagos y notificaciones"
+      />
 
-      <MobileTabStrip tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <MobileTabStrip tabs={tabs} activeTab={activeTab} onChange={setActiveTab} variant="solid" accent="tropical" rowSizes={[3, 2]} />
 
-      <MobileSectionCard className="p-4">
+      <MobileSectionCard variant="plain" className="p-4">
         <button
           type="button"
           onClick={() => navigate('/pet-hub-blueprint')}
           className="w-full flex items-center gap-3 text-left group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-landing-mango to-landing-tropical text-white shadow-sm">
+          <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm', settingsUi.iconBg)}>
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 group-hover:text-landing-aqua-dark transition-colors">
+            <h3 className="font-semibold text-gray-900 group-hover:text-landing-mango-dark transition-colors">
               PetHub Blueprint
             </h3>
             <p className="text-sm text-gray-500 mt-0.5">
               Conecta tu ecosistema y guía a Atis paso a paso
             </p>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 group-hover:text-landing-aqua-dark transition-colors" />
+          <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 group-hover:text-landing-mango-dark transition-colors" />
         </button>
       </MobileSectionCard>
 
       {/* ——— Perfil ——— */}
       {activeTab === 'perfil' && (
         <div className="space-y-4">
-          <MobileSectionCard>
+          <MobileSectionCard variant="plain">
             {profileLoading ? (
               <div className="p-5 space-y-4">
                 <div className="flex flex-col items-center">
@@ -150,7 +157,7 @@ const Ajustes: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="px-5 pt-6 pb-4 text-center bg-gradient-to-b from-landing-aqua/10 to-transparent">
+                <div className="px-5 pt-6 pb-4 text-center">
                   {userProfile?.avatar_url ? (
                     <img
                       src={userProfile.avatar_url}
@@ -158,7 +165,7 @@ const Ajustes: React.FC = () => {
                       className="w-24 h-24 mx-auto rounded-full object-cover ring-4 ring-white shadow-lg"
                     />
                   ) : (
-                    <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-landing-aqua to-landing-mango flex items-center justify-center text-white text-2xl font-bold shadow-lg ring-4 ring-white">
+                    <div className={cn('w-24 h-24 mx-auto rounded-full flex items-center justify-center text-2xl font-bold shadow-lg ring-4 ring-white', settingsUi.iconBg)}>
                       {initials}
                     </div>
                   )}
@@ -181,7 +188,7 @@ const Ajustes: React.FC = () => {
                     data-blueprint-guided="edit-profile"
                     onClick={handleEditProfile}
                     disabled={profileLoading}
-                    className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+                    className={cn('w-full min-h-[48px] border-0', settingsBtn)}
                   >
                     <Edit size={18} className="mr-2" />
                     Editar perfil
@@ -193,29 +200,29 @@ const Ajustes: React.FC = () => {
 
           {/* Quick stats */}
           <div className="grid grid-cols-2 gap-3">
-            <MobileSectionCard className="p-4 text-center">
-              <Dog className="w-6 h-6 mx-auto text-landing-mint-dark mb-1" />
+            <MobileSectionCard variant="plain" className="p-4 text-center">
+              <Dog className={cn('w-6 h-6 mx-auto mb-1', settingsUi.text)} />
               <p className="text-2xl font-bold text-gray-900">{pets?.length ?? 0}</p>
               <p className="text-xs text-gray-500">Mascotas</p>
             </MobileSectionCard>
-            <MobileSectionCard className="p-4 text-center">
+            <MobileSectionCard variant="plain" className="p-4 text-center">
               <MapPin className="w-6 h-6 mx-auto text-landing-mango-dark mb-1" />
               <p className="text-sm font-semibold text-gray-900 mt-1">Direcciones</p>
               <button
                 type="button"
                 onClick={() => setActiveTab('direcciones')}
-                className="text-xs text-landing-aqua-dark font-medium mt-1"
+                className={cn('text-xs font-medium mt-1', settingsUi.text)}
               >
                 Gestionar →
               </button>
             </MobileSectionCard>
-            <MobileSectionCard className="p-4 text-center">
-              <CreditCard className="w-6 h-6 mx-auto text-landing-aqua-dark mb-1" />
+            <MobileSectionCard variant="plain" className="p-4 text-center">
+              <CreditCard className={cn('w-6 h-6 mx-auto mb-1', settingsUi.text)} />
               <p className="text-sm font-semibold text-gray-900 mt-1">Tarjetas</p>
               <button
                 type="button"
                 onClick={() => setActiveTab('tarjetas')}
-                className="text-xs text-landing-aqua-dark font-medium mt-1"
+                className={cn('text-xs font-medium mt-1', settingsUi.text)}
               >
                 Gestionar →
               </button>
@@ -223,9 +230,9 @@ const Ajustes: React.FC = () => {
           </div>
 
           {isPetHubAdminUser(user?.email) && (
-            <MobileSectionCard className="p-4">
+            <MobileSectionCard variant="plain" className="p-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white">
+                <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', settingsUi.iconBg)}>
                   <Shield className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -236,7 +243,7 @@ const Ajustes: React.FC = () => {
                   <Button
                     type="button"
                     onClick={() => navigate('/pethub-admin')}
-                    className={`mt-3 min-h-[44px] ${landingBtnPrimary}`}
+                    className={cn('mt-3 min-h-[44px] border-0', settingsBtn)}
                   >
                     Abrir panel
                   </Button>
@@ -245,7 +252,7 @@ const Ajustes: React.FC = () => {
             </MobileSectionCard>
           )}
 
-          <MobileSectionCard className="p-4">
+          <MobileSectionCard variant="plain" className="p-4">
             <Button
               type="button"
               variant="outline"
@@ -268,18 +275,18 @@ const Ajustes: React.FC = () => {
               Controla qué avisos ves en la app y cuáles llegan a tu dispositivo
             </p>
           </div>
-          <NotificationPreferencesSettings />
+          <NotificationPreferencesSettings plainUi plainAccent="tropical" />
         </div>
       )}
 
       {/* ——— Direcciones ——— */}
       {activeTab === 'direcciones' && (
-        <AddressesAndCardsTab userId={user?.id || ''} section="addresses" />
+        <AddressesAndCardsTab userId={user?.id || ''} section="addresses" plainUi plainAccent="tropical" />
       )}
 
       {/* ——— Tarjetas ——— */}
       {activeTab === 'tarjetas' && (
-        <AddressesAndCardsTab userId={user?.id || ''} section="cards" />
+        <AddressesAndCardsTab userId={user?.id || ''} section="cards" plainUi plainAccent="tropical" />
       )}
 
       {/* ——— Mascotas ——— */}
@@ -296,7 +303,7 @@ const Ajustes: React.FC = () => {
               <Button
                 data-blueprint-guided="add-pet"
                 onClick={handleAddPet}
-                className={`hidden md:flex shrink-0 min-h-[44px] ${landingBtnPrimary}`}
+                className={cn('hidden md:flex shrink-0 min-h-[44px] border-0', settingsBtn)}
               >
                 <Plus size={18} className="mr-2" />
                 Agregar mascota
@@ -307,7 +314,7 @@ const Ajustes: React.FC = () => {
           {petsLoading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
-                <MobileSectionCard key={i} className="p-4">
+                <MobileSectionCard variant="plain" key={i} className="p-4">
                   <div className="flex gap-3">
                     <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
                     <div className="flex-1 space-y-2">
@@ -321,11 +328,10 @@ const Ajustes: React.FC = () => {
             </div>
           ) : pets && pets.length > 0 ? (
             <div className="space-y-3">
-              {pets.map((pet, index) => {
-                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+              {pets.map((pet) => {
                 const photoCount = getPetImageUrls(pet).length;
                 return (
-                  <MobileSectionCard key={pet.id} className="p-4">
+                  <MobileSectionCard variant="plain" key={pet.id} className="p-4">
                     <button
                       type="button"
                       onClick={() => setViewingPet(pet)}
@@ -362,7 +368,7 @@ const Ajustes: React.FC = () => {
                             </span>
                           )}
                           {pet.available_for_breeding && (
-                            <span className="text-xs bg-landing-mint/15 text-landing-mint-dark px-2 py-0.5 rounded-full">
+                            <span className={cn('text-xs px-2 py-0.5 rounded-full', settingsUi.badge)}>
                               Reproducción
                             </span>
                           )}
@@ -379,7 +385,7 @@ const Ajustes: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setViewingPet(pet)}
-                        className="flex flex-col items-center gap-1 py-2 rounded-xl text-landing-aqua-dark hover:bg-landing-aqua/10 active:bg-landing-aqua/15 min-h-[56px] justify-center"
+                        className={cn('flex flex-col items-center gap-1 py-2 rounded-xl min-h-[56px] justify-center', settingsUi.text, settingsUi.hoverBg)}
                       >
                         <Eye size={20} />
                         <span className="text-[10px] font-medium">Ver</span>
@@ -403,7 +409,7 @@ const Ajustes: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => navigate(`/pet-journey/${pet.id}`)}
-                          className={`flex flex-col items-center gap-1 py-2 rounded-xl text-white bg-gradient-to-r ${gradient} shadow-sm min-h-[56px] justify-center`}
+                          className={cn('flex flex-col items-center gap-1 py-2 rounded-xl shadow-sm min-h-[56px] justify-center border-0', settingsBtn)}
                         >
                           <Home size={20} />
                           <span className="text-[10px] font-medium">Journey</span>
@@ -414,13 +420,13 @@ const Ajustes: React.FC = () => {
               })}
             </div>
           ) : (
-            <MobileSectionCard className="p-8 text-center">
+            <MobileSectionCard variant="plain" className="p-8 text-center">
               <div className="text-5xl mb-3">🐾</div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">Sin mascotas aún</h3>
               <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
                 Agrega tu primera mascota para gestionar su salud, nutrición y más
               </p>
-              <Button data-blueprint-guided="add-pet" onClick={handleAddPet} className={`min-h-[48px] ${landingBtnPrimary}`}>
+              <Button data-blueprint-guided="add-pet" onClick={handleAddPet} className={cn('min-h-[48px] border-0', settingsBtn)}>
                 <Plus size={18} className="mr-2" />
                 Agregar mascota
               </Button>
@@ -428,7 +434,7 @@ const Ajustes: React.FC = () => {
           )}
 
           {pets && pets.length > 0 && (
-            <MobileFab onClick={handleAddPet} label="Agregar" icon={<Plus size={20} />} className="md:hidden" data-blueprint-guided="add-pet" />
+            <MobileFab onClick={handleAddPet} label="Agregar" icon={<Plus size={20} />} variant="solid" accent="tropical" className="md:hidden" data-blueprint-guided="add-pet" />
           )}
         </div>
       )}
@@ -438,6 +444,7 @@ const Ajustes: React.FC = () => {
           isOpen={editProfileOpen}
           onClose={() => setEditProfileOpen(false)}
           profile={userProfile}
+          accent="tropical"
         />
       )}
 
@@ -449,6 +456,7 @@ const Ajustes: React.FC = () => {
         }}
         pet={editingPet}
         ownerId={user?.id || ''}
+        accent="tropical"
       />
 
       <PetDetailsModal
@@ -458,6 +466,7 @@ const Ajustes: React.FC = () => {
         onEdit={handleEditPet}
         onDelete={handleDeletePet}
         onJourney={(petId) => navigate(`/pet-journey/${petId}`)}
+        accent="tropical"
       />
 
       <DeletePetDialog

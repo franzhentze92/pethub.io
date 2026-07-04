@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { landingBadge, landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBadge, landingBtnSolid } from '@/lib/landingTheme';
 
 interface Invoice {
   id: string;
@@ -53,7 +53,7 @@ interface InvoiceViewerProps {
 const dialogShellClass =
   'w-[calc(100vw-1rem)] max-w-3xl max-h-[92vh] p-0 gap-0 overflow-hidden flex flex-col rounded-2xl border-landing-aqua/20 shadow-xl';
 const dialogHeaderClass =
-  'shrink-0 px-4 sm:px-6 pt-5 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5';
+  'shrink-0 px-4 sm:px-6 pt-5 pb-4 border-b border-landing-aqua/10 bg-landing-aqua/10';
 const outlineBtnClass = 'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
 
 const getPaymentMethodName = (method: string) => {
@@ -201,7 +201,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-4 sm:py-5" id="invoice-content">
           {/* Brand header */}
-          <div className="rounded-2xl bg-gradient-to-r from-landing-aqua to-landing-mint p-4 sm:p-5 text-white mb-4">
+          <div className="rounded-2xl bg-landing-aqua p-4 sm:p-5 text-white mb-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="text-2xl sm:text-3xl font-bold tracking-tight">PetHub</p>
@@ -222,7 +222,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
 
           {/* Client + meta */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-            <div className="rounded-xl border border-landing-aqua/15 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 p-4">
+            <div className="rounded-xl border border-landing-aqua/15 bg-landing-aqua/5 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-landing-aqua-dark mb-2">
                 Facturar a
               </p>
@@ -332,7 +332,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
           </div>
 
           {/* Totals */}
-          <div className="rounded-xl border border-landing-aqua/15 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 p-4 ml-auto max-w-sm">
+          <div className="rounded-xl border border-landing-aqua/15 bg-landing-aqua/5 p-4 ml-auto max-w-sm">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
@@ -392,7 +392,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ isOpen, onClose, orderId 
         </div>
 
         <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-landing-aqua/10 bg-gray-50/80 no-print">
-          <Button onClick={onClose} className={cn(landingBtnPrimary, 'w-full sm:w-auto border-0')}>
+          <Button onClick={onClose} className={cn(landingBtnSolid, 'w-full sm:w-auto border-0')}>
             Cerrar
           </Button>
         </div>

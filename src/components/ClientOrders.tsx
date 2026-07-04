@@ -30,13 +30,12 @@ import {
   Phone,
   Store,
 } from 'lucide-react';
-import PageHeader from './PageHeader';
 import ReviewModal from './ReviewModal';
 import InvoiceViewer from './InvoiceViewer';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary, landingFeatureGradients, landingHeaderActionBtn } from '@/lib/landingTheme';
+import { landingBtnSolid } from '@/lib/landingTheme';
 import { resolveFulfillmentMethod, fulfillmentLabel } from '@/lib/orderFulfillment';
 import { cn } from '@/lib/utils';
 import OrderItemPetsList from './OrderItemPetsList';
@@ -56,7 +55,7 @@ import {
 } from '@/utils/clientOrdersNotifications';
 
 const filterPanelClass =
-  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
+  'rounded-2xl bg-white border border-gray-100 shadow-sm p-4 space-y-4';
 
 interface OrderItem {
   id: string;
@@ -890,9 +889,8 @@ const ClientOrders: React.FC = () => {
 
   const renderStatusChips = () => (
     <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-      {statusChips.map((chip, index) => {
+      {statusChips.map((chip) => {
         const active = statusFilter === chip.id;
-        const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
         return (
           <button
             key={chip.id}
@@ -901,8 +899,8 @@ const ClientOrders: React.FC = () => {
             className={cn(
               'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all duration-200 text-center leading-tight',
               active
-                ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-                : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 hover:text-landing-aqua-dark shadow-sm'
+                ? 'bg-landing-aqua text-white shadow-sm'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-landing-aqua/40 hover:text-landing-aqua-dark',
             )}
           >
             {chip.label}
@@ -1004,7 +1002,7 @@ const ClientOrders: React.FC = () => {
     const hasUnread = orderHasUnread(order.id, order.status);
 
     return (
-      <MobileSectionCard
+      <MobileSectionCard variant="plain"
         key={order.id}
         className={cn('p-4', hasUnread && 'ring-2 ring-amber-300/80 ring-offset-1')}
       >
@@ -1013,7 +1011,7 @@ const ClientOrders: React.FC = () => {
             {previewImage ? (
               <img src={previewImage} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
+              <div className="w-full h-full flex items-center justify-center bg-landing-aqua/15">
                 <Package className="w-7 h-7 text-landing-aqua-dark" />
               </div>
             )}
@@ -1095,7 +1093,7 @@ const ClientOrders: React.FC = () => {
             </div>
           )}
           {order.status === 'delivered' && (
-            <Button size="sm" onClick={() => handleOrderAgain(order)} className={cn('min-h-[40px] col-span-2', landingBtnPrimary)}>
+            <Button size="sm" onClick={() => handleOrderAgain(order)} className={cn('min-h-[40px] col-span-2', landingBtnSolid)}>
               <RefreshCw className="w-4 h-4 mr-1" />
               Pedir de nuevo
             </Button>
@@ -1111,7 +1109,7 @@ const ClientOrders: React.FC = () => {
     const hasUnread = reservationHasUnread(reservation.id, reservation.status);
 
     return (
-      <MobileSectionCard
+      <MobileSectionCard variant="plain"
         key={reservation.id}
         className={cn('p-4', hasUnread && 'ring-2 ring-amber-300/80 ring-offset-1')}
       >
@@ -1120,7 +1118,7 @@ const ClientOrders: React.FC = () => {
             {serviceImage ? (
               <img src={serviceImage} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-mango/20 to-landing-tropical/20">
+              <div className="w-full h-full flex items-center justify-center bg-landing-mango/15">
                 <Scissors className="w-7 h-7 text-landing-mango-dark" />
               </div>
             )}
@@ -1195,7 +1193,7 @@ const ClientOrders: React.FC = () => {
     const Icon = isPedidos ? ShoppingCart : CalendarDays;
 
     return (
-      <MobileSectionCard className="p-8 text-center">
+      <MobileSectionCard variant="plain" className="p-8 text-center">
         <Icon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-700 mb-2">
           {isEmpty
@@ -1213,7 +1211,7 @@ const ClientOrders: React.FC = () => {
         </p>
         <Button
           onClick={() => navigate(isPedidos ? '/marketplace/products' : '/marketplace/services')}
-          className={landingBtnPrimary}
+          className={landingBtnSolid}
         >
           {isPedidos ? 'Explorar productos' : 'Reservar servicio'}
         </Button>
@@ -1223,7 +1221,7 @@ const ClientOrders: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <div className="space-y-4 animate-pulse">
           <div className="h-28 rounded-2xl bg-white/60" />
           <div className="h-12 rounded-full bg-white/60" />
@@ -1236,31 +1234,30 @@ const ClientOrders: React.FC = () => {
   }
 
   return (
-    <DashboardShell>
-      <PageHeader
-        title="Mis Órdenes"
-        subtitle="Tus compras y reservas"
-        gradient="from-landing-aqua via-landing-mint to-landing-mango"
-      >
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => navigate('/marketplace/products')}
-            className={cn('flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm min-h-[36px]', landingHeaderActionBtn)}
-          >
-            <ShoppingBag className="w-4 h-4 shrink-0" />
-            Productos
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/marketplace/services')}
-            className={cn('flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm min-h-[36px]', landingHeaderActionBtn)}
-          >
-            <Scissors className="w-4 h-4 shrink-0" />
-            Servicios
-          </button>
-        </div>
-      </PageHeader>
+    <DashboardShell variant="plain">
+      <div className="space-y-1 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900">Mis Órdenes</h1>
+        <p className="text-sm text-gray-500">Tus compras y reservas</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => navigate('/marketplace/products')}
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm min-h-[36px] bg-white text-landing-aqua-dark border border-landing-aqua/30 hover:bg-landing-aqua/10"
+        >
+          <ShoppingBag className="w-4 h-4 shrink-0" />
+          Productos
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/marketplace/services')}
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm min-h-[36px] bg-white text-landing-aqua-dark border border-landing-aqua/30 hover:bg-landing-aqua/10"
+        >
+          <Scissors className="w-4 h-4 shrink-0" />
+          Servicios
+        </button>
+      </div>
 
       {unreadIds.size > 0 && (
         <div className="rounded-2xl bg-amber-50 border border-amber-200/80 px-4 py-3 text-sm text-amber-900">
@@ -1270,7 +1267,7 @@ const ClientOrders: React.FC = () => {
       )}
 
       <div className="space-y-4" data-blueprint-guided="explore-orders">
-        <MobileTabStrip tabs={orderTabs} activeTab={activeTab} onChange={handleTabChange} />
+        <MobileTabStrip tabs={orderTabs} activeTab={activeTab} onChange={handleTabChange} variant="solid" accent="aqua" />
 
         {renderFiltersPanel(
           activeTab === 'pedidos'
@@ -1293,7 +1290,7 @@ const ClientOrders: React.FC = () => {
       {selectedOrder && (
         <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
           <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[90dvh] flex flex-col p-0 overflow-hidden rounded-2xl">
-            <DialogHeader className="px-4 pt-5 pb-3 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+            <DialogHeader className="px-4 pt-5 pb-3 border-b border-gray-100 bg-landing-aqua/10">
               <DialogTitle className="flex items-center gap-2 text-lg pr-6">
                 {selectedOrder.reservation_data ? (
                   <Scissors className="w-5 h-5 text-landing-aqua-dark shrink-0" />
@@ -1319,7 +1316,7 @@ const ClientOrders: React.FC = () => {
                 )}
               </div>
 
-              <MobileSectionCard className="p-4 space-y-2 text-sm">
+              <MobileSectionCard variant="plain" className="p-4 space-y-2 text-sm">
                 <h4 className="font-bold text-gray-900 text-sm">Resumen</h4>
                 <p><span className="text-gray-500">Fecha:</span> {formatDate(selectedOrder.created_at)}</p>
                 {selectedOrder.reservation_data?.appointment_date && (
@@ -1340,7 +1337,7 @@ const ClientOrders: React.FC = () => {
                 ) : null}
               </MobileSectionCard>
 
-              <MobileSectionCard className="p-4 space-y-2 text-sm">
+              <MobileSectionCard variant="plain" className="p-4 space-y-2 text-sm">
                 <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
                   {selectedOrder.reservation_data ? (
                     <>
@@ -1388,7 +1385,7 @@ const ClientOrders: React.FC = () => {
                   {selectedOrder.reservation_data ? 'Servicio' : 'Productos'}
                 </h4>
                 {selectedOrder.order_items.map((item) => (
-                  <MobileSectionCard key={item.id} className="p-3">
+                  <MobileSectionCard variant="plain" key={item.id} className="p-3">
                     <div className="flex gap-3">
                       <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-gray-100">
                         {item.item_image_url ? (
@@ -1420,7 +1417,7 @@ const ClientOrders: React.FC = () => {
 
             <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
               {!selectedOrder.reservation_data && selectedOrder.status === 'delivered' && (
-                <Button onClick={() => handleOrderAgain(selectedOrder)} className={cn('w-full min-h-[44px]', landingBtnPrimary)}>
+                <Button onClick={() => handleOrderAgain(selectedOrder)} className={cn('w-full min-h-[44px]', landingBtnSolid)}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Pedir de nuevo
                 </Button>

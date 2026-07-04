@@ -35,7 +35,10 @@ import BreedingChatModal from '@/components/BreedingChatModal';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from '@/components/mobile/MobileTabStrip';
 import { MobileSectionCard } from '@/components/mobile/MobileUi';
-import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { plainPageAccentBtn, plainPageAccentOutlineBtn, solidIconBgAt } from '@/lib/landingTheme';
+
+const socialBtn = plainPageAccentBtn.mango;
+const socialOutlineBtn = plainPageAccentOutlineBtn.mango;
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PetPhotoCarousel, PetPhotoThumbnails } from '@/components/mobile/PetPhotoCarousel';
@@ -857,7 +860,7 @@ const Parejas: React.FC = () => {
     { id: 'chats', label: 'Chats', shortLabel: 'Chats', icon: MessagesSquare, gradientIndex: 3 },
   ];
 
-  const petCardClass = 'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden';
+  const petCardClass = 'rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden';
 
   const renderPetInfoCell = (label: string, value: string) => (
     <div className="min-w-0">
@@ -868,7 +871,7 @@ const Parejas: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-10 w-full rounded-full" />
         <div className="grid grid-cols-2 gap-3">
@@ -881,13 +884,20 @@ const Parejas: React.FC = () => {
   }
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900">Parejas</h1>
         <p className="text-sm text-gray-500">Encuentra la pareja perfecta para tu mascota</p>
       </div>
 
-      <MobileTabStrip tabs={parejasTabs} activeTab={activeTab} onChange={setActiveTab} />
+      <MobileTabStrip
+        tabs={parejasTabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        variant="solid"
+        accent="mango"
+        columns={2}
+      />
 
       <div className="space-y-4">
         {activeTab === 'pet-tinder' && (
@@ -896,7 +906,7 @@ const Parejas: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 flex-1 sm:flex-initial min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10 ${showFilters ? 'bg-landing-aqua/10' : ''}`}
+                className={`flex items-center gap-2 flex-1 sm:flex-initial min-h-[44px] border-landing-mango/30 text-landing-mango-dark hover:bg-landing-mango/10 ${showFilters ? 'bg-landing-mango/10' : ''}`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="text-sm">Filtros</span>
@@ -915,7 +925,7 @@ const Parejas: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {filteredPets.map((pet, index) => {
-                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                const placeholderBg = solidIconBgAt(index);
                 return (
                   <div key={pet.id} className={petCardClass}>
                     <div className="relative aspect-[4/3] overflow-hidden">
@@ -926,7 +936,7 @@ const Parejas: React.FC = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                        <div className={`w-full h-full ${placeholderBg} flex items-center justify-center`}>
                           <PawPrint className="w-10 h-10 text-white/80" />
                         </div>
                       )}
@@ -966,7 +976,7 @@ const Parejas: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleViewDetails(pet)}
-                          className="w-full min-h-[36px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+                          className="w-full min-h-[36px] text-xs border-landing-mango/30 text-landing-mango-dark"
                         >
                           <Eye className="w-3.5 h-3.5 mr-1" />
                           Ver detalles
@@ -978,7 +988,7 @@ const Parejas: React.FC = () => {
                           data-blueprint-guided={
                             pet.id === blueprintBreedingPetId ? 'send-breeding-request' : undefined
                           }
-                          className={`w-full min-h-[36px] text-xs ${landingBtnPrimary}`}
+                          className={`w-full min-h-[36px] text-xs ${socialBtn}`}
                         >
                           <Heart className="w-3.5 h-3.5 mr-1" />
                           Solicitar amor
@@ -991,8 +1001,8 @@ const Parejas: React.FC = () => {
             </div>
 
             {filteredPets.length === 0 && (
-              <MobileSectionCard className="p-8 text-center">
-                <Heart className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+              <MobileSectionCard variant="plain" className="p-8 text-center">
+                <Heart className="h-12 w-12 text-landing-mango/30 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">
                   {availablePets.length === 0
                     ? 'No hay mascotas disponibles'
@@ -1019,7 +1029,7 @@ const Parejas: React.FC = () => {
                 toast.info('Actualizando solicitudes...');
                 loadData();
               }}
-              className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+              className="min-h-[40px] border-landing-mango/30 text-landing-mango-dark"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Actualizar
@@ -1027,17 +1037,17 @@ const Parejas: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <MobileSectionCard className="p-3 text-center">
+            <MobileSectionCard variant="plain" className="p-3 text-center">
               <p className="text-xs text-gray-500">Total</p>
               <p className="text-xl font-bold text-gray-900">{receivedRequests.length}</p>
             </MobileSectionCard>
-            <MobileSectionCard className="p-3 text-center">
+            <MobileSectionCard variant="plain" className="p-3 text-center">
               <p className="text-xs text-gray-500">Pendientes</p>
               <p className="text-xl font-bold text-landing-mango-dark">
                 {receivedRequests.filter(r => r.status === 'pending').length}
               </p>
             </MobileSectionCard>
-            <MobileSectionCard className="p-3 text-center">
+            <MobileSectionCard variant="plain" className="p-3 text-center">
               <p className="text-xs text-gray-500">Aceptadas</p>
               <p className="text-xl font-bold text-landing-mint-dark">
                 {receivedRequests.filter(r => r.status === 'accepted').length}
@@ -1045,9 +1055,9 @@ const Parejas: React.FC = () => {
             </MobileSectionCard>
           </div>
 
-          <MobileSectionCard className="p-4 space-y-3">
+          <MobileSectionCard variant="plain" className="p-4 space-y-3">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <Filter className="w-4 h-4 text-landing-aqua-dark" />
+              <Filter className="w-4 h-4 text-landing-mango-dark" />
               Buscar y filtrar
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1088,22 +1098,22 @@ const Parejas: React.FC = () => {
 
           <div className="space-y-3">
             {receivedRequests.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
-                <MessageCircle className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+              <MobileSectionCard variant="plain" className="p-8 text-center">
+                <MessageCircle className="h-12 w-12 text-landing-mango/30 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">No hay solicitudes recibidas</h3>
                 <p className="text-sm text-gray-500">
                   Las solicitudes que otros envíen para tus mascotas aparecerán aquí.
                 </p>
               </MobileSectionCard>
             ) : filteredAndSortedReceivedRequests.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
+              <MobileSectionCard variant="plain" className="p-8 text-center">
                 <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Sin resultados</h3>
                 <p className="text-sm text-gray-500">No hay solicitudes que coincidan con los filtros.</p>
               </MobileSectionCard>
             ) : (
               filteredAndSortedReceivedRequests.map((request) => (
-                <MobileSectionCard key={request.id}>
+                <MobileSectionCard variant="plain" key={request.id}>
                   <div className="p-4">
                     <div className="flex items-start gap-3">
                       {/* Pet Image - Show the pet that sent the request (other user's pet) */}
@@ -1165,7 +1175,7 @@ const Parejas: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => handleViewRequestDetails(request)}
-                              className="border-landing-aqua/30 text-landing-aqua-dark"
+                              className="border-landing-mango/30 text-landing-mango-dark"
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               Ver detalles
@@ -1175,7 +1185,7 @@ const Parejas: React.FC = () => {
                                 type="button"
                                 size="sm"
                                 onClick={() => handleAcceptMatch(request.id)}
-                                className={landingBtnPrimary}
+                                className={socialBtn}
                               >
                                 <Check className="w-4 h-4 mr-1" />
                                 Aceptar
@@ -1201,7 +1211,7 @@ const Parejas: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => handleOpenChat(request)}
-                              className="border-landing-aqua/30 text-landing-aqua-dark"
+                              className="border-landing-mango/30 text-landing-mango-dark"
                             >
                               <MessageCircle className="w-4 h-4 mr-1" />
                               Contactar
@@ -1229,7 +1239,7 @@ const Parejas: React.FC = () => {
                 toast.info('Actualizando solicitudes...');
                 loadData();
               }}
-              className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+              className="min-h-[40px] border-landing-mango/30 text-landing-mango-dark"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Actualizar
@@ -1237,17 +1247,17 @@ const Parejas: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <MobileSectionCard className="p-3 text-center">
+            <MobileSectionCard variant="plain" className="p-3 text-center">
               <p className="text-xs text-gray-500">Total</p>
               <p className="text-xl font-bold text-gray-900">{sentRequests.length}</p>
             </MobileSectionCard>
-            <MobileSectionCard className="p-3 text-center">
+            <MobileSectionCard variant="plain" className="p-3 text-center">
               <p className="text-xs text-gray-500">Pendientes</p>
               <p className="text-xl font-bold text-landing-mango-dark">
                 {sentRequests.filter(r => r.status === 'pending').length}
               </p>
             </MobileSectionCard>
-            <MobileSectionCard className="p-3 text-center">
+            <MobileSectionCard variant="plain" className="p-3 text-center">
               <p className="text-xs text-gray-500">Aceptadas</p>
               <p className="text-xl font-bold text-landing-mint-dark">
                 {sentRequests.filter(r => r.status === 'accepted').length}
@@ -1255,9 +1265,9 @@ const Parejas: React.FC = () => {
             </MobileSectionCard>
           </div>
 
-          <MobileSectionCard className="p-4 space-y-3">
+          <MobileSectionCard variant="plain" className="p-4 space-y-3">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <Filter className="w-4 h-4 text-landing-aqua-dark" />
+              <Filter className="w-4 h-4 text-landing-mango-dark" />
               Buscar y filtrar
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1298,20 +1308,20 @@ const Parejas: React.FC = () => {
 
           <div className="space-y-3">
             {sentRequests.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
-                <Send className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+              <MobileSectionCard variant="plain" className="p-8 text-center">
+                <Send className="h-12 w-12 text-landing-mango/30 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">No has enviado solicitudes</h3>
                 <p className="text-sm text-gray-500">Las solicitudes que envíes aparecerán aquí.</p>
               </MobileSectionCard>
             ) : filteredAndSortedSentRequests.length === 0 ? (
-              <MobileSectionCard className="p-8 text-center">
+              <MobileSectionCard variant="plain" className="p-8 text-center">
                 <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Sin resultados</h3>
                 <p className="text-sm text-gray-500">No hay solicitudes que coincidan con los filtros.</p>
               </MobileSectionCard>
             ) : (
               filteredAndSortedSentRequests.map((request) => (
-                <MobileSectionCard key={request.id}>
+                <MobileSectionCard variant="plain" key={request.id}>
                   <div className="p-4">
                     <div className="flex items-start gap-3">
                       {/* Target Pet Image (the pet we sent the request to) */}
@@ -1387,7 +1397,7 @@ const Parejas: React.FC = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleOpenChat(request)}
-                                className="border-landing-aqua/30 text-landing-aqua-dark"
+                                className="border-landing-mango/30 text-landing-mango-dark"
                               >
                                 <MessageCircle className="w-4 h-4 mr-1" />
                                 Contactar
@@ -1431,7 +1441,7 @@ const Parejas: React.FC = () => {
                   toast.info('Actualizando chats...');
                   loadData();
                 }}
-                className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark shrink-0"
+                className="min-h-[40px] border-landing-mango/30 text-landing-mango-dark shrink-0"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Actualizar
@@ -1439,11 +1449,11 @@ const Parejas: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <MobileSectionCard className="p-3 text-center">
+              <MobileSectionCard variant="plain" className="p-3 text-center">
                 <p className="text-xs text-gray-500">Matches</p>
                 <p className="text-xl font-bold text-gray-900">{activeChatMatches.length}</p>
               </MobileSectionCard>
-              <MobileSectionCard className="p-3 text-center">
+              <MobileSectionCard variant="plain" className="p-3 text-center">
                 <p className="text-xs text-gray-500">Con mensajes</p>
                 <p className="text-xl font-bold text-landing-mint-dark">
                   {Object.keys(chatRoomsByMatchId).length}
@@ -1452,9 +1462,9 @@ const Parejas: React.FC = () => {
             </div>
 
             {activeChatMatches.length > 1 && (
-              <MobileSectionCard className="p-4 space-y-3">
+              <MobileSectionCard variant="plain" className="p-4 space-y-3">
                 <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-landing-aqua-dark" />
+                  <Filter className="w-4 h-4 text-landing-mango-dark" />
                   Filtrar por mascota
                 </h3>
                 <Select value={matchesSearch} onValueChange={setMatchesSearch}>
@@ -1480,8 +1490,8 @@ const Parejas: React.FC = () => {
 
             <div className="space-y-3">
               {activeChatMatches.length === 0 ? (
-                <MobileSectionCard className="p-8 text-center">
-                  <MessagesSquare className="h-12 w-12 text-landing-aqua/30 mx-auto mb-3" />
+                <MobileSectionCard variant="plain" className="p-8 text-center">
+                  <MessagesSquare className="h-12 w-12 text-landing-mango/30 mx-auto mb-3" />
                   <h3 className="text-lg font-bold text-gray-900 mb-1">Sin chats abiertos</h3>
                   <p className="text-sm text-gray-500 mb-4">
                     Cuando aceptes o te acepten una solicitud, podrás chatear aquí para coordinar la reproducción.
@@ -1490,13 +1500,13 @@ const Parejas: React.FC = () => {
                     type="button"
                     variant="outline"
                     onClick={() => setActiveTab('solicitudes-recibidas')}
-                    className="min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark"
+                    className="min-h-[44px] border-landing-mango/30 text-landing-mango-dark"
                   >
                     Ver solicitudes recibidas
                   </Button>
                 </MobileSectionCard>
               ) : filteredAndSortedActiveChats.length === 0 ? (
-                <MobileSectionCard className="p-8 text-center">
+                <MobileSectionCard variant="plain" className="p-8 text-center">
                   <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <h3 className="text-lg font-bold text-gray-900 mb-1">Sin resultados</h3>
                   <p className="text-sm text-gray-500">No hay chats que coincidan con el filtro.</p>
@@ -1509,7 +1519,7 @@ const Parejas: React.FC = () => {
                   const partnerImage = getPrimaryPetImageUrl(match.potential_partner);
 
                   return (
-                    <MobileSectionCard key={match.id}>
+                    <MobileSectionCard variant="plain" key={match.id}>
                       <div className="p-4 space-y-3">
                         <div className="flex items-start gap-3">
                           <div className="flex items-center gap-1 shrink-0">
@@ -1570,7 +1580,7 @@ const Parejas: React.FC = () => {
                         </div>
 
                         {chatRoom?.lastMessage ? (
-                          <div className="p-3 rounded-xl bg-landing-aqua/5 border border-landing-aqua/10">
+                          <div className="p-3 rounded-xl bg-landing-mango/5 border border-landing-mango/10">
                             <p className="text-xs text-gray-600 line-clamp-2">{chatRoom.lastMessage}</p>
                             {chatRoom.lastMessageAt && (
                               <p className="text-[10px] text-gray-400 mt-1">
@@ -1597,7 +1607,7 @@ const Parejas: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewMatchPetDetails(match, 'pet')}
-                            className="min-h-[40px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+                            className="min-h-[40px] text-xs border-landing-mango/30 text-landing-mango-dark"
                           >
                             <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
                             <span className="truncate">{match.pet?.name}</span>
@@ -1607,7 +1617,7 @@ const Parejas: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewMatchPetDetails(match, 'potential_partner')}
-                            className="min-h-[40px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+                            className="min-h-[40px] text-xs border-landing-mango/30 text-landing-mango-dark"
                           >
                             <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
                             <span className="truncate">{match.potential_partner?.name}</span>
@@ -1617,7 +1627,7 @@ const Parejas: React.FC = () => {
                         <Button
                           type="button"
                           onClick={() => handleOpenChat(match)}
-                          className={`w-full min-h-[44px] ${landingBtnPrimary}`}
+                          className={`w-full min-h-[44px] ${socialBtn}`}
                         >
                           <MessageCircle className="w-4 h-4 mr-2" />
                           {chatRoom ? 'Continuar chat' : 'Abrir chat'}
@@ -1640,12 +1650,12 @@ const Parejas: React.FC = () => {
             'flex flex-col gap-0 p-0 overflow-hidden',
             'w-[calc(100vw-0.5rem)] max-w-lg',
             'max-h-[96dvh] sm:max-h-[92dvh]',
-            'rounded-2xl border-landing-aqua/15'
+            'rounded-2xl border-landing-mango/15'
           )}
         >
           <DialogHeader className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100">
             <DialogTitle className="flex items-center text-gray-900 text-lg">
-              <Heart className="w-5 h-5 mr-2 text-landing-aqua-dark shrink-0" />
+              <Heart className="w-5 h-5 mr-2 text-landing-mango-dark shrink-0" />
               Detalles de {selectedPetDetails?.name}
             </DialogTitle>
           </DialogHeader>
@@ -1736,7 +1746,7 @@ const Parejas: React.FC = () => {
                   </div>
 
                   {selectedPetDetails.owner && (
-                    <div className="rounded-xl bg-landing-aqua/5 border border-landing-aqua/15 p-3 space-y-2">
+                    <div className="rounded-xl bg-landing-mango/5 border border-landing-mango/15 p-3 space-y-2">
                       <h4 className="text-sm font-bold text-gray-900">Dueño</h4>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -1757,7 +1767,7 @@ const Parejas: React.FC = () => {
                     <Button
                       type="button"
                       onClick={() => handleLike(selectedPetDetails.id)}
-                      className={`flex-1 min-h-[48px] ${landingBtnPrimary}`}
+                      className={`flex-1 min-h-[48px] ${socialBtn}`}
                     >
                       <Heart className="w-4 h-4 mr-2" />
                       Solicitar amor
@@ -1770,7 +1780,7 @@ const Parejas: React.FC = () => {
                       setShowDetailsModal(false);
                       setIsViewingFromRequest(false);
                     }}
-                    className={cn('min-h-[48px] border-landing-aqua/30', isViewingFromRequest ? 'flex-1' : '')}
+                    className={cn('min-h-[48px] border-landing-mango/30', isViewingFromRequest ? 'flex-1' : '')}
                   >
                     Cerrar
                   </Button>
@@ -1783,10 +1793,10 @@ const Parejas: React.FC = () => {
 
       {/* Pet Selection Modal */}
       <Dialog open={showPetSelectionModal} onOpenChange={setShowPetSelectionModal}>
-        <DialogContent className="max-w-md rounded-2xl border-landing-aqua/15">
+        <DialogContent className="max-w-md rounded-2xl border-landing-mango/15">
           <DialogHeader>
             <DialogTitle className="flex items-center text-gray-900">
-              <Heart className="w-5 h-5 mr-2 text-landing-aqua-dark" />
+              <Heart className="w-5 h-5 mr-2 text-landing-mango-dark" />
               Seleccionar tu mascota
             </DialogTitle>
           </DialogHeader>
@@ -1802,8 +1812,8 @@ const Parejas: React.FC = () => {
                   key={pet.id}
                   className={`p-3 border rounded-xl cursor-pointer transition-colors ${
                     selectedPetForRequest?.id === pet.id
-                      ? 'border-landing-aqua bg-landing-aqua/10'
-                      : 'border-gray-200 hover:border-landing-aqua/30'
+                      ? 'border-landing-mango bg-landing-mango/10'
+                      : 'border-gray-200 hover:border-landing-mango/30'
                   }`}
                   onClick={() => setSelectedPetForRequest(pet)}
                 >
@@ -1828,7 +1838,7 @@ const Parejas: React.FC = () => {
                       </p>
                     </div>
                     {selectedPetForRequest?.id === pet.id && (
-                      <Check className="w-5 h-5 text-landing-aqua-dark" />
+                      <Check className="w-5 h-5 text-landing-mango-dark" />
                     )}
                   </div>
                 </div>
@@ -1847,7 +1857,7 @@ const Parejas: React.FC = () => {
                   }
                 }}
                 disabled={!selectedPetForRequest}
-                className={`flex-1 min-h-[44px] ${landingBtnPrimary}`}
+                className={`flex-1 min-h-[44px] ${socialBtn}`}
               >
                 <Heart className="w-4 h-4 mr-2" />
                 Enviar solicitud

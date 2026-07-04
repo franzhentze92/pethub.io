@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { stylizePetImage, getStylizedStyleFromUrl, type PetAvatarStyle } from '@/lib/stylizePet';
+import { plainPageAccentUi, type PlainPageAccent } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface PetAvatarStylizerProps {
   sourceImageUrl: string | null;
@@ -11,6 +14,7 @@ interface PetAvatarStylizerProps {
   breed?: string;
   name?: string;
   disabled?: boolean;
+  accent?: PlainPageAccent;
 }
 
 const avatarOptions: {
@@ -33,7 +37,10 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
   breed,
   name,
   disabled = false,
+  accent = 'aqua',
 }) => {
+  const ui = plainPageAccentUi(accent);
+  const useTropical = accent === 'tropical';
   const [selectedAvatar, setSelectedAvatar] = useState<PetAvatarStyle>('original');
   const [stylizedUrls, setStylizedUrls] = useState<
     Partial<Record<Exclude<PetAvatarStyle, 'original'>, string>>
@@ -82,7 +89,7 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
       onPrimarySelect(result.stylizedUrl);
     } catch (error) {
       console.error('Error stylizing image:', error);
-      alert(
+      toast.error(
         error instanceof Error
           ? error.message
           : 'No se pudo crear el avatar estilizado. Inténtalo de nuevo.',
@@ -101,9 +108,12 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
   ].filter((p) => p.url);
 
   return (
-    <div className="space-y-3 rounded-xl border border-purple-100 bg-purple-50/40 p-3">
+    <div className={cn(
+      'space-y-3 rounded-xl border p-3',
+      useTropical ? cn(ui.bgSoft, ui.borderLight) : 'border-purple-100 bg-purple-50/40',
+    )}>
       <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
-        <Wand2 className="w-4 h-4 text-purple-600" />
+        <Wand2 className={cn('w-4 h-4', useTropical ? ui.text : 'text-purple-600')} />
         Avatar nostálgico
       </div>
       <p className="text-xs text-gray-500">
@@ -130,15 +140,16 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
                 void handleStylize(option.id);
               }}
               disabled={disabled || (!!stylizing && stylizing !== option.id)}
-              className={`rounded-xl border p-3 text-left transition-all ${
+              className={cn(
+                'rounded-xl border p-3 text-left transition-all',
                 isSelected
-                  ? 'border-purple-500 bg-white shadow-sm'
-                  : 'border-gray-200 bg-white/80 hover:border-purple-300'
-              }`}
+                  ? cn('bg-white shadow-sm', useTropical ? 'border-landing-tropical' : 'border-purple-500')
+                  : cn('border-gray-200 bg-white/80', useTropical ? 'hover:border-landing-tropical/50' : 'hover:border-purple-300'),
+              )}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-lg">{option.emoji}</span>
-                {isLoading && <Loader2 className="w-4 h-4 animate-spin text-purple-600" />}
+                {isLoading && <Loader2 className={cn('w-4 h-4 animate-spin', useTropical ? ui.text : 'text-purple-600')} />}
                 {hasStylized && !isLoading && (
                   <span className="text-[10px] uppercase tracking-wide text-green-600 font-semibold">
                     Listo
@@ -153,7 +164,10 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
       </div>
 
       {stylizing && (
-        <p className="text-sm text-purple-700 bg-white rounded-lg p-2.5 flex items-center gap-2">
+        <p className={cn(
+          'text-sm bg-white rounded-lg p-2.5 flex items-center gap-2',
+          useTropical ? ui.text : 'text-purple-700',
+        )}>
           <Loader2 className="w-4 h-4 animate-spin shrink-0" />
           Creando avatar nostálgico... puede tardar 10–30 segundos.
         </p>
@@ -170,9 +184,12 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
                 applySelection(preview.id);
               }}
               disabled={disabled}
-              className={`rounded-lg overflow-hidden border-2 transition-all ${
-                selectedAvatar === preview.id ? 'border-purple-500' : 'border-transparent'
-              }`}
+              className={cn(
+                'rounded-lg overflow-hidden border-2 transition-all',
+                selectedAvatar === preview.id
+                  ? useTropical ? 'border-landing-tropical' : 'border-purple-500'
+                  : 'border-transparent',
+              )}
             >
               <img
                 src={preview.url}
@@ -185,7 +202,7 @@ const PetAvatarStylizer: React.FC<PetAvatarStylizerProps> = ({
         </div>
       )}
 
-      <p className="text-xs text-purple-700 flex items-start gap-1.5">
+      <p className={cn('text-xs flex items-start gap-1.5', useTropical ? ui.text : 'text-purple-700')}>
         <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         La versión seleccionada será la foto principal. Todas las fotos (originales y estilizadas) se guardan en la galería.
       </p>

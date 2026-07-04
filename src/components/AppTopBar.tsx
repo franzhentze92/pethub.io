@@ -4,7 +4,7 @@ import { Menu, PawPrint, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SettingsDropdown from './SettingsDropdown';
 import { useNavigation } from '@/contexts/NavigationContext';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import { solidIconBgAt } from '@/lib/landingTheme';
 
 const quickLinks = [
   { label: 'Dashboard', path: '/dashboard', gradientIndex: 0 },
@@ -37,7 +37,7 @@ export const AppTopBar: React.FC = () => {
           </Button>
 
           <Link to="/dashboard" className="flex items-center gap-2 group min-w-0">
-            <div className="w-8 h-8 shrink-0 bg-gradient-to-r from-landing-aqua to-landing-mango rounded-lg flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 shrink-0 bg-landing-aqua rounded-lg flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
               <PawPrint className="w-4 h-4 text-white" />
             </div>
             <span className="font-bold text-gray-900 truncate group-hover:text-landing-aqua-dark transition-colors sm:inline">
@@ -50,14 +50,14 @@ export const AppTopBar: React.FC = () => {
         <nav className="hidden md:flex items-center gap-1">
           {quickLinks.map((link) => {
             const active = isActive(link.path);
-            const gradient = landingFeatureGradients[link.gradientIndex % landingFeatureGradients.length];
+            const solidBg = solidIconBgAt(link.gradientIndex);
             return (
               <Link
                 key={link.path}
                 to={link.path}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                   active
-                    ? `bg-gradient-to-r ${gradient} text-white shadow-sm`
+                    ? `${solidBg} shadow-sm`
                     : 'text-gray-600 hover:text-landing-aqua-dark hover:bg-landing-aqua/10'
                 }`}
               >

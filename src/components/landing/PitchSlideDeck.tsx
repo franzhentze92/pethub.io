@@ -75,7 +75,7 @@ export const PitchSlideDeck: React.FC<PitchSlideDeckProps> = ({ slides }) => {
       {/* Progress bar */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-20">
         <div
-          className="h-full bg-gradient-to-r from-landing-aqua to-landing-mango transition-all duration-700 ease-in-out"
+          className="h-full bg-landing-aqua transition-all duration-700 ease-in-out"
           style={{ width: `${((current + 1) / total) * 100}%` }}
         />
       </div>

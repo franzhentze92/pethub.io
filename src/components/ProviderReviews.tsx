@@ -6,7 +6,11 @@ import { supabase } from '@/lib/supabase';
 import { Star, Calendar, Filter, Package, Store } from 'lucide-react';
 import { DashboardStatCard } from './dashboard/DashboardStatCard';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import {
+  plainPageAccentTabActive,
+  plainPageAccentUi,
+  type PlainPageAccent,
+} from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 
 type ReviewSource = 'provider' | 'product' | 'service';
@@ -44,7 +48,12 @@ const SOURCE_LABELS: Record<ReviewSource, string> = {
   service: 'Servicio',
 };
 
-const ProviderReviews: React.FC = () => {
+interface ProviderReviewsProps {
+  accent?: PlainPageAccent;
+}
+
+const ProviderReviews: React.FC<ProviderReviewsProps> = ({ accent = 'tropical' }) => {
+  const ui = plainPageAccentUi(accent);
   const { user } = useAuth();
   const [reviews, setReviews] = useState<UnifiedReview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -260,6 +269,7 @@ const ProviderReviews: React.FC = () => {
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <DashboardStatCard
+          variant="plain"
           icon={Star}
           value={overallRating.average > 0 ? overallRating.average.toFixed(1) : '—'}
           label="Calificación promedio"
@@ -267,6 +277,7 @@ const ProviderReviews: React.FC = () => {
           gradientIndex={0}
         />
         <DashboardStatCard
+          variant="plain"
           icon={Filter}
           value={withComments}
           label="Con comentario"
@@ -278,6 +289,7 @@ const ProviderReviews: React.FC = () => {
           gradientIndex={1}
         />
         <DashboardStatCard
+          variant="plain"
           icon={Package}
           value={catalogCount}
           label="Productos y servicios"
@@ -286,7 +298,7 @@ const ProviderReviews: React.FC = () => {
         />
       </div>
 
-      <div className="rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-3">
+      <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 space-y-3">
         <div className="flex flex-wrap gap-2">
           {(['all', 'provider', 'product', 'service'] as const).map((source) => (
             <button
@@ -296,8 +308,8 @@ const ProviderReviews: React.FC = () => {
               className={cn(
                 'min-h-[36px] rounded-xl px-3 py-1.5 text-xs font-medium transition-all',
                 sourceFilter === source
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-md'
-                  : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30',
+                  ? plainPageAccentTabActive[accent]
+                  : cn('bg-white border border-gray-200 text-gray-600', ui.hoverBg),
               )}
             >
               {source === 'all'
@@ -312,9 +324,8 @@ const ProviderReviews: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-          {RATING_CHIPS.map((chip, index) => {
+          {RATING_CHIPS.map((chip) => {
             const active = ratingFilter === chip.id;
-            const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
             return (
               <button
                 key={chip.id}
@@ -323,8 +334,8 @@ const ProviderReviews: React.FC = () => {
                 className={cn(
                   'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all text-center',
                   active
-                    ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-                    : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 shadow-sm',
+                    ? plainPageAccentTabActive[accent]
+                    : cn('bg-white border border-gray-200 text-gray-600', ui.hoverBg),
                 )}
               >
                 {chip.label}
@@ -355,7 +366,7 @@ const ProviderReviews: React.FC = () => {
             <MobileSectionCard key={review.id} className="p-4">
               <div className="flex items-start gap-3">
                 <Avatar className="w-11 h-11 shrink-0">
-                  <AvatarFallback className="bg-gradient-to-br from-landing-aqua to-landing-mint text-white text-sm">
+                  <AvatarFallback className={cn('text-white text-sm', ui.iconBg)}>
                     {review.client_name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -369,7 +380,7 @@ const ProviderReviews: React.FC = () => {
                           className={cn(
                             'text-[10px]',
                             review.source === 'provider'
-                              ? 'border-landing-aqua/30 text-landing-aqua-dark'
+                              ? cn('border', ui.border, ui.text)
                               : 'border-landing-mango/30 text-landing-mango-dark',
                           )}
                         >
@@ -396,7 +407,7 @@ const ProviderReviews: React.FC = () => {
                         ))}
                         <Badge
                           variant="outline"
-                          className="ml-1 text-[10px] border-landing-aqua/30 text-landing-aqua-dark"
+                          className={cn('ml-1 text-[10px] border', ui.border, ui.text)}
                         >
                           {review.rating}/5
                         </Badge>

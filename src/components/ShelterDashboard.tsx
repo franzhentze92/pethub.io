@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -22,7 +22,8 @@ import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
 import { MobileSectionCard } from './mobile/MobileUi';
 import { BlueprintMascotNavTab } from '@/components/blueprint/BlueprintMascotNavTab';
 import { DashboardStatCard } from './dashboard/DashboardStatCard';
-import { landingBtnPrimary, landingChartColors, landingFeatureGradients } from '@/lib/landingTheme';
+import { landingChartColors, plainPageAccentTabActive, shelterTabAccent } from '@/lib/landingTheme';
+import { useShelterDashboardTheme } from '@/contexts/ShelterDashboardThemeContext';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -136,8 +137,8 @@ const SHELTER_MAIN_TABS: MobileTabItem[] = [
   { id: 'media', label: 'Media', shortLabel: 'Media', icon: Image, gradientIndex: 4 },
 ];
 
-const filterPanelClass =
-  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
+const filterPanelClass = (borderLight: string) =>
+  cn('rounded-2xl bg-white border shadow-sm p-4 space-y-4', borderLight);
 
 const PET_SPECIES_CHIPS = [
   { id: '', label: 'Todas' },
@@ -196,6 +197,8 @@ const ShelterDashboard: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { accent: pageAccent, ui: pageUi, btn: pageBtn, outlineBtn: pageOutlineBtn, syncTabs } =
+    useShelterDashboardTheme();
   const [activeTab, setActiveTab] = useState<string>(() => {
     // Check if navigation state has activeTab
     const state = location.state as { activeTab?: string } | null;
@@ -204,10 +207,13 @@ const ShelterDashboard: React.FC = () => {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Removed localStorage persistence to always start with dashboard
-    // Scroll to top when changing tabs
+    syncTabs(value);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    syncTabs(activeTab);
+  }, [activeTab, syncTabs]);
 
   // Check navigation state for activeTab on mount and when location changes
   useEffect(() => {
@@ -1478,6 +1484,23 @@ const ShelterDashboard: React.FC = () => {
     }
   };
 
+  const pageHeader = useMemo(() => {
+    const name = shelter?.name ?? 'Albergue';
+    switch (activeTab) {
+      case 'profile':
+        return { title: 'Perfil', subtitle: 'Datos y contacto del albergue' };
+      case 'pets':
+      case 'add-pet':
+        return { title: 'Mascotas', subtitle: 'Catálogo de adopción' };
+      case 'quotes':
+        return { title: 'Solicitudes', subtitle: 'Adopciones recibidas' };
+      case 'media':
+        return { title: 'Media', subtitle: 'Galería del albergue' };
+      default:
+        return { title: 'Dashboard Albergue', subtitle: name };
+    }
+  }, [activeTab, shelter?.name]);
+
   if (!user) {
     return (
       <div className="p-6 text-center">
@@ -1490,7 +1513,7 @@ const ShelterDashboard: React.FC = () => {
   // Show loading state only for critical data
   if (isCriticalLoading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="skeleton" />
       </DashboardShell>
     );
@@ -1499,7 +1522,7 @@ const ShelterDashboard: React.FC = () => {
   if (!shelter) {
     if (showShelterForm) {
       return (
-        <DashboardShell>
+        <DashboardShell variant="plain">
           <PageHeader title="Crear Albergue" subtitle="Completa la información de tu albergue" />
           <MobileSectionCard className="p-6 max-w-2xl mx-auto space-y-6">
             <div>
@@ -1550,7 +1573,7 @@ const ShelterDashboard: React.FC = () => {
               <Button
                 onClick={handleCreateShelter}
                 disabled={!newShelter.name.trim() || createShelter.isPending}
-                className={cn('flex-1', landingBtnPrimary, 'border-0')}
+                className={cn('flex-1', pageBtn, 'border-0')}
               >
                 {createShelter.isPending ? 'Creando...' : 'Crear Albergue'}
               </Button>
@@ -1561,13 +1584,13 @@ const ShelterDashboard: React.FC = () => {
     }
 
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <MobileSectionCard className="p-8 text-center max-w-md mx-auto">
           <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
           <h2 className="text-xl font-semibold text-gray-800">¡Bienvenido a PetHub!</h2>
           <p className="text-gray-600 mt-2">Aún no tienes un albergue registrado.</p>
           <p className="text-gray-500 text-sm mt-1">Créalo para gestionar mascotas y adopciones con datos reales.</p>
-          <Button onClick={() => setShowShelterForm(true)} className={cn('mt-6', landingBtnPrimary, 'border-0')}>
+          <Button onClick={() => setShowShelterForm(true)} className={cn('mt-6', pageBtn, 'border-0')}>
             <Building2 className="w-5 h-5 mr-2" />
             Crear Mi Albergue
           </Button>
@@ -1579,7 +1602,7 @@ const ShelterDashboard: React.FC = () => {
   // Show error state (real connection/query failures only)
   if (hasErrors) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-landing-aqua/5 via-white to-landing-mint/5 p-6">
+      <div className="min-h-screen bg-white p-6">
         <div className="text-center">
           <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl text-white">⚠️</span>
@@ -1597,8 +1620,8 @@ const ShelterDashboard: React.FC = () => {
           </div>
           
           {/* Database Connection Test */}
-          <div className="mt-4 p-4 bg-landing-aqua/10 rounded-xl text-left text-sm border border-landing-aqua/20">
-            <p className="font-semibold text-landing-aqua-dark">Diagnóstico de Base de Datos</p>
+          <div className={cn('mt-4 p-4 rounded-xl text-left text-sm border', pageUi.bgLight, pageUi.borderLight)}>
+            <p className={cn('font-semibold', pageUi.text)}>Diagnóstico de Base de Datos</p>
             <p className="text-gray-600 mt-2">
               Los errores sugieren que las tablas de la base de datos no han sido creadas aún.
             </p>
@@ -1632,15 +1655,32 @@ const ShelterDashboard: React.FC = () => {
   const bottomNavActive = (tab: string) =>
     activeTab === tab || (tab === 'pets' && activeTab === 'add-pet');
 
+  type ShelterMainTab = keyof typeof shelterTabAccent;
+
+  const shelterBottomNavClass = (tab: ShelterMainTab) =>
+    cn(
+      'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
+      bottomNavActive(tab)
+        ? cn('shadow-lg scale-105', plainPageAccentTabActive[shelterTabAccent[tab]])
+        : 'text-gray-500 hover:text-gray-700',
+    );
+
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <PageHeader
-        title="Dashboard Albergue"
-        subtitle={currentShelter.name}
-        gradient="from-landing-aqua via-landing-mint to-landing-mango"
+        title={pageHeader.title}
+        subtitle={pageHeader.subtitle}
+        variant="solid"
+        accent={pageAccent}
       />
       <div className="hidden md:block">
-        <MobileTabStrip tabs={SHELTER_MAIN_TABS} activeTab={activeTab === 'add-pet' ? 'pets' : activeTab} onChange={handleTabChange} />
+        <MobileTabStrip
+          tabs={SHELTER_MAIN_TABS}
+          activeTab={activeTab === 'add-pet' ? 'pets' : activeTab}
+          onChange={handleTabChange}
+          variant="solid"
+          accent={pageAccent}
+        />
       </div>
 
       {/* Main Content */}
@@ -1651,6 +1691,7 @@ const ShelterDashboard: React.FC = () => {
         <TabsContent value="dashboard" className="space-y-4 md:space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <DashboardStatCard
+              variant="plain"
               icon={PawPrint}
               value={displayPets.length}
               label="Mascotas"
@@ -1658,6 +1699,7 @@ const ShelterDashboard: React.FC = () => {
               gradientIndex={0}
             />
             <DashboardStatCard
+              variant="plain"
               icon={Clock}
               value={pendingQuotesCount}
               label="Pendientes"
@@ -1665,6 +1707,7 @@ const ShelterDashboard: React.FC = () => {
               gradientIndex={2}
             />
             <DashboardStatCard
+              variant="plain"
               icon={CheckCircle2}
               value={approvedQuotesCount}
               label="Aprobadas"
@@ -1672,6 +1715,7 @@ const ShelterDashboard: React.FC = () => {
               gradientIndex={1}
             />
             <DashboardStatCard
+              variant="plain"
               icon={Users}
               value={currentShelter?.total_volunteers || 0}
               label="Voluntarios"
@@ -1819,12 +1863,12 @@ const ShelterDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-landing-aqua/10 rounded-lg">
+                  <div className={cn('flex items-center justify-between p-3 rounded-lg', pageUi.bgLight)}>
                     <div className="flex items-center gap-2">
-                      <PawPrint className="w-5 h-5 text-landing-aqua-dark" />
+                      <PawPrint className={cn('w-5 h-5', pageUi.text)} />
                       <span className="font-medium text-gray-700">Total Mascotas</span>
                     </div>
-                    <span className="text-2xl font-bold text-landing-aqua-dark">{displayPets.length}</span>
+                    <span className={cn('text-2xl font-bold', pageUi.text)}>{displayPets.length}</span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
@@ -1863,7 +1907,7 @@ const ShelterDashboard: React.FC = () => {
         <TabsContent value="profile" className="space-y-4 md:space-y-6">
           <MobileSectionCard className="p-4 md:p-6 space-y-4 md:space-y-6">
             <div className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-landing-aqua-dark" />
+              <Building2 className={cn('w-5 h-5', pageUi.text)} />
               <h3 className="text-lg md:text-xl font-semibold text-gray-900">Información del Albergue</h3>
             </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
@@ -1874,7 +1918,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-name" 
                       value={shelterForm.name} 
                       onChange={(e) => setShelterForm({...shelterForm, name: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
+                      className={cn('bg-white border-gray-300 w-full', pageUi.border)}
                     />
                   </div>
                   <div>
@@ -1883,7 +1927,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-location" 
                       value={shelterForm.location} 
                       onChange={(e) => setShelterForm({...shelterForm, location: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
+                      className={cn('bg-white border-gray-300 w-full', pageUi.border)}
                     />
                   </div>
                   <div>
@@ -1892,7 +1936,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-phone" 
                       value={shelterForm.phone} 
                       onChange={(e) => setShelterForm({...shelterForm, phone: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
+                      className={cn('bg-white border-gray-300 w-full', pageUi.border)}
                     />
                   </div>
                   <div>
@@ -1901,7 +1945,7 @@ const ShelterDashboard: React.FC = () => {
                       id="shelter-email" 
                       value={shelterForm.email} 
                       onChange={(e) => setShelterForm({...shelterForm, email: e.target.value})}
-                      className="bg-white border-gray-300 focus:border-landing-aqua focus:ring-landing-aqua/30 w-full"
+                      className={cn('bg-white border-gray-300 w-full', pageUi.border)}
                     />
                   </div>
                 </div>
@@ -1946,7 +1990,7 @@ const ShelterDashboard: React.FC = () => {
               <div className="flex justify-end pt-2">
                 <Button 
                   onClick={handleSaveProfile} 
-                  className={cn('w-full sm:w-auto', landingBtnPrimary, 'border-0')}
+                  className={cn('w-full sm:w-auto', pageBtn, 'border-0')}
                   size="sm"
                 >
                   <Save className="w-4 h-4 mr-2" />
@@ -1964,7 +2008,7 @@ const ShelterDashboard: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900">Mascotas del Albergue</h3>
               <Button
                 onClick={() => { setShowAddPetForm(true); setActiveTab('add-pet'); }}
-                className={cn(landingBtnPrimary, 'border-0 w-full sm:w-auto min-h-[44px] rounded-xl shrink-0')}
+                className={cn(pageBtn, 'border-0 w-full sm:w-auto min-h-[44px] rounded-xl shrink-0')}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Agregar Mascota
@@ -1972,7 +2016,7 @@ const ShelterDashboard: React.FC = () => {
             </div>
 
             {/* Filtros */}
-            <div className={filterPanelClass}>
+            <div className={filterPanelClass(pageUi.borderLight)}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -1984,9 +2028,8 @@ const ShelterDashboard: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-4 gap-2">
-                {PET_SPECIES_CHIPS.map((chip, index) => {
+                {PET_SPECIES_CHIPS.map((chip) => {
                   const active = petFilters.species === chip.id;
-                  const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
                   return (
                     <button
                       key={chip.id || 'all'}
@@ -1994,9 +2037,8 @@ const ShelterDashboard: React.FC = () => {
                       onClick={() => setPetFilters({ ...petFilters, species: chip.id })}
                       className={cn(
                         'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all text-center leading-tight',
-                        active
-                          ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-                          : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 shadow-sm'
+                        active ? cn(plainPageAccentTabActive[pageAccent], 'shadow-md')
+                          : cn('bg-white border border-gray-200 text-gray-600 shadow-sm', pageUi.hoverBg)
                       )}
                     >
                       {chip.label}
@@ -2010,8 +2052,9 @@ const ShelterDashboard: React.FC = () => {
                   variant="outline"
                   onClick={() => setShowPetFilters(!showPetFilters)}
                   className={cn(
-                    'flex items-center gap-2 min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10',
-                    showPetFilters && 'bg-landing-aqua/10'
+                    'flex items-center gap-2 min-h-[44px]',
+                    pageOutlineBtn,
+                    showPetFilters && pageUi.bgLight
                   )}
                 >
                   <Filter className="w-4 h-4" />
@@ -2100,8 +2143,8 @@ const ShelterDashboard: React.FC = () => {
                           className={cn(
                             'px-3 py-2 rounded-xl text-xs font-medium border transition-all',
                             petFilters[key]
-                              ? 'bg-landing-aqua/15 border-landing-aqua/40 text-landing-aqua-dark'
-                              : 'bg-white/80 border-gray-200 text-gray-600 hover:border-landing-aqua/30'
+                              ? cn(plainPageAccentTabActive[pageAccent], 'border shadow-sm')
+                              : cn('bg-white border-gray-200 text-gray-600', pageUi.hoverBg)
                           )}
                         >
                           {label}
@@ -2116,7 +2159,7 @@ const ShelterDashboard: React.FC = () => {
 
           {petsLoading ? (
             <MobileSectionCard className="p-8 text-center">
-              <Loader2 className="w-10 h-10 text-landing-aqua animate-spin mx-auto mb-3" />
+              <Loader2 className={cn('w-10 h-10 animate-spin mx-auto mb-3', pageUi.text)} />
               <h3 className="text-lg font-semibold text-gray-700 mb-2">Cargando mascotas…</h3>
               <p className="text-sm text-gray-500">Obteniendo datos del albergue</p>
             </MobileSectionCard>
@@ -2134,7 +2177,7 @@ const ShelterDashboard: React.FC = () => {
               {displayPets.length === 0 && (
                 <Button
                   onClick={() => { setShowAddPetForm(true); setActiveTab('add-pet'); }}
-                  className={cn(landingBtnPrimary, 'border-0 min-h-[44px] rounded-xl')}
+                  className={cn(pageBtn, 'border-0 min-h-[44px] rounded-xl')}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Agregar Mascota
@@ -2145,11 +2188,11 @@ const ShelterDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPets.map((pet) => (
                 <MobileSectionCard key={pet.id} className="overflow-hidden p-0">
-                  <div className="h-44 bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center relative">
+                  <div className={cn('h-44 flex items-center justify-center relative', pageUi.bgLight)}>
                     {pet.image_url ? (
                       <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
                     ) : (
-                      <PawPrint className="w-16 h-16 text-landing-aqua" />
+                      <PawPrint className={cn('w-16 h-16', pageUi.iconMuted)} />
                     )}
                     <div className="absolute top-2 right-2 flex gap-1">
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-white/90 hover:bg-white rounded-lg" onClick={() => handleEditPet(pet)} disabled={isUsingMockData}>
@@ -2169,7 +2212,7 @@ const ShelterDashboard: React.FC = () => {
                       {pet.breed && <Badge variant="secondary" className="text-[10px]">{pet.breed}</Badge>}
                       {pet.size && <Badge variant="outline" className="text-[10px]">{pet.size}</Badge>}
                       {pet.species && (
-                        <Badge variant="outline" className="text-[10px] border-landing-aqua/30 text-landing-aqua-dark">
+                        <Badge variant="outline" className={cn('text-[10px] border', pageUi.border, pageUi.text)}>
                           {pet.species === 'Dog' ? 'Perro' : pet.species === 'Cat' ? 'Gato' : pet.species}
                         </Badge>
                       )}
@@ -2177,8 +2220,8 @@ const ShelterDashboard: React.FC = () => {
                     {pet.description && <p className="text-sm text-gray-600 line-clamp-2">{pet.description}</p>}
                     <div className="flex flex-wrap gap-1 pt-1">
                       {pet.good_with_kids && <span className="text-xs px-2 py-0.5 rounded-full bg-landing-mint/15">👶</span>}
-                      {pet.good_with_dogs && <span className="text-xs px-2 py-0.5 rounded-full bg-landing-aqua/15">🐕</span>}
-                      {pet.good_with_cats && <span className="text-xs px-2 py-0.5 rounded-full bg-landing-aqua/15">🐱</span>}
+                      {pet.good_with_dogs && <span className={cn('text-xs px-2 py-0.5 rounded-full', pageUi.bgLight)}>🐕</span>}
+                      {pet.good_with_cats && <span className={cn('text-xs px-2 py-0.5 rounded-full', pageUi.bgLight)}>🐱</span>}
                     </div>
                   </div>
                 </MobileSectionCard>
@@ -2189,12 +2232,12 @@ const ShelterDashboard: React.FC = () => {
               {filteredPets.map((pet) => (
                 <MobileSectionCard key={pet.id} className="p-4">
                   <div className="flex gap-3">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 ring-2 ring-white shadow-sm">
+                    <div className={cn('w-16 h-16 rounded-xl overflow-hidden shrink-0 ring-2 ring-white shadow-sm', pageUi.bgLight)}>
                       {pet.image_url ? (
                         <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <PawPrint className="w-7 h-7 text-landing-aqua" />
+                          <PawPrint className={cn('w-7 h-7', pageUi.iconMuted)} />
                         </div>
                       )}
                     </div>
@@ -2226,7 +2269,7 @@ const ShelterDashboard: React.FC = () => {
         <TabsContent value="quotes" className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">Solicitudes de Adopción</h3>
 
-          <div className={filterPanelClass}>
+          <div className={filterPanelClass(pageUi.borderLight)}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -2238,9 +2281,8 @@ const ShelterDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-4 gap-2">
-              {QUOTE_STATUS_CHIPS.map((chip, index) => {
+              {QUOTE_STATUS_CHIPS.map((chip) => {
                 const active = quoteFilters.status === chip.id;
-                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
                 return (
                   <button
                     key={chip.id || 'all'}
@@ -2248,9 +2290,8 @@ const ShelterDashboard: React.FC = () => {
                     onClick={() => setQuoteFilters({ ...quoteFilters, status: chip.id })}
                     className={cn(
                       'min-h-[40px] rounded-xl px-2 py-2 text-[11px] font-medium transition-all text-center leading-tight',
-                      active
-                        ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-                        : 'bg-white/80 border border-white/60 text-gray-600 hover:border-landing-aqua/30 shadow-sm'
+                      active ? cn(plainPageAccentTabActive[pageAccent], 'shadow-md')
+                        : cn('bg-white border border-gray-200 text-gray-600 shadow-sm', pageUi.hoverBg)
                     )}
                   >
                     {chip.label}
@@ -2315,8 +2356,8 @@ const ShelterDashboard: React.FC = () => {
                         {petImage ? (
                           <img src={petImage} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
-                            <PawPrint className="w-7 h-7 text-landing-aqua" />
+                          <div className={cn('w-full h-full flex items-center justify-center', pageUi.bgLight)}>
+                            <PawPrint className={cn('w-7 h-7', pageUi.iconMuted)} />
                           </div>
                         )}
                       </div>
@@ -2338,7 +2379,7 @@ const ShelterDashboard: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => { setSelectedApplication(quote); setShowChatModal(true); }}
-                            className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+                            className={cn('min-h-[40px]', pageOutlineBtn)}
                           >
                             <MessageCircle className="w-4 h-4 mr-1" />
                             Chat
@@ -2347,7 +2388,7 @@ const ShelterDashboard: React.FC = () => {
                             <Button
                               size="sm"
                               onClick={() => handleQuoteAction(quote.id, 'approved')}
-                              className={cn('min-h-[40px]', landingBtnPrimary, 'border-0')}
+                              className={cn('min-h-[40px]', pageBtn, 'border-0')}
                             >
                               <CheckCircle2 className="w-4 h-4 mr-1" />
                               Aprobar
@@ -2389,7 +2430,7 @@ const ShelterDashboard: React.FC = () => {
                     </span>
                     <div className="flex gap-1 shrink-0">
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setSelectedApplication(quote); setShowChatModal(true); }}>
-                        <MessageCircle className="w-4 h-4 text-landing-aqua-dark" />
+                        <MessageCircle className={cn('w-4 h-4', pageUi.text)} />
                       </Button>
                       {quote.status === 'pending' && (
                         <>
@@ -2421,7 +2462,7 @@ const ShelterDashboard: React.FC = () => {
                   setShowAddPetForm(true);
                   setActiveTab('add-pet');
                 }}
-                className={cn(landingBtnPrimary, 'border-0 min-h-[44px]')}
+                className={cn(pageBtn, 'border-0 min-h-[44px]')}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Agregar Nueva Mascota
@@ -2430,7 +2471,7 @@ const ShelterDashboard: React.FC = () => {
           ) : (
             <MobileSectionCard className="p-4 md:p-6">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-6">
-                <Plus className="w-5 h-5 text-landing-aqua-dark" />
+                <Plus className={cn('w-5 h-5', pageUi.text)} />
                 {editingPet ? 'Editar Mascota' : 'Agregar Nueva Mascota'}
               </h3>
               <div className="space-y-6">
@@ -2724,10 +2765,10 @@ const ShelterDashboard: React.FC = () => {
                                setUploadingImage(false);
                              }
                            }}
-                           className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-center cursor-pointer hover:border-landing-aqua/40 transition-colors"
+                           className={cn('w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-center cursor-pointer transition-colors', pageUi.borderActive.replace(/^border-/, 'hover:border-'))}
                          />
                          {uploadingImage && (
-                           <p className="text-sm text-landing-aqua-dark mt-2 text-center">Subiendo imagen…</p>
+                           <p className={cn('text-sm mt-2 text-center', pageUi.text)}>Subiendo imagen…</p>
                          )}
                          {newPet.image_url && (
                            <div className="mt-2">
@@ -2775,7 +2816,7 @@ const ShelterDashboard: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={editingPet ? handleUpdatePet : handleAddPet}
-                    className={cn(landingBtnPrimary, 'border-0')}
+                    className={cn(pageBtn, 'border-0')}
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {editingPet ? 'Actualizar Mascota' : 'Agregar Mascota'}
@@ -2789,7 +2830,7 @@ const ShelterDashboard: React.FC = () => {
          {/* Media Tab */}
          <TabsContent value="media" className="space-y-4">
            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-             <Image className="w-5 h-5 text-landing-aqua-dark" />
+             <Image className={cn('w-5 h-5', pageUi.text)} />
              Imágenes y Videos
            </h3>
 
@@ -2809,7 +2850,7 @@ const ShelterDashboard: React.FC = () => {
                />
                <Button
                  size="sm"
-                 className={cn(landingBtnPrimary, 'border-0 min-h-[40px]')}
+                 className={cn(pageBtn, 'border-0 min-h-[40px]')}
                  onClick={() => document.getElementById('image-upload-header')?.click()}
                  disabled={uploadingImage}
                >
@@ -2819,7 +2860,7 @@ const ShelterDashboard: React.FC = () => {
              </div>
 
              {shelterImages.length === 0 ? (
-               <div className="text-center py-8 border-2 border-dashed border-landing-aqua/20 rounded-xl bg-white/50">
+               <div className={cn('text-center py-8 border-2 border-dashed rounded-xl bg-white', pageUi.borderLight)}>
                  <Image className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                  <p className="text-sm text-gray-500">Estas imágenes aparecerán en el perfil público del albergue.</p>
                </div>
@@ -2871,7 +2912,7 @@ const ShelterDashboard: React.FC = () => {
                />
                <Button
                  size="sm"
-                 className={cn(landingBtnPrimary, 'border-0 min-h-[40px]')}
+                 className={cn(pageBtn, 'border-0 min-h-[40px]')}
                  onClick={() => document.getElementById('video-upload-header')?.click()}
                  disabled={uploadingVideo}
                >
@@ -2890,8 +2931,8 @@ const ShelterDashboard: React.FC = () => {
                  {shelterVideos.map((video) => (
                    <div key={video.id} className="relative group">
                      <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden ring-2 ring-white shadow-sm">
-                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
-                         <Play className="w-10 h-10 text-landing-aqua-dark" />
+                       <div className={cn('w-full h-full flex items-center justify-center', pageUi.bgLight)}>
+                         <Play className={cn('w-10 h-10', pageUi.text)} />
                        </div>
                      </div>
                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
@@ -2918,14 +2959,14 @@ const ShelterDashboard: React.FC = () => {
              )}
            </MobileSectionCard>
 
-           <div className={filterPanelClass}>
+           <div className={filterPanelClass(pageUi.borderLight)}>
              <p className="text-sm font-medium text-gray-700">Subir nuevo contenido</p>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="border-2 border-dashed border-landing-aqua/25 rounded-xl p-5 text-center bg-white/60">
+               <div className={cn('border-2 border-dashed rounded-xl p-5 text-center bg-white', pageUi.border, pageUi.bgSoft)}>
                  <Image className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                  <p className="text-sm text-gray-600 mb-1">PNG, JPG, GIF hasta 50MB</p>
                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" disabled={uploadingImage} />
-                 <Button className={cn(landingBtnPrimary, 'border-0 mt-2')} onClick={() => document.getElementById('image-upload')?.click()} disabled={uploadingImage}>
+                 <Button className={cn(pageBtn, 'border-0 mt-2')} onClick={() => document.getElementById('image-upload')?.click()} disabled={uploadingImage}>
                    <Upload className="w-4 h-4 mr-2" />
                    {uploadingImage ? 'Subiendo…' : 'Seleccionar imagen'}
                  </Button>
@@ -2934,7 +2975,7 @@ const ShelterDashboard: React.FC = () => {
                  <Video className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                  <p className="text-sm text-gray-600 mb-1">MP4, MOV hasta 50MB</p>
                  <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" id="video-upload" disabled={uploadingVideo} />
-                 <Button className={cn(landingBtnPrimary, 'border-0 mt-2')} onClick={() => document.getElementById('video-upload')?.click()} disabled={uploadingVideo}>
+                 <Button className={cn(pageBtn, 'border-0 mt-2')} onClick={() => document.getElementById('video-upload')?.click()} disabled={uploadingVideo}>
                    <Upload className="w-4 h-4 mr-2" />
                    {uploadingVideo ? 'Subiendo…' : 'Seleccionar video'}
                  </Button>
@@ -2972,7 +3013,7 @@ const ShelterDashboard: React.FC = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-landing-aqua-dark" />
+              <MessageCircle className={cn('w-5 h-5', pageUi.text)} />
               Chat con el Cliente
             </DialogTitle>
           </DialogHeader>
@@ -3038,7 +3079,7 @@ const ShelterDashboard: React.FC = () => {
                           <div
                             className={`rounded-lg p-3 max-w-[70%] shadow-sm ${
                               isOwnMessage
-                                ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white'
+                                ? cn(pageBtn, 'text-white')
                                 : 'bg-white text-gray-900 border border-gray-100'
                             }`}
                           >
@@ -3079,7 +3120,7 @@ const ShelterDashboard: React.FC = () => {
                 />
                 <Button 
                   type="button" 
-                  className={cn(landingBtnPrimary, 'border-0')}
+                  className={cn(pageBtn, 'border-0')}
                   onClick={sendMessage}
                   disabled={sending || loadingChat || !chatRoom || !newMessage.trim()}
                 >
@@ -3104,12 +3145,7 @@ const ShelterDashboard: React.FC = () => {
           <div className="relative flex min-w-0 flex-1 items-end justify-around">
             <button
               onClick={() => handleTabChange('dashboard')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
-                bottomNavActive('dashboard')
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={shelterBottomNavClass('dashboard')}
             >
               <BarChart3 size={17} className="mb-0.5" />
               <span className="text-[9px] font-medium truncate leading-tight">Dashboard</span>
@@ -3117,12 +3153,7 @@ const ShelterDashboard: React.FC = () => {
 
             <button
               onClick={() => handleTabChange('profile')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
-                bottomNavActive('profile')
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={shelterBottomNavClass('profile')}
             >
               <Building2 size={17} className="mb-0.5" />
               <span className="text-[9px] font-medium truncate leading-tight">Perfil</span>
@@ -3134,12 +3165,7 @@ const ShelterDashboard: React.FC = () => {
           <div className="relative flex min-w-0 flex-[1.35] items-end justify-around">
             <button
               onClick={() => handleTabChange('pets')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
-                bottomNavActive('pets')
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={shelterBottomNavClass('pets')}
             >
               <PawPrint size={17} className="mb-0.5" />
               <span className="text-[9px] font-medium truncate leading-tight">Mascotas</span>
@@ -3147,12 +3173,7 @@ const ShelterDashboard: React.FC = () => {
 
             <button
               onClick={() => handleTabChange('quotes')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
-                bottomNavActive('quotes')
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={shelterBottomNavClass('quotes')}
             >
               <MessageSquare size={17} className="mb-0.5" />
               <span className="text-[9px] font-medium truncate leading-tight">Solicitudes</span>
@@ -3160,12 +3181,7 @@ const ShelterDashboard: React.FC = () => {
 
             <button
               onClick={() => handleTabChange('media')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-1.5 transition-all duration-200 min-w-0 flex-1',
-                bottomNavActive('media')
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={shelterBottomNavClass('media')}
             >
               <Image size={17} className="mb-0.5" />
               <span className="text-[9px] font-medium truncate leading-tight">Media</span>

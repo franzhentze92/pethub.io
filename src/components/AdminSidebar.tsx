@@ -12,6 +12,7 @@ import {
   UtensilsCrossed,
   Home,
   AlertTriangle,
+  Footprints,
   Truck,
   DollarSign,
   Building2,
@@ -127,6 +128,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
           label: 'Solicitudes de Parejas',
           icon: Heart,
           path: '/admin/breeding'
+        },
+        {
+          id: 'dog-walks',
+          label: 'Paseos',
+          icon: Footprints,
+          path: '/admin/dog-walks'
         },
         {
           id: 'lost-pets',

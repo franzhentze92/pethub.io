@@ -6,7 +6,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { useUpdateUserProfile } from '@/hooks/useSettings'
 import { supabase } from '@/lib/supabase'
 import { Loader2, Upload, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { MobileFormDialog, MobileFormActions } from '@/components/mobile/MobileFormDialog'
+import { plainPageAccentOutlineBtn, plainPageAccentUi, type PlainPageAccent } from '@/lib/landingTheme'
+import { cn } from '@/lib/utils'
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext'
 
 interface EditProfileModalProps {
@@ -20,9 +23,12 @@ interface EditProfileModalProps {
     address: string | null
     avatar_url: string | null
   }
+  accent?: PlainPageAccent
 }
 
-const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, profile }) => {
+const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, profile, accent = 'aqua' }) => {
+  const ui = plainPageAccentUi(accent)
+  const outlineBtnClass = plainPageAccentOutlineBtn[accent]
   const [formData, setFormData] = useState({
     full_name: profile.full_name || '',
     phone: profile.phone || '',
@@ -54,7 +60,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, pr
       if (!file) return
 
       if (file.size > 50 * 1024 * 1024) {
-        alert('El archivo es demasiado grande. Máximo 50MB.')
+        toast.warning('El archivo es demasiado grande. Máximo 50MB.')
         return
       }
 
@@ -86,7 +92,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, pr
       setAvatarUrl(publicUrl)
     } catch (error) {
       console.error('Error uploading image:', error)
-      alert('Error al subir la imagen. Inténtalo de nuevo.')
+      toast.error('Error al subir la imagen. Inténtalo de nuevo.')
     } finally {
       setUploading(false)
     }
@@ -128,6 +134,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, pr
       onOpenChange={(open) => !open && onClose()}
       title="Editar Perfil"
       description="Actualiza tu información personal y foto de perfil"
+      accent={accent}
       footer={
         <MobileFormActions
           formId={formId}
@@ -135,6 +142,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, pr
           submitLabel="Guardar"
           loading={isLoading}
           submitDisabled={isLoading}
+          accent={accent}
         />
       }
     >
@@ -159,7 +167,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, pr
                   </button>
                 </div>
               ) : (
-                <div className="w-24 h-24 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg ring-4 ring-white">
+                <div className={cn('w-24 h-24 rounded-full flex items-center justify-center text-xl font-bold shadow-lg ring-4 ring-white', ui.iconBg)}>
                   {getInitials(formData.full_name)}
                 </div>
               )}
@@ -179,7 +187,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, pr
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="w-full min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10"
+                className={cn('w-full min-h-[44px]', outlineBtnClass)}
               >
                 {uploading ? (
                   <>

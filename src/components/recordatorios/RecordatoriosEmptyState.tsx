@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Plus, Stethoscope, Utensils, PawPrint } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnSolidMint } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 
 interface RecordatoriosEmptyStateProps {
@@ -33,7 +33,7 @@ export const RecordatoriosEmptyState: React.FC<RecordatoriosEmptyStateProps> = (
           <Button
             onClick={onCreateReminder}
             data-blueprint-guided="create-reminder"
-            className={cn('min-h-[44px]', landingBtnPrimary)}
+            className={cn('min-h-[44px]', landingBtnSolidMint)}
           >
             <Plus className="h-4 w-4 mr-2" />
             Nuevo recordatorio

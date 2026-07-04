@@ -21,7 +21,7 @@ export const PlatformHighlights: React.FC = () => {
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
             Todo lo esencial,{' '}
-            <span className="bg-gradient-to-r from-landing-aqua to-landing-mango bg-clip-text text-transparent">
+            <span className="text-landing-mango-dark">
               sin abrumar
             </span>
           </h2>
@@ -34,17 +34,17 @@ export const PlatformHighlights: React.FC = () => {
           {platformHighlightCategories.map((category) => (
             <div
               key={category.title}
-              className="rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50/80 to-white p-5 md:p-6 shadow-sm hover:shadow-lg hover:border-landing-aqua/20 transition-all duration-300"
+              className="rounded-2xl border border-gray-100 bg-gray-50/80 p-5 md:p-6 shadow-sm hover:shadow-lg hover:border-landing-aqua/20 transition-all duration-300"
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className={`h-1 w-10 rounded-full bg-gradient-to-r ${category.gradient}`} />
+                <div className={`h-1 w-10 rounded-full ${category.gradient}`} />
                 <h3 className="font-bold text-gray-900">{category.title}</h3>
               </div>
               <div className="space-y-3">
                 {category.items.map((item) => (
                   <div key={item.title} className="flex items-start gap-3 group">
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${category.gradient} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-sm`}>
-                      <item.icon className="w-4 h-4 text-white" />
+                    <div className={`w-9 h-9 rounded-xl ${category.gradient} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-sm`}>
+                      <item.icon className={`w-4 h-4 ${category.gradient === 'bg-landing-aqua' ? 'text-white' : 'text-gray-900'}`} />
                     </div>
                     <div className="min-w-0 pt-0.5">
                       <p className="font-semibold text-gray-900 text-sm">{item.title}</p>

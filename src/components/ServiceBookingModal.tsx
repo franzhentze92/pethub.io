@@ -17,12 +17,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { landingBadge, landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBadge, landingBtnSolid } from '@/lib/landingTheme';
 import { fetchResolvedAvailability, fetchTimeSlotsForDate } from '@/lib/availabilityResolver';
 import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
 
 const modalCardClass =
-  'rounded-xl border border-landing-aqua/20 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 shadow-sm';
+  'rounded-xl border border-landing-aqua/20 bg-landing-aqua/5 shadow-sm';
 const modalCardHeaderClass = 'pb-3';
 const modalCardTitleClass = 'flex items-center gap-2 text-base text-landing-aqua-dark';
 const modalOutlineBtnClass =
@@ -45,7 +45,7 @@ const bookingCalendarClassNames = {
   cell: 'h-10 w-10 text-center p-0 relative flex items-center justify-center',
   day: 'h-10 w-10 rounded-lg text-sm font-medium hover:bg-landing-mint/15 transition-colors',
   day_selected:
-    'bg-gradient-to-br from-landing-aqua to-landing-mint text-white font-bold shadow-md hover:from-landing-aqua hover:to-landing-mint',
+    'bg-landing-aqua text-white font-bold shadow-sm hover:bg-landing-aqua-dark',
   day_today: 'bg-landing-aqua/10 text-landing-aqua-dark font-semibold border border-landing-aqua/30',
   day_outside: 'text-gray-300 opacity-50',
   day_disabled: 'text-gray-300 opacity-40 line-through',
@@ -485,9 +485,9 @@ const ServiceBookingModal: React.FC<ServiceBookingModalProps> = ({
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-landing-aqua/10">
           <DialogTitle className="flex items-center gap-2 text-xl text-gray-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-landing-aqua text-white shadow-sm">
               <CalendarIcon className="w-5 h-5" />
             </span>
             Reservar Servicio
@@ -602,7 +602,7 @@ const ServiceBookingModal: React.FC<ServiceBookingModalProps> = ({
                       Disponible
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="h-3 w-3 rounded bg-gradient-to-br from-landing-aqua to-landing-mint" />
+                      <span className="h-3 w-3 rounded bg-landing-aqua" />
                       Seleccionado
                     </span>
                     <span className="inline-flex items-center gap-1.5">
@@ -651,7 +651,7 @@ const ServiceBookingModal: React.FC<ServiceBookingModalProps> = ({
                           className={cn(
                             'p-2.5 text-sm border rounded-lg transition-all duration-200',
                             selectedTimeSlot === slot.id
-                              ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white border-transparent shadow-md'
+                              ? 'bg-landing-aqua text-white border-transparent shadow-sm'
                               : 'bg-white text-gray-700 border-landing-aqua/25 hover:bg-landing-aqua/10 hover:border-landing-aqua/40'
                           )}
                         >
@@ -668,7 +668,7 @@ const ServiceBookingModal: React.FC<ServiceBookingModalProps> = ({
               )}
 
               {/* Profile Information Notice */}
-              <div className="rounded-xl border border-landing-aqua/20 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 p-3">
+              <div className="rounded-xl border border-landing-aqua/20 bg-landing-aqua/10 p-3">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-landing-aqua-dark" />
                   <p className="text-sm text-landing-aqua-dark font-medium">
@@ -818,7 +818,7 @@ const ServiceBookingModal: React.FC<ServiceBookingModalProps> = ({
                   bookingLoading ||
                   (hasServiceSizePricing(service.service_category) && !selectedSize && !service.price)
                 }
-                className={cn(landingBtnPrimary, 'w-full border-0 min-h-[48px] text-base')}
+                className={cn(landingBtnSolid, 'w-full border-0 min-h-[48px] text-base')}
               >
                 {bookingLoading ? 'Agregando al Carrito...' : 'Agregar al Carrito'}
               </Button>

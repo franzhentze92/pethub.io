@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { SectionLoader } from '@/components/PageLoader';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { useToast } from '../hooks/use-toast';
-import { 
+import { DashboardShell } from './dashboard/DashboardShell';
+import PageHeader from './PageHeader';
+import { MobileSectionCard } from './mobile/MobileUi';
+import { landingBtnSolidMint, solidCardThemeAt, solidIconBgAt } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
+import {
   Activity, 
   Clock, 
   Heart, 
@@ -311,120 +315,123 @@ const AdventureLog: React.FC = () => {
 
   if (!selectedPet) {
     return (
-      <div className="p-6 text-center">
-        <div className="text-6xl mb-4">🏃</div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          ¡No tienes mascotas aún!
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Crea tu primera mascota para comenzar las aventuras
-        </p>
-        <Button 
-          onClick={() => window.location.href = '/pet-creation'}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-        >
-          Crear Mi Primera Mascota
-        </Button>
-      </div>
+      <DashboardShell variant="plain">
+        <PageHeader variant="solid" accent="mint" title="Diario de aventuras" subtitle="Registra paseos, juegos y actividad física">
+          <Activity className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+        </PageHeader>
+        <MobileSectionCard variant="plain">
+          <div className="text-center py-10 px-4">
+            <div className="text-5xl mb-4">🏃</div>
+            <p className="font-medium text-gray-800">Primero agrega una mascota</p>
+            <p className="text-sm text-gray-500 mt-1 mb-4">Crea tu primera mascota para comenzar las aventuras.</p>
+            <Button
+              onClick={() => { window.location.href = '/pet-creation'; }}
+              className={cn('min-h-[44px]', landingBtnSolidMint)}
+            >
+              Registrar mascota
+            </Button>
+          </div>
+        </MobileSectionCard>
+      </DashboardShell>
     );
   }
 
+  const statCards = [
+    { label: 'Sesiones totales', value: String(adventures.length), icon: Activity },
+    { label: 'Min esta semana', value: String(weeklyProgress), icon: Timer },
+    { label: 'Días seguidos', value: String(exerciseStreak), icon: Flame },
+    { label: 'Calorías semana', value: String(weekCalories), icon: Flame },
+  ];
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Pet Energy Status */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+    <DashboardShell variant="plain">
+      <PageHeader variant="solid" accent="mint" title="Diario de aventuras" subtitle={`Actividad y ejercicio de ${selectedPet.name}`}>
+        <Activity className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+      </PageHeader>
+
+      <MobileSectionCard variant="plain" className="border-landing-mint/25 bg-landing-mint/5">
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
               <div className="relative">
                 {selectedPet.image_url ? (
                   <img
                     src={selectedPet.image_url}
                     alt={selectedPet.name}
-                    className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-lg"
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-4 border-white shadow-lg"
                   />
                 ) : (
-                  <div className="w-16 h-16 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white text-2xl border-4 border-white shadow-lg">
+                  <div className={cn('w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-2xl border-4 border-white shadow-lg', solidIconBgAt(1))}>
                     {getPetEmoji(selectedPet.species)}
                   </div>
                 )}
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-yellow-800">{todaySessions}</span>
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-landing-tropical rounded-full flex items-center justify-center ring-2 ring-white">
+                  <span className="text-[10px] font-bold text-gray-900">{todaySessions}</span>
                 </div>
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{selectedPet.name}</h2>
-                <div className="flex items-center space-x-2">
-                  <span className={`text-lg ${petMood.color}`}>{petMood.icon}</span>
-                  <span className="text-gray-600">{petMood.message}</span>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">{selectedPet.name}</h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-lg">{petMood.icon}</span>
+                  <span className={cn('text-sm', petMood.color)}>{petMood.message}</span>
                 </div>
               </div>
             </div>
-            
-            <div className="text-right">
-              <div className="flex items-center space-x-4 mb-2 justify-end">
-                <div className="flex items-center space-x-1">
-                  <Timer className="w-5 h-5 text-blue-500" />
+            <div className="sm:text-right">
+              <div className="flex items-center gap-4 sm:justify-end mb-2">
+                <div className="flex items-center gap-1">
+                  <Timer className="w-4 h-4 text-landing-aqua-dark" />
                   <span className="font-bold text-gray-900">{weeklyProgress} min</span>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Flame className="w-5 h-5 text-orange-500" />
+                <div className="flex items-center gap-1">
+                  <Flame className="w-4 h-4 text-landing-mango-dark" />
                   <span className="font-bold text-gray-900">{exerciseStreak} días</span>
                 </div>
               </div>
-              <div className="w-32 bg-gray-200 rounded-full h-2 ml-auto">
+              <div className="w-full sm:w-32 h-2 rounded-full bg-gray-100 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-yellow-400 to-green-500 h-2 rounded-full transition-all duration-1000"
+                  className="h-full rounded-full bg-landing-mango transition-all duration-500"
                   style={{ width: `${Math.min(100, weeklyGoal > 0 ? (weeklyProgress / weeklyGoal) * 100 : 0)}%` }}
                 />
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </MobileSectionCard>
 
-      {/* Weekly Goal Progress */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Target className="w-6 h-6 text-blue-600" />
-            🎯 Meta semanal sugerida ({weeklyGoal} min)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Progreso esta semana</span>
-              <span className="text-sm font-medium text-gray-900">{weeklyProgress} / {weeklyGoal} minutos</span>
+      <MobileSectionCard variant="plain">
+        <div className="p-4 sm:p-5">
+          <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+            <Target className="w-5 h-5 text-landing-mint-dark shrink-0" />
+            Meta semanal sugerida ({weeklyGoal} min)
+          </h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600">Progreso esta semana</span>
+              <span className="font-medium text-gray-900">{weeklyProgress} / {weeklyGoal} minutos</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div 
-                className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-1000"
-                style={{ width: `${Math.min(100, (weeklyProgress / weeklyGoal) * 100)}%` }}
-              ></div>
+            <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-landing-mint transition-all duration-500"
+                style={{ width: `${Math.min(100, weeklyGoal > 0 ? (weeklyProgress / weeklyGoal) * 100 : 0)}%` }}
+              />
             </div>
-            <div className="text-center">
-              <span className="text-sm text-gray-600">
-                {weeklyGoal - weeklyProgress > 0 
-                  ? `Faltan ${weeklyGoal - weeklyProgress} minutos para completar la meta`
-                  : '¡Meta semanal completada! 🎉'
-                }
-              </span>
-            </div>
+            <p className="text-sm text-gray-600 text-center">
+              {weeklyGoal - weeklyProgress > 0
+                ? `Faltan ${weeklyGoal - weeklyProgress} minutos para completar la meta`
+                : '¡Meta semanal completada! 🎉'}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </MobileSectionCard>
 
-      {/* Quick Adventure Section */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Activity className="w-6 h-6 text-green-600" />
-            🏃 Registrar Nueva Aventura
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <MobileSectionCard variant="plain">
+        <div className="p-4 sm:p-5">
+          <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+            <Activity className="w-5 h-5 text-landing-mint-dark shrink-0" />
+            Registrar nueva aventura
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <Label htmlFor="activity-type">Tipo de actividad</Label>
               <Select value={quickAdventureForm.activity_type} onValueChange={(value) => setQuickAdventureForm(prev => ({ ...prev, activity_type: value }))}>
@@ -474,17 +481,17 @@ const AdventureLog: React.FC = () => {
               />
             </div>
             
-            <div className="flex items-end">
-              <Button 
+            <div className="flex items-end sm:col-span-2 lg:col-span-1">
+              <Button
                 onClick={handleQuickAdventure}
-                className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+                className={cn('w-full min-h-[44px]', landingBtnSolidMint)}
               >
                 <Activity className="w-4 h-4 mr-2" />
                 ¡Aventurar!
               </Button>
             </div>
           </div>
-          
+
           <div className="mt-4">
             <Label htmlFor="notes">Notas de la aventura</Label>
             <Input
@@ -492,55 +499,36 @@ const AdventureLog: React.FC = () => {
               value={quickAdventureForm.notes}
               onChange={(e) => setQuickAdventureForm(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="¿Cómo fue la aventura? ¿Qué hizo tu mascota?"
+              className="bg-white"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </MobileSectionCard>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
-          <CardContent className="p-4 text-center">
-            <Activity className="w-6 h-6 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{adventures.length}</div>
-            <div className="text-sm opacity-90">Sesiones totales</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
-          <CardContent className="p-4 text-center">
-            <Timer className="w-6 h-6 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{weeklyProgress}</div>
-            <div className="text-sm opacity-90">Min esta semana</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0">
-          <CardContent className="p-4 text-center">
-            <Flame className="w-6 h-6 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{exerciseStreak}</div>
-            <div className="text-sm opacity-90">Días seguidos</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
-          <CardContent className="p-4 text-center">
-            <Flame className="w-6 h-6 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{weekCalories}</div>
-            <div className="text-sm opacity-90">Calorías semana</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {statCards.map((stat, index) => {
+          const theme = solidCardThemeAt(index);
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className={cn('rounded-2xl border p-4 bg-white', theme.bg, theme.border)}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                </div>
+                <Icon className={cn('h-5 w-5 shrink-0 opacity-90', theme.icon)} />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Adventure History */}
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Calendar className="w-6 h-6 text-green-600" />
-            📖 Diario de Aventuras
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <MobileSectionCard variant="plain">
+        <div className="p-4 sm:p-5">
+          <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+            <Calendar className="w-5 h-5 text-landing-mint-dark shrink-0" />
+            Diario de aventuras
+          </h3>
           {loading ? (
             <SectionLoader message="Cargando aventuras…" />
           ) : adventures.length === 0 ? (
@@ -552,43 +540,39 @@ const AdventureLog: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {adventures.map((adventure) => (
-                <div key={adventure.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-2xl">{getActivityIcon(adventure.activity_type)}</div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900 capitalize">{adventure.activity_type}</span>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          {adventure.duration_minutes} min
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(adventure.adventure_date).toLocaleString('es-GT')}
-                      </div>
-                      {adventure.notes && (
-                        <div className="text-sm text-gray-600 mt-1">
-                          {adventure.notes}
+                <div key={adventure.id} className="rounded-xl border border-gray-100 bg-white border-l-4 border-l-landing-mint p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="text-2xl shrink-0">{getActivityIcon(adventure.activity_type)}</div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="font-semibold text-gray-900 capitalize">{adventure.activity_type}</span>
+                          <Badge variant="outline" className="text-xs shrink-0 bg-landing-mint/10 text-landing-mint-dark border-landing-mint/25">
+                            {adventure.duration_minutes} min
+                          </Badge>
                         </div>
-                      )}
+                        <p className="text-sm text-gray-500">{new Date(adventure.adventure_date).toLocaleString('es-GT')}</p>
+                        {adventure.notes && (
+                          <p className="text-sm text-gray-600 mt-1">{adventure.notes}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center space-x-1 shrink-0">
-                    <Flame className="w-4 h-4 text-orange-500" />
-                    <span className="text-sm text-gray-600">{adventure.calories_burned} kcal</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Flame className="w-4 h-4 text-landing-mango-dark" />
+                      <span className="text-sm text-gray-600">{adventure.calories_burned} kcal</span>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </MobileSectionCard>
 
-      {/* Tips Section */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-        <CardContent className="p-6">
-          <div className="flex items-start space-x-4">
-            <div className="text-2xl">💡</div>
+      <MobileSectionCard variant="plain" className="border-landing-mint/25 bg-landing-mint/5">
+        <div className="p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl shrink-0">💡</div>
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Consejos para aventuras con {selectedPet.name}</h3>
               <ul className="text-sm text-gray-600 space-y-1">
@@ -599,9 +583,9 @@ const AdventureLog: React.FC = () => {
               </ul>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </MobileSectionCard>
+    </DashboardShell>
   );
 };
 

@@ -55,7 +55,7 @@ export const PetBuddyProductRecommendationCards: React.FC<PetBuddyProductRecomme
 
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-[11px] font-semibold text-landing-aqua-dark uppercase tracking-wide">
+      <p className="text-[11px] font-semibold text-landing-mango-dark uppercase tracking-wide">
         Opciones en la tienda
       </p>
       {recommendations.map((rec) => {
@@ -71,7 +71,7 @@ export const PetBuddyProductRecommendationCards: React.FC<PetBuddyProductRecomme
         return (
           <div
             key={rec.productId}
-            className="rounded-xl border border-landing-aqua/20 bg-white overflow-hidden shadow-sm"
+            className="rounded-xl border border-landing-mint/25 bg-white overflow-hidden shadow-sm"
           >
             <div className="px-3 py-2.5 space-y-1">
               <div className="flex items-start justify-between gap-2">
@@ -91,7 +91,7 @@ export const PetBuddyProductRecommendationCards: React.FC<PetBuddyProductRecomme
               {(macroHint || rec.hasDelivery) && (
                 <div className="flex flex-wrap gap-1.5">
                   {macroHint && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-landing-mint/15 text-landing-aqua-dark">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-landing-tropical/30 text-landing-mango-dark">
                       {macroHint}
                     </span>
                   )}
@@ -120,7 +120,7 @@ export const PetBuddyProductRecommendationCards: React.FC<PetBuddyProductRecomme
                   <Link
                     to="/cart"
                     onClick={() => onCloseChat?.()}
-                    className="px-3 py-2 text-[11px] font-semibold text-landing-aqua-dark border-l border-gray-100 hover:bg-landing-aqua/5"
+                    className="px-3 py-2 text-[11px] font-semibold text-landing-mango-dark border-l border-gray-100 hover:bg-landing-mango/10"
                   >
                     Ver carrito
                   </Link>
@@ -132,8 +132,7 @@ export const PetBuddyProductRecommendationCards: React.FC<PetBuddyProductRecomme
                   onClick={() => void handleAdd(rec)}
                   className={cn(
                     'w-full flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold',
-                    'bg-gradient-to-r from-landing-aqua to-landing-mint text-white',
-                    'hover:opacity-90 transition-opacity disabled:opacity-60',
+                    'bg-landing-aqua text-white hover:bg-landing-aqua-dark transition-colors disabled:opacity-60',
                   )}
                 >
                   {loading ? (

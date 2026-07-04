@@ -62,7 +62,7 @@ export const Contact: React.FC = () => {
       <section className="relative py-20 md:py-28 overflow-hidden">
         <LandingAmbientBackground variant="hero" />
         <LandingPetDecorations preset="hero" />
-        <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/90 via-landing-mint/85 to-landing-mango/90" />
+        <div className="absolute inset-0 bg-landing-mango" />
         <div className="absolute inset-0 bg-black/10" />
 
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
@@ -110,7 +110,7 @@ export const Contact: React.FC = () => {
               return (
                 <Wrapper key={channel.title} {...wrapperProps}>
                   <div className="bg-white rounded-xl border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 p-5 text-center h-full hover:-translate-y-1">
-                    <div className={`w-12 h-12 bg-gradient-to-br ${channel.gradient} rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
+                    <div className={`w-12 h-12 ${channel.gradient} ${channel.colorText} rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
                       <channel.icon className="w-5 h-5 text-white" />
                     </div>
                     <p className="font-semibold text-gray-900 text-sm mb-2">{channel.title}</p>
@@ -149,7 +149,7 @@ export const Contact: React.FC = () => {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-xl p-6 md:p-8">
                 {isSubmitted ? (
                   <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gradient-to-br from-landing-mint to-landing-aqua rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 bg-landing-mint rounded-full flex items-center justify-center mx-auto mb-4">
                       <CheckCircle className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">¡Mensaje enviado!</h3>
@@ -292,12 +292,12 @@ export const Contact: React.FC = () => {
                     <p className="font-semibold text-gray-900 text-sm">Cobertura regional</p>
                   </div>
                 </div>
-                <div className="p-6 bg-gradient-to-br from-landing-mint/10 via-white to-landing-aqua/10">
+                <div className="p-6 bg-landing-mint/10">
                   <div className="rounded-xl border border-landing-aqua/20 bg-white/80 p-5 text-center">
                     <Globe className="w-10 h-10 mx-auto mb-3 text-landing-aqua-dark" />
                     <p className="font-semibold text-gray-900">Latinoamérica</p>
                     <p className="text-gray-600 text-sm mt-2 leading-relaxed">
-                      PetHub está pensado para dueños, proveedores y refugios en toda la región.
+                      PetHub está pensado para clientes, proveedores y refugios en toda la región.
                       Escríbenos desde tu país — te respondemos en español.
                     </p>
                   </div>
@@ -338,7 +338,7 @@ export const Contact: React.FC = () => {
                 key={item.title}
                 className="p-4 rounded-xl border border-gray-100 hover:border-landing-aqua/30 hover:shadow-md transition-all"
               >
-                <div className={`w-9 h-9 bg-gradient-to-br ${item.gradient} rounded-lg flex items-center justify-center mb-3`}>
+                <div className={`w-9 h-9 ${item.gradient} ${item.colorText} rounded-lg flex items-center justify-center mb-3`}>
                   <item.icon className="w-4 h-4 text-white" />
                 </div>
                 <p className="font-semibold text-gray-900 text-sm mb-1">{item.title}</p>
@@ -353,7 +353,7 @@ export const Contact: React.FC = () => {
       <section className="relative py-20 md:py-24 overflow-hidden">
         <LandingPetDecorations preset="cta" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative bg-gradient-to-r from-landing-aqua to-landing-mango rounded-2xl p-8 md:p-12 overflow-hidden shadow-xl">
+          <div className="relative bg-landing-aqua rounded-2xl p-8 md:p-12 overflow-hidden shadow-xl">
             <div className="absolute inset-0 bg-black/10" />
             <LandingAmbientBackground variant="dark" className="opacity-20" />
 

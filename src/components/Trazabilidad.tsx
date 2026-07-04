@@ -38,7 +38,7 @@ import { PageLoader } from './PageLoader';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary, landingCardThemes, landingChartColors } from '@/lib/landingTheme';
+import { landingBtnSolidMint, landingChartColors, solidCardThemeAt } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 import { formatPetOptionLabel } from '@/utils/petLabels';
@@ -656,7 +656,7 @@ const Trazabilidad: React.FC = () => {
       unreadIds.has(getWeeklyGoalNotificationId(selectedPetForAnalytics, weekStart));
 
     return (
-    <MobileSectionCard className={cn(showWeeklyNudge && 'ring-2 ring-amber-300/80 ring-offset-1')}>
+    <MobileSectionCard variant="plain" className={cn(showWeeklyNudge && 'ring-2 ring-amber-300/80 ring-offset-1')}>
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
@@ -680,7 +680,7 @@ const Trazabilidad: React.FC = () => {
         </div>
         <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint transition-all duration-500"
+            className="h-full rounded-full bg-landing-mint transition-all duration-500"
             style={{ width: `${weeklyProgress.percent}%` }}
           />
         </div>
@@ -695,7 +695,7 @@ const Trazabilidad: React.FC = () => {
   };
 
   const renderHowItWorks = () => (
-    <MobileSectionCard>
+          <MobileSectionCard variant="plain">
       <div className="p-4 sm:p-5">
         <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
           <Info className="w-4 h-4 text-landing-aqua-dark shrink-0" />
@@ -717,7 +717,7 @@ const Trazabilidad: React.FC = () => {
   );
 
   const renderPetFilter = () => (
-    <MobileSectionCard>
+          <MobileSectionCard variant="plain">
       <div className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <Filter className="w-4 h-4 text-landing-aqua-dark shrink-0" />
@@ -753,7 +753,7 @@ const Trazabilidad: React.FC = () => {
 
   if (initialLoading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="inline" message="Cargando ejercicio y sesiones…" />
       </DashboardShell>
     );
@@ -761,8 +761,10 @@ const Trazabilidad: React.FC = () => {
 
   return (
     <>
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <PageHeader
+        variant="solid"
+        accent="mint"
         title="Ejercicio"
         subtitle="Registra y gestiona las actividades físicas de tus mascotas"
       >
@@ -780,6 +782,8 @@ const Trazabilidad: React.FC = () => {
         tabs={exerciseTabs}
         activeTab={activeTab}
         onChange={setActiveTab}
+        variant="solid"
+        accent="mint"
         columns={3}
       />
 
@@ -790,21 +794,21 @@ const Trazabilidad: React.FC = () => {
           {renderHowItWorks()}
 
           {pets.length === 0 ? (
-            <MobileSectionCard>
+            <MobileSectionCard variant="plain">
               <div className="text-center py-10 px-4">
                 <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p className="font-medium text-gray-800">Primero agrega una mascota</p>
                 <p className="text-sm text-gray-500 mt-1 mb-4 max-w-sm mx-auto">
                   Necesitas al menos una mascota registrada para guardar sesiones de ejercicio.
                 </p>
-                <Button className={landingBtnPrimary} onClick={() => navigate('/pet-creation')}>
+                <Button className={landingBtnSolidMint} onClick={() => navigate('/pet-creation')}>
                   <Plus className="w-4 h-4 mr-2" />
                   Registrar mascota
                 </Button>
               </div>
             </MobileSectionCard>
           ) : (
-        <MobileSectionCard>
+        <MobileSectionCard variant="plain">
           <div className="p-4 sm:p-5">
             <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-gray-900 mb-4">
               <Plus className="w-5 h-5 text-landing-aqua-dark shrink-0" />
@@ -881,7 +885,7 @@ const Trazabilidad: React.FC = () => {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <div className="rounded-xl border border-landing-aqua/25 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 p-4">
+                  <div className="rounded-xl border border-landing-mint/25 bg-landing-mint/10 p-4">
                     <div className="flex items-center gap-2">
                       <Zap className="w-5 h-5 text-landing-aqua-dark shrink-0" />
                       <span className="font-semibold text-landing-aqua-dark">
@@ -928,7 +932,7 @@ const Trazabilidad: React.FC = () => {
                   type="submit"
                   disabled={loading || pets.length === 0}
                   data-blueprint-guided="register-exercise"
-                  className={cn('flex-1 min-h-[44px]', landingBtnPrimary)}
+                  className={cn('flex-1 min-h-[44px]', landingBtnSolidMint)}
                 >
                   <Activity className="w-4 h-4 mr-2 shrink-0" />
                   {loading
@@ -960,11 +964,11 @@ const Trazabilidad: React.FC = () => {
           {exerciseStats && (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
               {statCards.map((stat, index) => {
-                const theme = landingCardThemes[index % landingCardThemes.length];
+                const theme = solidCardThemeAt(index);
                 return (
                   <div
                     key={stat.label}
-                    className={cn('rounded-2xl border p-4 backdrop-blur-sm', theme.bg, theme.border)}
+                    className={cn('rounded-2xl border p-4 bg-white', theme.bg, theme.border)}
                   >
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide leading-tight">{stat.label}</p>
                     <p className={cn('font-bold text-gray-900 mt-1 break-words', stat.small ? 'text-base' : 'text-xl sm:text-2xl')}>
@@ -978,7 +982,7 @@ const Trazabilidad: React.FC = () => {
           )}
 
           {chartData.length > 0 ? (
-            <MobileSectionCard>
+            <MobileSectionCard variant="plain">
               <div className="p-4 sm:p-5">
                 <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
                   <TrendingUp className="w-5 h-5 text-landing-aqua-dark shrink-0" />
@@ -1038,7 +1042,7 @@ const Trazabilidad: React.FC = () => {
               </div>
             </MobileSectionCard>
           ) : (
-            <MobileSectionCard>
+            <MobileSectionCard variant="plain">
               <div className="text-center py-10 px-4">
                 <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p className="font-medium text-gray-700">Sin datos para analizar</p>
@@ -1053,7 +1057,7 @@ const Trazabilidad: React.FC = () => {
         <div className="space-y-4">
           {renderPetFilter()}
 
-          <MobileSectionCard>
+          <MobileSectionCard variant="plain">
             <div className="p-4 sm:p-5">
               <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
                 <Calendar className="w-5 h-5 text-landing-aqua-dark shrink-0" />

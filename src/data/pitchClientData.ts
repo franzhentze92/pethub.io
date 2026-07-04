@@ -24,7 +24,7 @@ export interface PitchRoleSlideData {
 
 /** Módulos reales del menú inferior del cliente (Navigation.tsx) */
 export const pitchClientSlide: PitchRoleSlideData = {
-  label: 'Dueño de Mascota',
+  label: 'Cliente de mascota',
   tagline:
     'Cinco secciones en el menú inferior — Inicio, Tienda, Cuidado, Social y Ajustes — con sub-módulos expandibles para cubrir todo el día a día pet.',
   gradient: 'from-landing-aqua to-landing-mint',
@@ -86,7 +86,7 @@ export const pitchClientSlide: PitchRoleSlideData = {
     {
       icon: HeartHandshake,
       title: 'Parejas',
-      description: 'Encuentra mascotas compatibles para cría y coordina con otros dueños.',
+      description: 'Encuentra mascotas compatibles y coordina con otros clientes.',
       tag: 'Social',
     },
     {

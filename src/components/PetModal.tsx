@@ -8,10 +8,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useCreatePet, useUpdatePet } from '@/hooks/useSettings'
 import { supabase } from '@/lib/supabase'
 import { Loader2, Upload, X, Star } from 'lucide-react'
+import { toast } from 'sonner'
 import { MAX_PET_IMAGES, getPetImageUrls, syncPetImages, buildPetGalleryUrls, getStylizeSourceUrl, type PetImageRow } from '@/utils/petImages'
 import PetAvatarStylizer from '@/components/PetAvatarStylizer'
 import { getStylizedStyleFromUrl } from '@/lib/stylizePet'
 import { cn } from '@/lib/utils'
+import { plainPageAccentOutlineBtn, plainPageAccentUi, type PlainPageAccent } from '@/lib/landingTheme'
 import { SPECIES_FORM_OPTIONS, GENDER_FORM_OPTIONS, isDogSpecies, normalizeSpeciesToSpanish, SPECIES_ES } from '@/utils/petLabels'
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext'
 
@@ -32,9 +34,12 @@ interface PetModalProps {
     pet_images?: PetImageRow[] | null
   }
   ownerId: string
+  accent?: PlainPageAccent
 }
 
-const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) => {
+const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId, accent = 'aqua' }) => {
+  const ui = plainPageAccentUi(accent)
+  const outlineBtnClass = plainPageAccentOutlineBtn[accent]
   const [formData, setFormData] = useState({
     name: '',
     species: SPECIES_ES.PERRO,
@@ -308,19 +313,19 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
 
       const remaining = MAX_PET_IMAGES - imageUrls.length
       if (remaining <= 0) {
-        alert(`Máximo ${MAX_PET_IMAGES} fotos por mascota.`)
+        toast.warning(`Máximo ${MAX_PET_IMAGES} fotos por mascota.`)
         return
       }
 
       const toUpload = files.slice(0, remaining)
       if (files.length > remaining) {
-        alert(`Solo se pueden agregar ${remaining} foto(s) más (máximo ${MAX_PET_IMAGES}).`)
+        toast.warning(`Solo se pueden agregar ${remaining} foto(s) más (máximo ${MAX_PET_IMAGES}).`)
       }
 
       const newUrls: string[] = []
       for (const file of toUpload) {
         if (file.size > 50 * 1024 * 1024) {
-          alert(`"${file.name}" es demasiado grande. Máximo 50MB.`)
+          toast.warning(`"${file.name}" es demasiado grande. Máximo 50MB.`)
           continue
         }
         const url = await uploadFile(file)
@@ -334,7 +339,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
       }
     } catch (error) {
       console.error('Error uploading image:', error)
-      alert('Error al subir la imagen. Inténtalo de nuevo.')
+      toast.error('Error al subir la imagen. Inténtalo de nuevo.')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -378,7 +383,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
     e.preventDefault()
 
     if (formData.available_for_breeding && !formData.gender) {
-      alert('Selecciona el género de tu mascota para publicarla en Parejas.')
+      toast.warning('Selecciona el género de tu mascota para publicarla en Parejas.')
       return
     }
     
@@ -446,6 +451,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
       onOpenChange={(open) => !open && onClose()}
       title={isEditing ? 'Editar Mascota' : 'Agregar Mascota'}
       description={isEditing ? 'Actualiza los datos de tu mascota' : 'Registra una nueva mascota en tu perfil'}
+      accent={accent}
       footer={
         <MobileFormActions
           formId={formId}
@@ -453,6 +459,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
           submitLabel={isEditing ? 'Actualizar' : 'Crear'}
           loading={isLoading}
           submitDisabled={isLoading}
+          accent={accent}
         />
       }
     >
@@ -484,8 +491,8 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
                         className={cn(
                           'relative aspect-square rounded-xl overflow-hidden transition-all cursor-pointer',
                           isPrimary
-                            ? 'ring-2 ring-purple-500 ring-offset-2 shadow-sm'
-                            : 'ring-1 ring-gray-200 hover:ring-purple-300 active:scale-[0.98]',
+                            ? cn('ring-2 ring-offset-2 shadow-sm', accent === 'tropical' ? 'ring-landing-tropical' : accent === 'mango' ? 'ring-landing-mango' : 'ring-landing-aqua')
+                            : cn('ring-1 ring-gray-200 active:scale-[0.98]', accent === 'tropical' ? 'hover:ring-landing-tropical/50' : 'hover:ring-landing-aqua/40'),
                         )}
                         aria-label={isPrimary ? 'Foto principal' : 'Usar como foto principal'}
                         aria-pressed={isPrimary}
@@ -507,7 +514,10 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
                           <X size={12} />
                         </button>
                         {isPrimary ? (
-                          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-[9px] bg-purple-600 text-white px-1.5 py-0.5 rounded-full font-medium">
+                          <span className={cn(
+                            'absolute bottom-1 left-1 flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium',
+                            accent === 'tropical' ? 'bg-landing-tropical text-gray-900' : 'bg-landing-aqua text-white',
+                          )}>
                             <Star className="w-2.5 h-2.5 fill-current" />
                             Principal
                           </span>
@@ -527,7 +537,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
                 )}
               </div>
             ) : (
-              <div className="w-full aspect-[3/1] bg-gradient-to-br from-landing-aqua to-landing-mint rounded-2xl flex items-center justify-center text-white text-3xl shadow-md">
+              <div className={cn('w-full aspect-[3/1] rounded-2xl flex items-center justify-center text-3xl shadow-md', ui.iconBg)}>
                 {getPetEmoji(formData.species)}
               </div>
             )}
@@ -546,7 +556,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || imageUrls.length >= MAX_PET_IMAGES}
-              className="w-full min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10"
+              className={cn('w-full min-h-[44px]', outlineBtnClass)}
             >
               {uploading ? (
                 <>
@@ -573,6 +583,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
               breed={formData.breed}
               name={formData.name}
               disabled={isLoading}
+              accent={accent}
             />
           </div>
 
@@ -700,7 +711,7 @@ const PetModal: React.FC<PetModalProps> = ({ isOpen, onClose, pet, ownerId }) =>
             </div>
             
             <div
-              className="flex items-center gap-3 min-h-[44px] p-3 rounded-xl bg-landing-mint/5 border border-landing-mint/20"
+              className={cn('flex items-center gap-3 min-h-[44px] p-3 rounded-xl border', ui.bgSoft, ui.borderLight)}
               data-blueprint-guided="enable-breeding"
             >
               <Checkbox

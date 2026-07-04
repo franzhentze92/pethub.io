@@ -36,7 +36,7 @@ export const PetBuddyResetMemoryDialog: React.FC<PetBuddyResetMemoryDialogProps>
           'shadow-2xl shadow-landing-aqua/10 [&>button]:hidden'
         )}
       >
-        <div className="h-1.5 bg-gradient-to-r from-landing-aqua via-landing-mint to-landing-mango" />
+        <div className="h-1.5 bg-landing-aqua" />
 
         <div className="px-5 pt-5 pb-4">
           <DialogHeader className="space-y-3">
@@ -91,7 +91,7 @@ export const PetBuddyResetMemoryDialog: React.FC<PetBuddyResetMemoryDialogProps>
             }}
             className={cn(
               'flex-1 inline-flex items-center justify-center h-10 rounded-xl text-sm font-semibold text-white',
-              'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
+              'bg-red-500 hover:bg-red-600',
               'shadow-md shadow-red-500/20 transition-all active:scale-[0.98]'
             )}
           >

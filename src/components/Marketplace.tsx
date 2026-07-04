@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingBag, Scissors, Home, Moon, Stethoscope, GraduationCap, Star, Heart, MapPin, Package, Building2, Clock, Search, Filter, X, Image as ImageIcon, RotateCcw, Phone, Truck, Tag, Ruler, Weight, Info, RefreshCw } from 'lucide-react';
-import PageHeader from './PageHeader';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +30,7 @@ import PageLoader from '@/components/PageLoader';
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
-import { landingBtnPrimary, landingBadge, landingFeatureGradients, landingHeaderActionBtn } from '@/lib/landingTheme';
+import { landingBtnSolid, landingBadge, solidIconBgAt } from '@/lib/landingTheme';
 import {
   categoryBadgeBaseClass,
   formatCategoryLabel,
@@ -56,14 +55,14 @@ import {
 } from '@/config/productSubscriptions';
 
 const itemCardClass =
-  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 flex flex-col h-full';
+  'rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 flex flex-col h-full';
 const cardTitleClass = 'font-bold text-sm md:text-base text-gray-800 mb-1 line-clamp-3 min-h-[3.75rem] md:min-h-[4.125rem] leading-snug';
 const cardDescriptionClass = 'text-gray-600 text-xs md:text-sm line-clamp-2 min-h-[2rem] md:min-h-[2.5rem] leading-snug';
 const cardMetaBlockClass = 'space-y-1 min-h-[2.75rem]';
 const filterPanelClass =
-  'rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg p-4 space-y-4';
+  'rounded-2xl bg-white border border-gray-100 shadow-sm p-4 space-y-4';
 const detailsModalSectionClass =
-  'rounded-xl border border-landing-aqua/15 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 p-3.5';
+  'rounded-xl border border-landing-aqua/15 bg-landing-aqua/5 p-3.5';
 const detailsModalOutlineBtn =
   'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
 
@@ -986,7 +985,6 @@ const Marketplace: React.FC = () => {
     <div className="grid grid-cols-4 gap-2">
       {categories.map((category, index) => {
         const active = activeCategory === category.id;
-        const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
         return (
           <button
             key={category.id}
@@ -995,8 +993,8 @@ const Marketplace: React.FC = () => {
             className={cn(
               'flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 min-h-[44px] transition-all duration-200',
               active
-                ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-                : 'bg-white/80 backdrop-blur-sm border border-white/60 text-gray-600 hover:border-landing-aqua/30 hover:text-landing-aqua-dark shadow-sm'
+                ? 'bg-landing-aqua text-white shadow-sm'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-landing-aqua/40 hover:text-landing-aqua-dark',
             )}
           >
             <category.icon size={18} className={active ? 'text-white' : 'text-landing-aqua-dark'} />
@@ -1270,7 +1268,7 @@ const Marketplace: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="inline" message="Cargando productos y servicios…" />
       </DashboardShell>
     );
@@ -1278,13 +1276,12 @@ const Marketplace: React.FC = () => {
 
   if (error) {
     return (
-      <DashboardShell>
-        <PageHeader
-          title="Marketplace"
-          subtitle="Encuentra servicios y productos para tu mascota"
-          gradient="from-landing-aqua via-landing-mint to-landing-mango"
-        />
-        <div className="rounded-2xl bg-red-50/90 border border-red-200 p-4 backdrop-blur-sm">
+      <DashboardShell variant="plain">
+        <div className="space-y-1 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">Marketplace</h1>
+          <p className="text-sm text-gray-500">Encuentra servicios y productos para tu mascota</p>
+        </div>
+        <div className="rounded-2xl bg-red-50 border border-red-200 p-4">
           <p className="text-red-700 font-medium">{error}</p>
           <Button
             variant="outline"
@@ -1299,37 +1296,39 @@ const Marketplace: React.FC = () => {
   }
 
   return (
-    <DashboardShell>
-      <PageHeader
-        title="Marketplace"
-        subtitle="Encuentra servicios y productos para tu mascota"
-        gradient="from-landing-aqua via-landing-mint to-landing-mango"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleTabChange('favorites')}
-            className={cn('flex items-center gap-2 rounded-full px-3 py-1.5 text-sm min-h-[36px]', landingHeaderActionBtn)}
-          >
-            <Heart className="w-4 h-4" />
-            Favoritos{favoriteCount > 0 ? ` (${favoriteCount})` : ''}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/client-orders')}
-            className={cn('flex items-center gap-2 rounded-full px-3 py-1.5 text-sm min-h-[36px]', landingHeaderActionBtn)}
-          >
-            <Package className="w-4 h-4" />
-            Mis órdenes
-          </button>
-        </div>
-      </PageHeader>
+    <DashboardShell variant="plain">
+      <div className="space-y-1 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900">Marketplace</h1>
+        <p className="text-sm text-gray-500">Encuentra servicios y productos para tu mascota</p>
+      </div>
+
+      <MobileTabStrip tabs={marketplaceTabs} activeTab={activeTab} onChange={handleTabChange} variant="solid" accent="aqua" />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => handleTabChange('favorites')}
+          className={cn(
+            'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm min-h-[36px] border',
+            activeTab === 'favorites'
+              ? 'bg-landing-aqua text-white border-landing-aqua shadow-sm'
+              : 'bg-white text-landing-aqua-dark border-landing-aqua/30 hover:bg-landing-aqua/10',
+          )}
+        >
+          <Heart className="w-4 h-4" />
+          Favoritos{favoriteCount > 0 ? ` (${favoriteCount})` : ''}
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/client-orders')}
+          className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm min-h-[36px] bg-white text-landing-aqua-dark border border-landing-aqua/30 hover:bg-landing-aqua/10"
+        >
+          <Package className="w-4 h-4" />
+          Mis órdenes
+        </button>
+      </div>
 
       <div className={cn('space-y-4', activeTab === 'favorites' && favoriteCount > 0 && 'flex flex-col')}>
-        {activeTab !== 'favorites' && (
-          <MobileTabStrip tabs={marketplaceTabs} activeTab={activeTab} onChange={handleTabChange} />
-        )}
-
         {activeTab !== 'favorites' &&
           renderCategoryGrid(activeTab === 'products' ? productCategories : serviceCategories)}
 
@@ -1380,7 +1379,7 @@ const Marketplace: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-stretch">
               {visibleServices.map((service, index) => {
                 const CategoryIcon = getCategoryIcon(service.service_category);
-                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                const iconBg = solidIconBgAt(index);
                 return (
                   <Card
                     key={service.id}
@@ -1395,7 +1394,7 @@ const Marketplace: React.FC = () => {
 
                       if (allImages.length === 0) {
                         return (
-                          <div className={cn('relative w-full h-32 md:h-44 flex items-center justify-center bg-gradient-to-br', gradient, 'opacity-20')}>
+                          <div className={cn('relative w-full h-32 md:h-44 flex items-center justify-center', iconBg, 'opacity-90')}>
                             <CategoryIcon className="w-10 h-10 text-landing-aqua-dark" />
                             <div className="absolute top-2 left-2">
                               <Badge
@@ -1552,7 +1551,7 @@ const Marketplace: React.FC = () => {
                           })()}
                         </span>
                         <Button
-                          className={cn(landingBtnPrimary, 'text-xs md:text-sm px-2 md:px-4 shrink-0')}
+                          className={cn(landingBtnSolid, 'text-xs md:text-sm px-2 md:px-4 shrink-0')}
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1601,7 +1600,7 @@ const Marketplace: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-stretch">
               {visibleProducts.map((product, index) => {
                 const CategoryIcon = getCategoryIcon(product.product_category, true);
-                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                const iconBg = solidIconBgAt(index);
                 return (
                   <Card key={product.id} className={itemCardClass}>
                     <div className="relative h-32 md:h-44 overflow-hidden bg-gray-100">
@@ -1613,7 +1612,7 @@ const Marketplace: React.FC = () => {
                         
                         if (allImages.length === 0) {
                           return (
-                            <div className={cn('w-full h-full flex items-center justify-center bg-gradient-to-br', gradient, 'opacity-25')}>
+                            <div className={cn('w-full h-full flex items-center justify-center', iconBg, 'opacity-90')}>
                               <CategoryIcon className="w-10 h-10 text-landing-aqua-dark" />
                             </div>
                           );
@@ -1871,7 +1870,7 @@ const Marketplace: React.FC = () => {
                       <div className="space-y-1 md:space-y-2">
                         <div className="flex gap-2">
                           <Button
-                            className={cn('flex-1 text-xs md:text-sm', landingBtnPrimary)}
+                            className={cn('flex-1 text-xs md:text-sm', landingBtnSolid)}
                             size="sm"
                             disabled={product.stock_quantity === 0}
                             onClick={() => {
@@ -1910,9 +1909,9 @@ const Marketplace: React.FC = () => {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0">
           {selectedItem && (
             <>
-              <DialogHeader className="px-5 pt-5 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+              <DialogHeader className="px-5 pt-5 pb-4 border-b border-landing-aqua/10 bg-landing-aqua/10">
                 <DialogTitle className="text-lg font-bold text-gray-900 pr-8 flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-landing-aqua text-white shadow-sm">
                     {'service_name' in selectedItem ? (
                       <Scissors className="w-5 h-5" />
                     ) : (
@@ -1970,7 +1969,7 @@ const Marketplace: React.FC = () => {
 
                   if (allImages.length === 0) {
                     return (
-                      <div className="rounded-xl overflow-hidden border border-landing-aqua/15 h-40 flex items-center justify-center bg-gradient-to-br from-landing-aqua/15 to-landing-mint/15">
+                      <div className="rounded-xl overflow-hidden border border-landing-aqua/15 h-40 flex items-center justify-center bg-landing-aqua/10">
                         {isService ? (
                           <Scissors className="w-12 h-12 text-landing-aqua-dark/50" />
                         ) : (
@@ -2100,7 +2099,7 @@ const Marketplace: React.FC = () => {
                           className="w-10 h-10 rounded-full object-cover ring-2 ring-landing-aqua/20"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-landing-aqua to-landing-mint flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-landing-aqua flex items-center justify-center text-white">
                           <Building2 className="w-5 h-5 text-white" />
                         </div>
                       )}
@@ -2330,7 +2329,7 @@ const Marketplace: React.FC = () => {
                                       {pricingConfig.system === 'clothing_size' ? `Talla ${size.label}` : size.label}
                                     </span>
                                     {selectedSize === size.key && (
-                                      <div className="w-5 h-5 rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint flex items-center justify-center">
+                                      <div className="w-5 h-5 rounded-full bg-landing-aqua flex items-center justify-center text-white">
                                         <span className="text-white text-xs">✓</span>
                                       </div>
                                     )}
@@ -2369,7 +2368,7 @@ const Marketplace: React.FC = () => {
                                     {product.price.toFixed(2)}
                                   </p>
                                   {selectedSize === 'general' && (
-                                    <div className="w-5 h-5 rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint flex items-center justify-center">
+                                    <div className="w-5 h-5 rounded-full bg-landing-aqua flex items-center justify-center text-white">
                                       <span className="text-white text-xs">✓</span>
                                     </div>
                                   )}
@@ -2385,7 +2384,7 @@ const Marketplace: React.FC = () => {
 
                 {/* Price and Action */}
                 <div className="border-t border-landing-aqua/15 pt-4 -mx-1 px-1">
-                  <div className="rounded-xl bg-gradient-to-r from-landing-aqua/8 to-landing-mint/8 border border-landing-aqua/15 p-4 space-y-3">
+                  <div className="rounded-xl bg-landing-aqua/5 border border-landing-aqua/15 p-4 space-y-3">
                     {(() => {
                       if ('service_name' in selectedItem) {
                         return (
@@ -2542,7 +2541,7 @@ const Marketplace: React.FC = () => {
                     <div className="flex gap-2 pt-1">
                       {'service_name' in selectedItem ? (
                         <Button
-                          className={cn('flex-1 min-h-[44px]', landingBtnPrimary, 'border-0')}
+                          className={cn('flex-1 min-h-[44px]', landingBtnSolid, 'border-0')}
                           size="sm"
                           onClick={() => {
                             handleServiceBooking(selectedItem as ProviderService);
@@ -2553,7 +2552,7 @@ const Marketplace: React.FC = () => {
                         </Button>
                       ) : (
                         <Button
-                          className={cn('flex-1 min-h-[44px]', landingBtnPrimary, 'border-0')}
+                          className={cn('flex-1 min-h-[44px]', landingBtnSolid, 'border-0')}
                           disabled={
                             selectedItem.stock_quantity === 0 ||
                             (getPricingConfig((selectedItem as ProviderProduct).product_category).system !== 'single' &&

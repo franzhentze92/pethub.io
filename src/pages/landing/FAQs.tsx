@@ -33,7 +33,7 @@ export const FAQs: React.FC = () => {
       <section className="relative py-20 md:py-28 overflow-hidden">
         <LandingAmbientBackground variant="hero" />
         <LandingPetDecorations preset="hero" />
-        <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/90 via-landing-mint/85 to-landing-mango/90" />
+        <div className="absolute inset-0 bg-landing-aqua" />
         <div className="absolute inset-0 bg-black/10" />
 
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
@@ -101,7 +101,7 @@ export const FAQs: React.FC = () => {
                   onClick={() => setActiveCategory(cat.id)}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                     activeCategory === cat.id
-                      ? `bg-gradient-to-r ${cat.gradient} text-white shadow-md`
+                      ? `${cat.gradient} ${cat.colorText} shadow-md`
                       : 'bg-white text-gray-600 border border-gray-200 hover:border-landing-aqua/40 hover:text-landing-aqua-dark'
                   }`}
                 >
@@ -119,7 +119,7 @@ export const FAQs: React.FC = () => {
 
           {/* Active category header */}
           {activeCategory !== 'all' && (
-            <div className={`rounded-xl p-5 md:p-6 mb-6 bg-gradient-to-r ${activeCat.gradient} text-white w-full`}>
+            <div className={`rounded-xl p-5 md:p-6 mb-6 ${activeCat.gradient} ${activeCat.colorText} w-full`}>
               <div className="flex items-center gap-3">
                 <activeCat.icon className="w-5 h-5" />
                 <div>
@@ -149,7 +149,7 @@ export const FAQs: React.FC = () => {
                 >
                   <AccordionTrigger className="hover:no-underline py-4 text-left gap-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-9 h-9 bg-gradient-to-br from-landing-aqua to-landing-mint rounded-lg flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 bg-landing-aqua rounded-lg flex items-center justify-center shrink-0">
                         <faq.icon className="w-4 h-4 text-white" />
                       </div>
                       <span className="font-semibold text-gray-900 text-sm md:text-base leading-snug">
@@ -203,7 +203,7 @@ export const FAQs: React.FC = () => {
       <section className="relative py-20 md:py-24 overflow-hidden">
         <LandingPetDecorations preset="cta" />
         <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 2xl:px-24">
-          <div className="relative bg-gradient-to-r from-landing-aqua to-landing-mango rounded-2xl p-8 md:p-12 overflow-hidden shadow-xl w-full">
+          <div className="relative bg-landing-mango rounded-2xl p-8 md:p-12 overflow-hidden shadow-xl w-full">
             <div className="absolute inset-0 bg-black/10" />
             <LandingAmbientBackground variant="dark" className="opacity-20" />
 

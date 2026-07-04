@@ -1,6 +1,12 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import {
+  landingFeatureGradients,
+  solidIconBgAt,
+  plainPageAccentTabActive,
+  plainPageAccentTabInactiveHover,
+  type PlainPageAccent,
+} from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 
 export interface MobileTabItem {
@@ -20,6 +26,8 @@ interface MobileTabStripProps {
   layout?: 'grid' | 'scroll';
   /** Divide tabs en filas: [3, 2] = 3 arriba y 2 abajo */
   rowSizes?: number[];
+  variant?: 'gradient' | 'solid';
+  accent?: PlainPageAccent;
 }
 
 const gridColsClass: Record<number, string> = {
@@ -36,10 +44,12 @@ export const MobileTabStrip: React.FC<MobileTabStripProps> = ({
   columns = 2,
   layout = 'grid',
   rowSizes,
+  variant = 'gradient',
+  accent = 'aqua',
 }) => {
   const renderTabButton = (tab: MobileTabItem, compact?: boolean) => {
     const active = activeTab === tab.id;
-    const gradient = landingFeatureGradients[(tab.gradientIndex ?? 0) % landingFeatureGradients.length];
+    const solidBg = solidIconBgAt(tab.gradientIndex ?? 0);
     const Icon = tab.icon;
 
     return (
@@ -53,8 +63,15 @@ export const MobileTabStrip: React.FC<MobileTabStripProps> = ({
             ? 'flex-shrink-0 snap-start px-3.5 text-xs sm:text-sm min-w-[max-content]'
             : cn('w-full px-2 sm:px-3', compact || columns === 3 ? 'text-xs sm:text-sm' : 'text-sm'),
           active
-            ? `bg-gradient-to-r ${gradient} text-white shadow-md`
-            : 'bg-white/80 text-gray-600 border border-gray-200/80 hover:border-landing-aqua/30 hover:text-landing-aqua-dark',
+            ? variant === 'solid'
+              ? plainPageAccentTabActive[accent]
+              : `${solidBg} shadow-md`
+            : cn(
+                'bg-white text-gray-600 border border-gray-200',
+                variant === 'solid'
+                  ? plainPageAccentTabInactiveHover[accent]
+                  : 'hover:border-landing-aqua/40 hover:text-landing-aqua-dark',
+              ),
         )}
       >
         <Icon size={18} className="shrink-0" />

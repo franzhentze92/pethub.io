@@ -11,7 +11,10 @@ import SimpleMap from '@/components/SimpleMap';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from '@/components/mobile/MobileTabStrip';
 import { MobileSectionCard, MobileFab } from '@/components/mobile/MobileUi';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn, plainPageAccentOutlineBtn } from '@/lib/landingTheme';
+
+const socialBtn = plainPageAccentBtn.mango;
+const socialOutlineBtn = plainPageAccentOutlineBtn.mango;
 import { Skeleton } from '@/components/ui/skeleton';
 import { PetPhotoCarousel } from '@/components/mobile/PetPhotoCarousel';
 import { type PetImageRow, type LostPetWithImages, getLostPetImageUrls } from '@/utils/petImages';
@@ -185,7 +188,7 @@ const MascotasPerdidas: React.FC = () => {
   };
 
   const renderPetCard = (pet: LostPet, showOwnerActions = false) => (
-    <MobileSectionCard key={pet.id}>
+    <MobileSectionCard variant="plain" key={pet.id}>
       <PetPhotoCarousel
         pet={pet}
         images={getLostPetImageUrls(pet)}
@@ -195,7 +198,7 @@ const MascotasPerdidas: React.FC = () => {
         className="rounded-t-2xl"
         showCounter
         fallback={
-          <div className="w-full h-full bg-gradient-to-br from-landing-mango/20 to-landing-tropical/20 flex items-center justify-center">
+          <div className="w-full h-full bg-landing-mango/15 flex items-center justify-center">
             <PawPrint className="w-10 h-10 text-landing-mango-dark" />
           </div>
         }
@@ -219,11 +222,11 @@ const MascotasPerdidas: React.FC = () => {
 
         <div className="space-y-1.5 text-xs text-gray-600">
           <p className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-landing-aqua-dark shrink-0" />
+            <MapPin className="w-3.5 h-3.5 text-landing-mango-dark shrink-0" />
             <span className="truncate">{pet.last_location}</span>
           </p>
           <p className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-landing-aqua-dark shrink-0" />
+            <Calendar className="w-3.5 h-3.5 text-landing-mango-dark shrink-0" />
             {new Date(pet.last_seen).toLocaleDateString('es-ES')}
           </p>
           {pet.reward ? (
@@ -242,7 +245,7 @@ const MascotasPerdidas: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 min-h-[40px] text-xs border-landing-aqua/30 text-landing-aqua-dark"
+            className="flex-1 min-h-[40px] text-xs border-landing-mango/30 text-landing-mango-dark"
             onClick={() => setSelectedLostPet(pet)}
           >
             <Eye className="w-3.5 h-3.5 mr-1" />
@@ -251,7 +254,7 @@ const MascotasPerdidas: React.FC = () => {
           {showOwnerActions && pet.status === 'lost' && (
             <Button
               size="sm"
-              className={`flex-1 min-h-[40px] text-xs ${landingBtnPrimary}`}
+              className={`flex-1 min-h-[40px] text-xs ${socialBtn}`}
               onClick={() => handleMarkAsFound(pet.id)}
             >
               <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
@@ -262,7 +265,7 @@ const MascotasPerdidas: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              className="min-h-[40px] min-w-[40px] px-0 border-landing-aqua/30 text-landing-aqua-dark"
+              className="min-h-[40px] min-w-[40px] px-0 border-landing-mango/30 text-landing-mango-dark"
               onClick={() => window.open(`tel:${pet.contact_phone}`)}
               aria-label="Llamar"
             >
@@ -275,7 +278,7 @@ const MascotasPerdidas: React.FC = () => {
   );
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Mascotas perdidas</h1>
@@ -283,14 +286,21 @@ const MascotasPerdidas: React.FC = () => {
         </div>
         <Button
           onClick={() => setShowReportDialog(true)}
-          className={`hidden sm:flex shrink-0 min-h-[44px] ${landingBtnPrimary}`}
+          className={`hidden sm:flex shrink-0 min-h-[44px] ${socialBtn}`}
         >
           <Plus className="w-4 h-4 mr-2" />
           Reportar
         </Button>
       </div>
 
-      <MobileTabStrip tabs={viewTabs} activeTab={viewMode} onChange={(id) => setViewMode(id as typeof viewMode)} />
+      <MobileTabStrip
+        tabs={viewTabs}
+        activeTab={viewMode}
+        onChange={(id) => setViewMode(id as typeof viewMode)}
+        variant="solid"
+        accent="mango"
+        columns={3}
+      />
 
       <div className="space-y-4 pb-16 sm:pb-0">
         {loading ? (
@@ -305,17 +315,17 @@ const MascotasPerdidas: React.FC = () => {
           )
         ) : viewMode === 'mis-reportes' ? (
           !user ? (
-            <MobileSectionCard className="p-8 text-center">
+            <MobileSectionCard variant="plain" className="p-8 text-center">
               <p className="text-sm text-gray-500">Inicia sesión para ver tus reportes</p>
             </MobileSectionCard>
           ) : myReports.length === 0 ? (
-            <MobileSectionCard className="p-8 text-center">
-              <ClipboardList className="w-14 h-14 mx-auto text-landing-aqua/30 mb-3" />
+            <MobileSectionCard variant="plain" className="p-8 text-center">
+              <ClipboardList className="w-14 h-14 mx-auto text-landing-mango/30 mb-3" />
               <h3 className="text-lg font-bold text-gray-900 mb-1">Sin reportes propios</h3>
               <p className="text-sm text-gray-500 mb-4">
                 Cuando reportes una mascota perdida aparecerá aquí
               </p>
-              <Button onClick={() => setShowReportDialog(true)} className={`min-h-[44px] ${landingBtnPrimary}`}>
+              <Button onClick={() => setShowReportDialog(true)} className={`min-h-[44px] ${socialBtn}`}>
                 <Plus className="w-4 h-4 mr-2" />
                 Reportar mascota
               </Button>
@@ -327,13 +337,13 @@ const MascotasPerdidas: React.FC = () => {
           )
         ) : viewMode === 'list' ? (
           activeLostPets.length === 0 ? (
-            <MobileSectionCard className="p-8 text-center">
-              <Search className="w-14 h-14 mx-auto text-landing-aqua/30 mb-3" />
+            <MobileSectionCard variant="plain" className="p-8 text-center">
+              <Search className="w-14 h-14 mx-auto text-landing-mango/30 mb-3" />
               <h3 className="text-lg font-bold text-gray-900 mb-1">Sin reportes activos</h3>
               <p className="text-sm text-gray-500 mb-4">
                 Sé el primero en reportar una mascota perdida para ayudar a otros
               </p>
-              <Button onClick={() => setShowReportDialog(true)} className={`min-h-[44px] ${landingBtnPrimary}`}>
+              <Button onClick={() => setShowReportDialog(true)} className={`min-h-[44px] ${socialBtn}`}>
                 <Plus className="w-4 h-4 mr-2" />
                 Reportar mascota
               </Button>
@@ -349,7 +359,7 @@ const MascotasPerdidas: React.FC = () => {
             </>
           )
         ) : (
-          <div className="h-[420px] sm:h-[520px] rounded-2xl overflow-hidden border border-landing-aqua/15 shadow-lg">
+          <div className="h-[420px] sm:h-[520px] rounded-2xl overflow-hidden border border-landing-mango/15 shadow-lg">
             <SimpleMap
               lostPets={activeLostPets}
               viewMode="map"
@@ -364,6 +374,8 @@ const MascotasPerdidas: React.FC = () => {
         onClick={() => setShowReportDialog(true)}
         label="Reportar"
         icon={<Plus size={20} />}
+        variant="solid"
+        accent="mango"
         className="sm:hidden"
       />
 

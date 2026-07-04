@@ -251,7 +251,7 @@ const RealMap: React.FC<RealMapProps> = ({
                 
                 <div className="flex space-x-2">
                   <button
-                    className="flex-1 bg-gradient-to-r from-landing-aqua to-landing-mint text-white px-3 py-1.5 rounded-lg text-xs font-medium"
+                    className="flex-1 bg-landing-aqua text-white px-3 py-1.5 rounded-lg text-xs font-medium"
                     onClick={() => onPetClick?.(pet)}
                   >
                     Ver detalles

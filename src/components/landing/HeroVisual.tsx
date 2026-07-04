@@ -67,22 +67,22 @@ type HubNode = {
 
 /** 16 módulos — cada 22.5° para que no se peguen las etiquetas */
 const ORBIT_NODES: HubNode[] = [
-  { id: 'nutrition', label: 'Nutrición', Icon: Utensils, angle: -90, accent: 'from-landing-mango/35 to-landing-tropical/25' },
-  { id: 'vaccines', label: 'Vacunas', Icon: Syringe, angle: -67.5, accent: 'from-landing-mint/30 to-landing-aqua/20' },
-  { id: 'vet', label: 'Veterinaria', Icon: Stethoscope, angle: -45, accent: 'from-landing-aqua/35 to-landing-mint/25' },
-  { id: 'petroom', label: 'Pet Room', Icon: PawPrint, angle: -22.5, accent: 'from-landing-aqua/30 to-landing-mango/20' },
-  { id: 'exercise', label: 'Ejercicio', Icon: Activity, angle: 0, accent: 'from-landing-mint/35 to-landing-aqua/25' },
-  { id: 'trace', label: 'Trazabilidad', Icon: Footprints, angle: 22.5, accent: 'from-landing-mint/30 to-landing-tropical/20' },
-  { id: 'adoption', label: 'Adopción', Icon: Heart, angle: 45, accent: 'from-pink-400/30 to-landing-mango/25' },
-  { id: 'parejas', label: 'Parejas', Icon: Users, angle: 67.5, accent: 'from-landing-mint/30 to-landing-aqua/20' },
-  { id: 'market', label: 'Marketplace', Icon: ShoppingBag, angle: 90, accent: 'from-landing-mango/35 to-landing-tropical/25' },
-  { id: 'orders', label: 'Órdenes', Icon: Package, angle: 112.5, accent: 'from-landing-aqua/25 to-landing-mint/20' },
-  { id: 'reminders', label: 'Alertas', Icon: Bell, angle: 135, accent: 'from-landing-aqua/30 to-landing-mint/20' },
-  { id: 'journey', label: 'Pet Journey', Icon: PawPrint, angle: 157.5, accent: 'from-landing-aqua/35 to-landing-mango/25' },
-  { id: 'shelter', label: 'Refugios', Icon: Home, angle: 180, accent: 'from-violet-400/25 to-landing-aqua/20' },
-  { id: 'lost', label: 'Perdidas', Icon: MapPin, angle: 202.5, accent: 'from-orange-400/25 to-landing-mango/20' },
-  { id: 'petbot', label: 'PetBot', Icon: MessageCircle, angle: 225, accent: 'from-landing-mango/30 to-landing-tropical/20' },
-  { id: 'stores', label: 'Tiendas', Icon: Store, angle: 247.5, accent: 'from-landing-mango/25 to-landing-aqua/15' },
+  { id: 'nutrition', label: 'Nutrición', Icon: Utensils, angle: -90, accent: 'bg-landing-mango/35' },
+  { id: 'vaccines', label: 'Vacunas', Icon: Syringe, angle: -67.5, accent: 'bg-landing-mint/30' },
+  { id: 'vet', label: 'Veterinaria', Icon: Stethoscope, angle: -45, accent: 'bg-landing-aqua/35' },
+  { id: 'petroom', label: 'Pet Room', Icon: PawPrint, angle: -22.5, accent: 'bg-landing-aqua/30' },
+  { id: 'exercise', label: 'Ejercicio', Icon: Activity, angle: 0, accent: 'bg-landing-mint/35' },
+  { id: 'trace', label: 'Trazabilidad', Icon: Footprints, angle: 22.5, accent: 'bg-landing-mint/30' },
+  { id: 'adoption', label: 'Adopción', Icon: Heart, angle: 45, accent: 'bg-landing-mango/30' },
+  { id: 'parejas', label: 'Parejas', Icon: Users, angle: 67.5, accent: 'bg-landing-mint/30' },
+  { id: 'market', label: 'Marketplace', Icon: ShoppingBag, angle: 90, accent: 'bg-landing-mango/35' },
+  { id: 'orders', label: 'Órdenes', Icon: Package, angle: 112.5, accent: 'bg-landing-aqua/25' },
+  { id: 'reminders', label: 'Alertas', Icon: Bell, angle: 135, accent: 'bg-landing-aqua/30' },
+  { id: 'journey', label: 'Pet Journey', Icon: PawPrint, angle: 157.5, accent: 'bg-landing-aqua/35' },
+  { id: 'shelter', label: 'Refugios', Icon: Home, angle: 180, accent: 'bg-landing-aqua/25' },
+  { id: 'lost', label: 'Perdidas', Icon: MapPin, angle: 202.5, accent: 'bg-landing-mango/25' },
+  { id: 'petbot', label: 'PetBot', Icon: MessageCircle, angle: 225, accent: 'bg-landing-mango/30' },
+  { id: 'stores', label: 'Tiendas', Icon: Store, angle: 247.5, accent: 'bg-landing-mango/25' },
 ];
 
 const RING_LABELS = [
@@ -95,7 +95,7 @@ const RING_LABELS = [
 const FLOAT_BADGES = [
   { label: '🐾 Gestión pet', className: 'border-landing-mango/50 bg-landing-mango/15 text-landing-tropical', style: { top: '5%', left: '4%' } },
   { label: 'Salud · Paseos · Comidas', className: 'border-landing-mint/50 bg-landing-mint/12 text-landing-mint', style: { top: '8%', right: '3%' } },
-  { label: 'Dueño · Proveedor · Refugio', className: 'border-landing-aqua/40 bg-landing-aqua/10 text-landing-aqua', style: { bottom: '6%', left: '3%' } },
+  { label: 'Cliente · Proveedor · Refugio', className: 'border-landing-aqua/40 bg-landing-aqua/10 text-landing-aqua', style: { bottom: '6%', left: '3%' } },
   { label: 'Latinoamérica', className: 'border-white/25 bg-white/8 text-white/85', style: { bottom: '9%', right: '4%' } },
 ] as const;
 
@@ -119,7 +119,7 @@ const WaveBars: React.FC = () => (
     {[5, 9, 12, 8, 11].map((h, i) => (
       <span
         key={i}
-        className="w-[3px] rounded-full bg-gradient-to-t from-landing-mango to-landing-tropical animate-pulse"
+        className="w-[3px] rounded-full bg-landing-mango animate-pulse"
         style={{ height: `${h}px`, animationDelay: `${i * 100}ms` }}
       />
     ))}
@@ -173,7 +173,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
     )}>
       <div
         className={cn(
-          'absolute rounded-[2.5rem] bg-gradient-to-br from-landing-mango/20 via-landing-aqua/20 to-landing-mint/15 blur-3xl opacity-80',
+          'absolute rounded-[2.5rem] bg-landing-aqua/20 blur-3xl opacity-80',
           compact ? '-inset-4' : '-inset-6',
         )}
         aria-hidden
@@ -181,7 +181,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
 
       <div
         className={cn(
-          'relative w-full aspect-square rounded-[1.85rem] border border-landing-mango/15 bg-gradient-to-br from-[#12100e] via-[#0d1218] to-[#0a100d] shadow-[0_28px_90px_-12px_rgba(255,183,3,0.15),0_0_60px_-20px_rgba(0,240,200,0.2)] overflow-hidden',
+          'relative w-full aspect-square rounded-[1.85rem] border border-landing-mango/15 bg-[#0d1218] shadow-[0_28px_90px_-12px_rgba(255,183,3,0.15),0_0_60px_-20px_rgba(0,240,200,0.2)] overflow-hidden',
           compact ? 'max-h-[min(380px,46vh)]' : 'max-h-[min(580px,92vw)]',
         )}
         role="img"
@@ -207,14 +207,6 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[55%] h-[55%] rounded-full bg-landing-mango/8 blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] rounded-full bg-landing-aqua/10 blur-2xl animate-pulse-glow" />
 
-        <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,183,3,0.08) 1px, transparent 0)',
-            backgroundSize: '20px 20px',
-          }}
-        />
-
         {FLOAT_BADGES.filter((badge) => !compact || !('bottom' in badge.style)).map((badge) => (
           <div
             key={badge.label}
@@ -229,7 +221,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
         ))}
 
         <div className="absolute top-3 right-3 z-40 flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl bg-[#12100e]/90 border border-landing-mango/25 backdrop-blur-md shadow-lg">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-landing-mango/30 to-landing-tropical/20 flex items-center justify-center border border-landing-mango/30">
+          <div className="w-8 h-8 rounded-lg bg-landing-mango/30 flex items-center justify-center border border-landing-mango/30">
             <span className="text-base leading-none" aria-hidden>🐶</span>
           </div>
           <div className="hidden sm:block">
@@ -267,16 +259,6 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
             {/* Tentáculos — brazos orgánicos desde la tarjeta central a cada módulo */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-[5]" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden>
               <defs>
-                <radialGradient id="mantleGrad" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#FFB703" stopOpacity="0.35" />
-                  <stop offset="55%" stopColor="#00F0C8" stopOpacity="0.12" />
-                  <stop offset="100%" stopColor="#00F0C8" stopOpacity="0" />
-                </radialGradient>
-                <linearGradient id="tentacleGrad" x1="50%" y1="50%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FFB703" stopOpacity="0.85" />
-                  <stop offset="45%" stopColor="#38F9A0" stopOpacity="0.55" />
-                  <stop offset="100%" stopColor="#00F0C8" stopOpacity="0.35" />
-                </linearGradient>
                 <filter id="tentacleGlow" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="0.45" result="blur" />
                   <feMerge>
@@ -287,7 +269,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
               </defs>
 
               {/* Cuerpo / manto del pulpo */}
-              <ellipse cx="50" cy="50" rx="17" ry="15.5" fill="url(#mantleGrad)" className="animate-pulse" style={{ animationDuration: '4s' }} />
+              <ellipse cx="50" cy="50" rx="17" ry="15.5" fill="#FFB703" fillOpacity="0.2" className="animate-pulse" style={{ animationDuration: '4s' }} />
               <ellipse cx="50" cy="50" rx="14" ry="12.5" fill="none" stroke="#FFB703" strokeOpacity="0.2" strokeWidth="0.4" />
 
               {layout.map((node, index) => (
@@ -296,7 +278,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
                   <path
                     d={node.tentaclePath}
                     fill="none"
-                    stroke="url(#tentacleGrad)"
+                    stroke="#00F0C8"
                     strokeWidth="0.75"
                     strokeLinecap="round"
                     opacity="0.18"
@@ -306,7 +288,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
                   <path
                     d={node.tentaclePath}
                     fill="none"
-                    stroke="url(#tentacleGrad)"
+                    stroke="#38F9A0"
                     strokeWidth="0.32"
                     strokeLinecap="round"
                     strokeDasharray="1.2 1.8"
@@ -376,7 +358,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
                     style={{ animationDelay: `${index * 0.2}s`, animationDuration: '4.8s' }}
                   >
                     {node.accent && (
-                      <div className={cn('absolute inset-0 rounded-xl bg-gradient-to-br opacity-50', node.accent)} />
+                      <div className={cn('absolute inset-0 rounded-xl opacity-50', node.accent)} />
                     )}
                     <Icon className="relative z-10 w-3.5 h-3.5 sm:w-4 sm:h-4 text-landing-aqua" strokeWidth={2} />
                   </div>
@@ -402,16 +384,16 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
               <div className="relative w-[32%] min-w-[124px] max-w-[190px] pointer-events-auto animate-float-slow">
                 {/* Raíces de tentáculos visibles bajo la tarjeta */}
                 <div
-                  className="absolute -inset-3 rounded-full bg-gradient-to-br from-landing-mango/20 via-landing-aqua/10 to-landing-mint/15 blur-md -z-10 animate-pulse"
+                  className="absolute -inset-3 rounded-full bg-landing-mango/20 blur-md -z-10 animate-pulse"
                   style={{ animationDuration: '3.5s' }}
                   aria-hidden
                 />
                 <div className="rounded-2xl border-2 border-landing-mango/40 bg-[#14110e]/95 backdrop-blur-xl shadow-[0_0_50px_rgba(255,183,3,0.18),0_0_80px_rgba(0,240,200,0.08),inset_0_1px_0_rgba(255,255,255,0.08)] overflow-hidden ring-2 ring-landing-aqua/10">
-                  <div className="h-1 w-full bg-gradient-to-r from-landing-mango via-landing-aqua to-landing-mint" />
+                  <div className="h-1 w-full bg-landing-mango" />
                   <div className="p-2.5 sm:p-3">
                     <div className="flex flex-col items-center text-center mb-2">
                       <div className="relative mb-1.5">
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-landing-mango to-landing-tropical flex items-center justify-center border-2 border-white/15 shadow-lg shadow-landing-mango/20">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-landing-mango flex items-center justify-center border-2 border-white/15 shadow-lg shadow-landing-mango/20">
                           <PawPrint className="w-5 h-5 text-[#1a1008]" strokeWidth={2.5} />
                         </div>
                         <span className="absolute -bottom-0.5 -right-0.5 text-xs leading-none" aria-hidden>🐾</span>
@@ -423,7 +405,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
                       <p className="text-[8px] text-white/45 mt-0.5 leading-snug">Salud · paseos · adopción · tienda</p>
                     </div>
                     <div className="flex gap-0.5 mb-2">
-                      {['Dueño', 'Proveedor', 'Refugio'].map((r) => (
+                      {['Cliente', 'Proveedor', 'Refugio'].map((r) => (
                         <span
                           key={r}
                           className="flex-1 text-center text-[7px] sm:text-[8px] font-semibold py-0.5 rounded bg-landing-mango/10 border border-landing-mango/20 text-landing-tropical/90 truncate"
@@ -438,7 +420,7 @@ export const HeroVisual: React.FC<{ compact?: boolean }> = ({ compact = false })
                         <span className="text-landing-mint font-bold">{ORBIT_NODES.length}</span>
                       </div>
                       <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full w-full rounded-full bg-gradient-to-r from-landing-mango to-landing-aqua" />
+                        <div className="h-full w-full rounded-full bg-landing-aqua" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-0.5">

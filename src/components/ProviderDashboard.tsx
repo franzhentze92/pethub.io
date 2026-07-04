@@ -66,7 +66,13 @@ import { MobileSectionCard } from './mobile/MobileUi';
 import { BlueprintMascotNavTab } from '@/components/blueprint/BlueprintMascotNavTab';
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 import { DashboardStatCard } from './dashboard/DashboardStatCard';
-import { landingBtnPrimary, landingFeatureGradients, landingHeaderActionBtn } from '@/lib/landingTheme';
+import {
+  plainPageAccentTabActive,
+  providerMainTabAccent,
+  resolveProviderDashboardAccent,
+  type ProviderDashboardMainTab,
+} from '@/lib/landingTheme';
+import { useProviderDashboardTheme } from '@/contexts/ProviderDashboardThemeContext';
 import { cn } from '@/lib/utils';
 import { formatAppointmentPrice } from '@/utils/appointmentDisplay';
 import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
@@ -1014,6 +1020,43 @@ const PRODUCT_CATEGORIES = [
     { id: 'reviews', label: 'Reseñas', shortLabel: 'Reseñas', icon: Star, gradientIndex: 4 },
   ], []);
 
+  const { accent: pageAccent, ui: pageUi, btn: pageBtn, outlineBtn: pageOutlineBtn, syncTabs } =
+    useProviderDashboardTheme();
+
+  useEffect(() => {
+    syncTabs(activeTab, activeSubTab);
+  }, [activeTab, activeSubTab, syncTabs]);
+
+  const pageHeader = useMemo(() => {
+    const business = profile?.business_name || 'Configura tu perfil para comenzar';
+    switch (activeTab) {
+      case 'profile':
+        return { title: 'Perfil del negocio', subtitle: business };
+      case 'store':
+        return activeSubTab === 'services'
+          ? { title: 'Servicios', subtitle: 'Gestiona tu catálogo de servicios' }
+          : { title: 'Productos', subtitle: 'Gestiona tu catálogo de productos' };
+      case 'orders':
+        if (activeSubTab === 'appointments') {
+          return { title: 'Citas', subtitle: 'Calendario y reservas de servicios' };
+        }
+        if (activeSubTab === 'reviews') {
+          return { title: 'Reseñas', subtitle: 'Opiniones de tus clientes' };
+        }
+        return { title: 'Pedidos', subtitle: 'Órdenes y entregas de productos' };
+      default:
+        return { title: 'Dashboard Proveedor', subtitle: business };
+    }
+  }, [activeTab, activeSubTab, profile?.business_name]);
+
+  const providerBottomNavClass = (tab: ProviderDashboardMainTab) =>
+    cn(
+      'flex w-full flex-col items-center justify-center rounded-xl p-2 transition-all duration-200 min-w-0 flex-1',
+      activeTab === tab
+        ? cn('shadow-lg scale-105', plainPageAccentTabActive[providerMainTabAccent[tab]])
+        : 'text-gray-500 hover:text-gray-700',
+    );
+
   if (!user) {
     return (
       <div className="p-6 text-center">
@@ -1025,21 +1068,28 @@ const PRODUCT_CATEGORIES = [
 
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="skeleton" />
       </DashboardShell>
     );
   }
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <PageHeader
-        title="Dashboard Proveedor"
-        subtitle={profile?.business_name || 'Configura tu perfil para comenzar'}
-        gradient="from-landing-aqua via-landing-mint to-landing-mango"
+        title={pageHeader.title}
+        subtitle={pageHeader.subtitle}
+        variant="solid"
+        accent={pageAccent}
       />
       <div className="hidden md:block">
-        <MobileTabStrip tabs={providerMainTabs} activeTab={activeTab} onChange={handleTabChange} />
+        <MobileTabStrip
+          tabs={providerMainTabs}
+          activeTab={activeTab}
+          onChange={handleTabChange}
+          variant="solid"
+          accent={pageAccent}
+        />
       </div>
 
       {/* Main Content */}
@@ -1058,17 +1108,17 @@ const PRODUCT_CATEGORIES = [
                   <p className="text-gray-500 mb-4">
                     Para comenzar a usar el dashboard, necesitas configurar tu perfil de proveedor.
                   </p>
-                  <Button onClick={() => handleTabChange('profile')} className={cn(landingBtnPrimary)}>
+                  <Button onClick={() => handleTabChange('profile')} className={cn(pageBtn)}>
                     Configurar Perfil
                   </Button>
             </MobileSectionCard>
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                <DashboardStatCard icon={Coins} value={`Q${revenueData.totalRevenue.toFixed(0)}`} label="Ingresos totales" footer={`Q${revenueData.monthlyRevenue.toFixed(0)} este mes`} gradientIndex={0} />
-                <DashboardStatCard icon={Package} value={revenueData.totalOrders} label="Total órdenes" footer={`${revenueData.pendingOrders} pendientes`} gradientIndex={2} />
-                <DashboardStatCard icon={ShoppingBag} value={revenueData.totalProductsSold} label="Productos vendidos" footer={`${revenueData.activeProducts} activos`} gradientIndex={1} />
-                <DashboardStatCard icon={Calendar} value={revenueData.totalServicesBooked} label="Servicios reservados" footer={`${revenueData.upcomingAppointments} próximas`} gradientIndex={3} />
+                <DashboardStatCard variant="plain" icon={Coins} value={`Q${revenueData.totalRevenue.toFixed(0)}`} label="Ingresos totales" footer={`Q${revenueData.monthlyRevenue.toFixed(0)} este mes`} gradientIndex={0} />
+                <DashboardStatCard variant="plain" icon={Package} value={revenueData.totalOrders} label="Total órdenes" footer={`${revenueData.pendingOrders} pendientes`} gradientIndex={2} />
+                <DashboardStatCard variant="plain" icon={ShoppingBag} value={revenueData.totalProductsSold} label="Productos vendidos" footer={`${revenueData.activeProducts} activos`} gradientIndex={1} />
+                <DashboardStatCard variant="plain" icon={Calendar} value={revenueData.totalServicesBooked} label="Servicios reservados" footer={`${revenueData.upcomingAppointments} próximas`} gradientIndex={3} />
               </div>
 
               {/* Business Overview and Quick Actions */}
@@ -1097,12 +1147,12 @@ const PRODUCT_CATEGORIES = [
                             <p>• {revenueData.totalServiceCategories} categorías diferentes</p>
                           </div>
                         </div>
-                        <div className="bg-landing-aqua/10 p-4 rounded-lg border border-landing-aqua/25">
-                          <h4 className="font-semibold text-landing-aqua-dark mb-2 flex items-center gap-2">
+                        <div className={cn('p-4 rounded-lg border', pageUi.bgLight, pageUi.border)}>
+                          <h4 className={cn('font-semibold mb-2 flex items-center gap-2', pageUi.text)}>
                             <Package className="w-4 h-4" />
                             Productos
                           </h4>
-                          <div className="space-y-1 text-sm text-landing-aqua-dark">
+                          <div className={cn('space-y-1 text-sm', pageUi.text)}>
                             <p>• {revenueData.totalProductsSold} productos vendidos</p>
                             <p>• {revenueData.activeProducts} activos • {revenueData.inactiveProducts} inactivos</p>
                             <p>• {revenueData.lowStockProducts} con stock bajo</p>
@@ -1256,7 +1306,7 @@ const PRODUCT_CATEGORIES = [
                                   {appointment.client_email}
                                 </p>
                                 {appointment.pets?.length ? (
-                                  <p className="text-xs text-landing-aqua-dark mt-0.5">
+                                  <p className={cn('text-xs mt-0.5', pageUi.text)}>
                                     Mascota: {appointment.pets.map((p) => p.name).join(', ')}
                                   </p>
                                 ) : null}
@@ -1325,17 +1375,17 @@ const PRODUCT_CATEGORIES = [
                       </p>
                     </div>
 
-                    <div className="bg-landing-aqua/10 p-4 rounded-lg">
+                    <div className={cn('p-4 rounded-lg', pageUi.bgLight)}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-landing-aqua-dark">Este Mes</p>
-                          <p className="text-2xl font-bold text-landing-aqua-dark">Q{revenueData.monthlyRevenue.toFixed(2)}</p>
+                          <p className={cn('text-sm font-medium', pageUi.text)}>Este Mes</p>
+                          <p className={cn('text-2xl font-bold', pageUi.text)}>Q{revenueData.monthlyRevenue.toFixed(2)}</p>
                         </div>
-                        <div className="p-2 bg-landing-aqua/15 rounded-full">
-                          <Calendar className="w-5 h-5 text-landing-aqua-dark" />
+                        <div className={cn('p-2 rounded-full', pageUi.bgLight)}>
+                          <Calendar className={cn('w-5 h-5', pageUi.text)} />
                         </div>
                       </div>
-                      <p className="text-xs text-landing-aqua-dark mt-1">
+                      <p className={cn('text-xs mt-1', pageUi.text)}>
                         {new Date().toLocaleDateString('es-GT', { month: 'long', year: 'numeric' })}
                       </p>
                     </div>
@@ -1343,14 +1393,14 @@ const PRODUCT_CATEGORIES = [
                     <div className="bg-landing-mint/10 p-4 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-landing-aqua-dark">Total Órdenes</p>
+                          <p className={cn('text-sm font-medium', pageUi.text)}>Total Órdenes</p>
                           <p className="text-2xl font-bold text-landing-mint-dark">{revenueData.totalOrders}</p>
                         </div>
                         <div className="p-2 bg-landing-mint/15 rounded-full">
-                          <Package className="w-5 h-5 text-landing-aqua-dark" />
+                          <Package className={cn('w-5 h-5', pageUi.text)} />
                         </div>
                       </div>
-                      <p className="text-xs text-landing-aqua-dark mt-1">
+                      <p className={cn('text-xs mt-1', pageUi.text)}>
                         {revenueData.pendingOrders} pendientes
                       </p>
                     </div>
@@ -1432,28 +1482,28 @@ const PRODUCT_CATEGORIES = [
                   <div className="bg-landing-mint/10 p-4 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-semibold text-landing-mint-dark">Tasa de Conversión</h4>
-                        <CheckCircle className="w-5 h-5 text-landing-aqua-dark" />
+                        <CheckCircle className={cn('w-5 h-5', pageUi.text)} />
                   </div>
                       <p className="text-2xl font-bold text-landing-mint-dark">
                         {appointments.length > 0 ? 
                           ((appointments.filter(a => a.status === 'confirmed' || a.status === 'completed').length / appointments.length) * 100).toFixed(1) 
                           : 0}%
                       </p>
-                      <p className="text-xs text-landing-aqua-dark mt-1">
+                      <p className={cn('text-xs mt-1', pageUi.text)}>
                         Citas confirmadas/completadas
                       </p>
                     </div>
 
                     {/* Customer Satisfaction */}
-                  <div className="bg-landing-aqua/10 p-4 rounded-lg">
+                  <div className={cn('p-4 rounded-lg', pageUi.bgLight)}>
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-landing-aqua-dark">Satisfacción del Cliente</h4>
-                        <Star className="w-5 h-5 text-landing-aqua-dark" />
+                        <h4 className={cn('font-semibold', pageUi.text)}>Satisfacción del Cliente</h4>
+                        <Star className={cn('w-5 h-5', pageUi.text)} />
                       </div>
-                      <p className="text-2xl font-bold text-landing-aqua-dark">
+                      <p className={cn('text-2xl font-bold', pageUi.text)}>
                         {profile.rating > 0 ? `${profile.rating.toFixed(1)}/5` : 'N/A'}
                       </p>
-                      <p className="text-xs text-landing-aqua-dark mt-1">
+                      <p className={cn('text-xs mt-1', pageUi.text)}>
                         Basado en {profile.total_reviews} reseñas
                       </p>
                     </div>
@@ -1462,14 +1512,14 @@ const PRODUCT_CATEGORIES = [
                     <div className="bg-landing-mint/10 p-4 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-semibold text-landing-mint-dark">Utilización de Servicios</h4>
-                        <Package className="w-5 h-5 text-landing-aqua-dark" />
+                        <Package className={cn('w-5 h-5', pageUi.text)} />
                       </div>
                       <p className="text-2xl font-bold text-landing-mint-dark">
                         {services.length > 0 ? 
                           ((services.filter(s => s.is_active).length / services.length) * 100).toFixed(0) 
                           : 0}%
                       </p>
-                      <p className="text-xs text-landing-aqua-dark mt-1">
+                      <p className={cn('text-xs mt-1', pageUi.text)}>
                         Servicios activos vs total
                       </p>
                     </div>
@@ -1597,7 +1647,7 @@ const PRODUCT_CATEGORIES = [
                         duration: 2000,
                       });
                     }}
-                    className={cn(landingBtnPrimary)}
+                    className={cn(pageBtn)}
                     size="sm"
                   >
                     <Edit className="w-4 h-4 mr-2" />
@@ -1608,10 +1658,10 @@ const PRODUCT_CATEGORIES = [
             </CardHeader>
             <CardContent className="space-y-6">
               {isProfileEditing && (
-                <div className="bg-landing-aqua/10 border border-landing-aqua/25 rounded-lg p-3 mb-4">
+                <div className={cn('border rounded-lg p-3 mb-4', pageUi.bgLight, pageUi.border)}>
                   <div className="flex items-center gap-2">
-                    <Edit className="w-4 h-4 text-landing-aqua-dark" />
-                    <p className="text-landing-aqua-dark text-sm font-medium">
+                    <Edit className={cn('w-4 h-4', pageUi.text)} />
+                    <p className={cn('text-sm font-medium', pageUi.text)}>
                       Modo de edición activo - Los campos están habilitados para editar
                     </p>
                   </div>
@@ -1727,7 +1777,7 @@ const PRODUCT_CATEGORIES = [
                             checked={profileForm.has_pickup}
                             onChange={(e) => setProfileForm(prev => ({ ...prev, has_pickup: e.target.checked }))}
                             disabled={!isProfileEditing}
-                            className="rounded border-gray-300 text-landing-aqua-dark focus:ring-landing-aqua"
+                            className={cn('rounded border-gray-300', pageUi.text)}
                           />
                           <Label htmlFor="has-pickup" className="text-sm font-normal">
                             Recogida en tienda
@@ -1740,7 +1790,7 @@ const PRODUCT_CATEGORIES = [
                             checked={profileForm.has_delivery}
                             onChange={(e) => setProfileForm(prev => ({ ...prev, has_delivery: e.target.checked }))}
                             disabled={!isProfileEditing}
-                            className="rounded border-gray-300 text-landing-aqua-dark focus:ring-landing-aqua"
+                            className={cn('rounded border-gray-300', pageUi.text)}
                           />
                           <Label htmlFor="has-delivery" className="text-sm font-normal">
                             Entrega a domicilio
@@ -1862,7 +1912,7 @@ const PRODUCT_CATEGORIES = [
                         duration: 2000,
                       });
                     }}
-                    className={cn(landingBtnPrimary)}
+                    className={cn(pageBtn)}
                   >
                     <Edit className="w-4 h-4 mr-2" />
                     Editar Perfil
@@ -1914,7 +1964,7 @@ const PRODUCT_CATEGORIES = [
                         address: profileForm.address
                       });
                       handleProfileSave();
-                    }} className={cn(landingBtnPrimary)}>
+                    }} className={cn(pageBtn)}>
                       <Save className="w-4 h-4 mr-2" />
                       Guardar Cambios
                     </Button>
@@ -1936,7 +1986,13 @@ const PRODUCT_CATEGORIES = [
         {/* Store Tab (Tienda) - Groups Services and Products */}
         <TabsContent value="store" className="space-y-4 md:space-y-6">
           <Tabs value={activeSubTab || 'products'} onValueChange={handleSubTabChange} className="space-y-4 md:space-y-6">
-            <MobileTabStrip tabs={storeSubTabs} activeTab={activeSubTab || 'products'} onChange={handleSubTabChange} />
+            <MobileTabStrip
+              tabs={storeSubTabs}
+              activeTab={activeSubTab || 'products'}
+              onChange={handleSubTabChange}
+              variant="solid"
+              accent={resolveProviderDashboardAccent('store', activeSubTab || 'products')}
+            />
 
             {/* Services Sub-Tab */}
             <TabsContent value="services" className="space-y-6">
@@ -1958,7 +2014,7 @@ const PRODUCT_CATEGORIES = [
                       duration: 3000,
                     });
                   }}
-                  className={cn(landingBtnPrimary, 'w-full sm:w-auto min-h-[44px] rounded-xl shrink-0 border-0')}
+                  className={cn(pageBtn, 'w-full sm:w-auto min-h-[44px] rounded-xl shrink-0 border-0')}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Agregar Servicio
@@ -1976,7 +2032,7 @@ const PRODUCT_CATEGORIES = [
                       setIsServiceModalOpen(true);
                       setEditingService(null);
                     }}
-                    className={cn(landingBtnPrimary, 'min-h-[44px] rounded-xl border-0')}
+                    className={cn(pageBtn, 'min-h-[44px] rounded-xl border-0')}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Agregar Servicio
@@ -1992,8 +2048,8 @@ const PRODUCT_CATEGORIES = [
                           {service.service_image_url ? (
                             <img src={service.service_image_url} alt={service.service_name} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
-                              <ImageIcon className="w-6 h-6 text-landing-aqua-dark" />
+                            <div className={cn('w-full h-full flex items-center justify-center', pageUi.bgLight)}>
+                              <ImageIcon className={cn('w-6 h-6', pageUi.text)} />
                             </div>
                           )}
                         </div>
@@ -2010,7 +2066,7 @@ const PRODUCT_CATEGORIES = [
                               {SERVICE_CATEGORIES.find(c => c.value === service.service_category)?.label || 'Sin categoría'}
                             </Badge>
                             <span className="flex items-center gap-1 font-semibold text-gray-900">
-                              <Coins className="w-3.5 h-3.5 text-landing-aqua-dark" />
+                              <Coins className={cn('w-3.5 h-3.5', pageUi.text)} />
                               {service.currency === 'GTQ' ? 'Q.' : '$'}{service.price}
                             </span>
                             <span className="flex items-center gap-1">
@@ -2021,7 +2077,7 @@ const PRODUCT_CATEGORIES = [
                         </div>
                       </div>
                       <div className="flex gap-2 mt-3">
-                        <Button variant="outline" size="sm" onClick={() => handleServiceEdit(service)} className="flex-1 min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark">
+                        <Button variant="outline" size="sm" onClick={() => handleServiceEdit(service)} className={cn('flex-1 min-h-[40px]', pageOutlineBtn)}>
                           <Edit className="w-4 h-4 mr-1" /> Editar
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleServiceDelete(service.id)} className="min-h-[40px] text-red-600 border-red-200 hover:bg-red-50">
@@ -2093,7 +2149,7 @@ const PRODUCT_CATEGORIES = [
                           {/* Price */}
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <Coins className="w-4 h-4 text-landing-aqua-dark" />
+                              <Coins className={cn('w-4 h-4', pageUi.text)} />
                               <span className="font-medium text-gray-900">
                                 {service.currency === 'GTQ' ? 'Q.' : '$'}{service.price}
                               </span>
@@ -2103,7 +2159,7 @@ const PRODUCT_CATEGORIES = [
                           {/* Duration */}
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4 text-landing-aqua-dark" />
+                              <Clock className={cn('w-4 h-4', pageUi.text)} />
                               <span className="text-sm font-medium text-gray-900">
                                 {service.duration_minutes} min
                               </span>
@@ -2176,7 +2232,7 @@ const PRODUCT_CATEGORIES = [
                   <Button
                     onClick={handleProductImportOpen}
                     variant="outline"
-                    className="w-full sm:w-auto min-h-[44px] rounded-xl shrink-0 border-landing-aqua/40 text-landing-aqua-dark hover:bg-landing-aqua/5"
+                    className={cn('w-full sm:w-auto min-h-[44px] rounded-xl shrink-0', pageOutlineBtn)}
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
                     Importar con IA
@@ -2184,7 +2240,7 @@ const PRODUCT_CATEGORIES = [
                   <Button
                     data-blueprint-guided="add-product"
                     onClick={handleProductAdd}
-                    className={cn(landingBtnPrimary, 'w-full sm:w-auto min-h-[44px] rounded-xl shrink-0 border-0')}
+                    className={cn(pageBtn, 'w-full sm:w-auto min-h-[44px] rounded-xl shrink-0 border-0')}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Agregar Producto
@@ -2193,8 +2249,8 @@ const PRODUCT_CATEGORIES = [
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 rounded-xl border border-landing-aqua/20 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5 px-4 py-3 flex gap-3 items-start">
-                <Sparkles className="w-5 h-5 text-landing-aqua-dark shrink-0 mt-0.5" />
+              <div className={cn('mb-4 rounded-xl px-4 py-3 flex gap-3 items-start border', pageUi.border, pageUi.bgSoft)}>
+                <Sparkles className={cn('w-5 h-5 shrink-0 mt-0.5', pageUi.text)} />
                 <div className="text-sm text-gray-700">
                   <p className="font-medium text-gray-900">Importa productos desde un link</p>
                   <p className="mt-0.5 text-gray-600">
@@ -2212,14 +2268,14 @@ const PRODUCT_CATEGORIES = [
                     <Button
                       onClick={handleProductImportOpen}
                       variant="outline"
-                      className="min-h-[44px] rounded-xl border-landing-aqua/40 text-landing-aqua-dark"
+                      className={cn('min-h-[44px] rounded-xl', pageOutlineBtn)}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
                       Importar con IA
                     </Button>
                     <Button
                       onClick={handleProductAdd}
-                      className={cn(landingBtnPrimary, 'min-h-[44px] rounded-xl border-0')}
+                      className={cn(pageBtn, 'min-h-[44px] rounded-xl border-0')}
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Agregar Producto
@@ -2246,8 +2302,8 @@ const PRODUCT_CATEGORIES = [
                             {product.product_image_url ? (
                               <img src={product.product_image_url} alt={product.product_name} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20">
-                                <ImageIcon className="w-6 h-6 text-landing-aqua-dark" />
+                              <div className={cn('w-full h-full flex items-center justify-center', pageUi.bgLight)}>
+                                <ImageIcon className={cn('w-6 h-6', pageUi.text)} />
                               </div>
                             )}
                           </div>
@@ -2263,7 +2319,7 @@ const PRODUCT_CATEGORIES = [
                                 {PRODUCT_CATEGORIES.find(c => c.value === product.product_category)?.label || 'Sin categoría'}
                               </Badge>
                               <span className="flex items-center gap-1 font-semibold text-gray-900">
-                                <Coins className="w-3.5 h-3.5 text-landing-aqua-dark" />
+                                <Coins className={cn('w-3.5 h-3.5', pageUi.text)} />
                                 {priceLabel}
                               </span>
                               <span className={cn(
@@ -2277,7 +2333,7 @@ const PRODUCT_CATEGORIES = [
                           </div>
                         </div>
                         <div className="flex gap-2 mt-3">
-                          <Button variant="outline" size="sm" onClick={() => handleProductEdit(product)} className="flex-1 min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark">
+                          <Button variant="outline" size="sm" onClick={() => handleProductEdit(product)} className={cn('flex-1 min-h-[40px]', pageOutlineBtn)}>
                             <Edit className="w-4 h-4 mr-1" /> Editar
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handleProductDelete(product.id)} className="min-h-[40px] text-red-600 border-red-200 hover:bg-red-50">
@@ -2369,7 +2425,7 @@ const PRODUCT_CATEGORIES = [
                                   return (
                                     <div>
                                       <div className="flex items-center gap-2">
-                                        <Coins className="w-4 h-4 text-landing-aqua-dark" />
+                                        <Coins className={cn('w-4 h-4', pageUi.text)} />
                                         <span className="font-medium text-gray-900">
                                           {currencySymbol}{minPrice.toFixed(2)}
                                         </span>
@@ -2384,7 +2440,7 @@ const PRODUCT_CATEGORIES = [
                                   return (
                                     <div>
                                       <div className="flex items-center gap-2">
-                                        <Coins className="w-4 h-4 text-landing-aqua-dark" />
+                                        <Coins className={cn('w-4 h-4', pageUi.text)} />
                                         <span className="font-medium text-gray-900">
                                           {currencySymbol}{minPrice.toFixed(2)} - {currencySymbol}{maxPrice.toFixed(2)}
                                         </span>
@@ -2400,7 +2456,7 @@ const PRODUCT_CATEGORIES = [
                                 return (
                                   <div>
                                     <div className="flex items-center gap-2">
-                                      <Coins className="w-4 h-4 text-landing-aqua-dark" />
+                                      <Coins className={cn('w-4 h-4', pageUi.text)} />
                                       <span className="font-medium text-gray-900">
                                         {currencySymbol}{product.price.toFixed(2)}
                                       </span>
@@ -2482,20 +2538,26 @@ const PRODUCT_CATEGORIES = [
         {/* Orders Tab (Pedidos) - Groups Orders, Appointments and Reviews */}
         <TabsContent value="orders" className="space-y-4 md:space-y-6">
           <Tabs value={activeSubTab || 'orders'} onValueChange={handleSubTabChange} className="space-y-4 md:space-y-6">
-            <MobileTabStrip tabs={ordersSubTabs} activeTab={activeSubTab || 'orders'} onChange={handleSubTabChange} />
+            <MobileTabStrip
+              tabs={ordersSubTabs}
+              activeTab={activeSubTab || 'orders'}
+              onChange={handleSubTabChange}
+              variant="solid"
+              accent={resolveProviderDashboardAccent('orders', activeSubTab || 'orders')}
+            />
 
             {/* Orders Sub-Tab */}
             <TabsContent value="orders" className="space-y-6" data-blueprint-guided="provider-orders-section">
-              <ProviderOrders />
+              <ProviderOrders accent={resolveProviderDashboardAccent('orders', 'orders')} />
             </TabsContent>
 
             {/* Appointments Sub-Tab */}
             <TabsContent value="appointments" className="space-y-6" data-blueprint-guided="provider-appointments-section">
           <Card className="border-0 shadow-lg overflow-hidden min-w-0">
-            <CardHeader className="bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 border-b border-landing-aqua/20">
+            <CardHeader className={cn('border-b', pageUi.bgLight, pageUi.border)}>
               <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="p-2 bg-landing-aqua/15 rounded-lg">
-                  <Calendar className="w-6 h-6 text-landing-aqua-dark" />
+                <div className={cn('p-2 rounded-lg', pageUi.bgLight)}>
+                  <Calendar className={cn('w-6 h-6', pageUi.text)} />
                 </div>
                 <span className="text-gray-800">Mis Citas</span>
               </CardTitle>
@@ -2503,8 +2565,8 @@ const PRODUCT_CATEGORIES = [
             <CardContent className="p-3 sm:p-6">
               {appointments.length === 0 ? (
                 <div className="text-center py-16 text-gray-500">
-                  <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-landing-mint/15 to-landing-aqua/15 rounded-full flex items-center justify-center">
-                    <Calendar className="w-12 h-12 text-landing-aqua" />
+                  <div className={cn('w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center', pageUi.bgLight)}>
+                    <Calendar className={cn('w-12 h-12', pageUi.iconMuted)} />
                   </div>
                   <p className="text-lg font-medium text-gray-700 mb-2">No hay citas programadas</p>
                   <p className="text-sm text-gray-500">Las citas aparecerán aquí cuando los clientes las reserven</p>
@@ -2535,8 +2597,8 @@ const PRODUCT_CATEGORIES = [
                           cell: "flex-1 min-w-0 aspect-square p-0.5 relative flex items-center justify-center",
                           day: "h-full w-full max-h-9 sm:max-h-10 lg:max-h-12 rounded-lg font-semibold text-xs sm:text-sm hover:bg-landing-mint/10 transition-all duration-200",
                           day_selected:
-                            "bg-gradient-to-br from-landing-aqua to-landing-mint text-white font-bold shadow-md hover:from-landing-aqua-dark hover:to-landing-mint-dark ring-2 ring-landing-aqua/20",
-                          day_today: "bg-landing-mint/15 text-landing-mint-dark font-bold border-2 border-landing-aqua/40",
+                            cn(pageBtn, 'font-bold shadow-md ring-2', pageUi.borderActive),
+                          day_today: cn('font-bold border-2', pageUi.bgLight, pageUi.text, pageUi.borderActive),
                           day_outside: "text-gray-400 opacity-50",
                         }}
                         modifiers={{
@@ -2545,7 +2607,7 @@ const PRODUCT_CATEGORIES = [
                           )
                         }}
                         modifiersClassNames={{
-                          hasAppointments: "bg-gradient-to-br from-blue-100 to-indigo-100 text-landing-aqua-dark font-semibold border border-landing-aqua/25 hover:from-blue-200 hover:to-indigo-200"
+                          hasAppointments: cn(pageUi.bgLight, pageUi.text, 'font-semibold border', pageUi.border, pageUi.hoverBg)
                         }}
                       />
                     </div>
@@ -2554,7 +2616,7 @@ const PRODUCT_CATEGORIES = [
                   {/* Appointments List for Selected Date */}
                   <div className="lg:col-span-4 min-w-0">
                     <div className="lg:sticky lg:top-6">
-                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 mb-4 border border-gray-200">
+                      <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
                         <h3 className="font-bold text-lg text-gray-800 capitalize">
                           {selectedDate ? format(selectedDate, "EEEE, d 'de' MMMM", { locale: es }) : 'Selecciona una fecha'}
                         </h3>
@@ -2577,9 +2639,12 @@ const PRODUCT_CATEGORIES = [
                             .map((appointment) => (
                               <div 
                                 key={appointment.id} 
-                                className="group relative bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-landing-aqua/40 hover:shadow-lg transition-all duration-300"
+                                className={cn(
+                                  'group relative bg-white border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all duration-300',
+                                  pageUi.borderActive.replace(/^border-/, 'hover:border-'),
+                                )}
                               >
-                                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-landing-mint/10 to-landing-aqua/10 rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <div className={cn('absolute top-0 right-0 w-20 h-20 rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300', pageUi.bgSoft)} />
                                 <div className="relative">
                                   <div className="flex items-start justify-between gap-3 mb-3">
                                     <div className="flex-1 min-w-0">
@@ -2605,22 +2670,22 @@ const PRODUCT_CATEGORIES = [
                                       <div className="space-y-2.5">
                                         {appointment.provider_services?.service_category && (
                                           <div className="flex items-center gap-2 text-sm text-gray-700 bg-landing-mint/10 rounded-lg px-3 py-2 border border-landing-mint/20">
-                                            <Tag className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+                                            <Tag className={cn('w-4 h-4 shrink-0', pageUi.text)} />
                                             <span className="font-medium capitalize">{appointment.provider_services.service_category}</span>
                                           </div>
                                         )}
                                         <div className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
-                                          <Clock className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+                                          <Clock className={cn('w-4 h-4 shrink-0', pageUi.text)} />
                                           <span className="font-medium">{appointment.appointment_time}</span>
                                         </div>
                                         {appointment.provider_services?.duration_minutes && (
                                           <div className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
-                                            <Timer className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+                                            <Timer className={cn('w-4 h-4 shrink-0', pageUi.text)} />
                                             <span className="font-medium">Duración: {appointment.provider_services.duration_minutes} minutos</span>
                                           </div>
                                         )}
                                         <div className="flex items-start gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
-                                          <User className="w-4 h-4 text-landing-aqua-dark shrink-0 mt-0.5" />
+                                          <User className={cn('w-4 h-4 shrink-0 mt-0.5', pageUi.text)} />
                                           <div className="min-w-0">
                                             {appointment.client_name && (
                                               <p className="font-semibold text-gray-900 truncate">{appointment.client_name}</p>
@@ -2634,8 +2699,8 @@ const PRODUCT_CATEGORIES = [
                                           </div>
                                         </div>
                                         <OrderItemPetsList pets={appointment.pets || []} detailed className="px-0" />
-                                        <div className="flex items-center gap-2 text-sm text-gray-700 bg-gradient-to-r from-landing-mint/10 to-landing-aqua/10 rounded-lg px-3 py-2 border border-landing-mint/20">
-                                          <Coins className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+                                        <div className={cn('flex items-center gap-2 text-sm text-gray-700 rounded-lg px-3 py-2 border', pageUi.bgSoft, pageUi.border)}>
+                                          <Coins className={cn('w-4 h-4 shrink-0', pageUi.text)} />
                                           <span className="font-bold text-landing-mint-dark">
                                             {formatAppointmentPrice(
                                               appointment.total_price,
@@ -2648,9 +2713,9 @@ const PRODUCT_CATEGORIES = [
                                         {appointment.provider_services?.description && (
                                           <div className="mt-3 pt-3 border-t border-gray-200">
                                             <div className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-                                              <Info className="w-4 h-4 text-landing-aqua-dark shrink-0 mt-0.5" />
+                                              <Info className={cn('w-4 h-4 shrink-0 mt-0.5', pageUi.text)} />
                                               <div>
-                                                <span className="font-semibold text-landing-aqua-dark block mb-1">Descripción:</span>
+                                                <span className={cn('font-semibold block mb-1', pageUi.text)}>Descripción:</span>
                                                 <p className="text-gray-700">{appointment.provider_services.description}</p>
                                               </div>
                                             </div>
@@ -2658,10 +2723,10 @@ const PRODUCT_CATEGORIES = [
                                         )}
                                         {appointment.provider_services?.detailed_description && (
                                           <div className="pt-2">
-                                            <div className="flex items-start gap-2 text-xs text-gray-600 bg-landing-aqua/10 rounded-lg px-3 py-2 border border-blue-100">
-                                              <BookOpen className="w-4 h-4 text-landing-aqua-dark shrink-0 mt-0.5" />
+                                            <div className={cn('flex items-start gap-2 text-xs text-gray-600 rounded-lg px-3 py-2 border border-gray-100', pageUi.bgLight)}>
+                                              <BookOpen className={cn('w-4 h-4 shrink-0 mt-0.5', pageUi.text)} />
                                               <div>
-                                                <span className="font-semibold text-landing-aqua-dark block mb-1">Detalles:</span>
+                                                <span className={cn('font-semibold block mb-1', pageUi.text)}>Detalles:</span>
                                                 <p className="text-gray-700">{appointment.provider_services.detailed_description}</p>
                                               </div>
                                             </div>
@@ -2691,8 +2756,8 @@ const PRODUCT_CATEGORIES = [
                                         )}
                                         {appointment.notes && (
                                           <div className="mt-3 pt-3 border-t border-gray-200">
-                                            <p className="text-xs text-gray-600 italic bg-landing-aqua/10 rounded-lg px-3 py-2 border border-blue-100">
-                                              <span className="font-semibold text-landing-aqua-dark">Notas del Cliente:</span> {appointment.notes}
+                                            <p className={cn('text-xs text-gray-600 italic rounded-lg px-3 py-2 border border-gray-100', pageUi.bgLight)}>
+                                              <span className={cn('font-semibold', pageUi.text)}>Notas del Cliente:</span> {appointment.notes}
                                             </p>
                                           </div>
                                         )}
@@ -2704,7 +2769,7 @@ const PRODUCT_CATEGORIES = [
                                       <>
                                         <Button
                                           size="sm"
-                                          className="text-xs font-semibold bg-gradient-to-r from-landing-aqua to-landing-mint hover:from-landing-aqua-dark hover:to-landing-mint-dark text-white shadow-md hover:shadow-lg transition-all"
+                                          className={cn('text-xs font-semibold shadow-md hover:shadow-lg transition-all', pageBtn)}
                                           onClick={() => handleAppointmentStatusUpdate(appointment.id, 'confirmed')}
                                         >
                                           ✓ Confirmar
@@ -2723,7 +2788,7 @@ const PRODUCT_CATEGORIES = [
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="text-xs font-semibold border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-mint/10 hover:border-landing-aqua/50 transition-all"
+                                        className={cn('text-xs font-semibold transition-all', pageOutlineBtn)}
                                         onClick={() => handleAppointmentStatusUpdate(appointment.id, 'completed')}
                                       >
                                         ✓ Marcar Completada
@@ -2760,7 +2825,7 @@ const PRODUCT_CATEGORIES = [
 
             {/* Reviews Sub-Tab */}
             <TabsContent value="reviews" className="space-y-6">
-              <ProviderReviews />
+              <ProviderReviews accent={resolveProviderDashboardAccent('orders', 'reviews')} />
             </TabsContent>
           </Tabs>
         </TabsContent>
@@ -2827,19 +2892,14 @@ const PRODUCT_CATEGORIES = [
 
       {/* Bottom Navigation Menu - Mobile Only */}
       <div
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 shadow-2xl backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white shadow-2xl md:hidden"
         style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}
       >
         <div className="mx-auto flex h-[58px] w-full max-w-lg items-end overflow-visible px-1">
           <div className="relative flex min-w-0 flex-1 items-end justify-around">
             <button
               onClick={() => handleTabChange('dashboard')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-2 transition-all duration-200 min-w-0 flex-1',
-                activeTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={providerBottomNavClass('dashboard')}
             >
               <Grid size={18} className="mb-1" />
               <span className="text-[10px] font-medium truncate leading-tight">Dashboard</span>
@@ -2847,12 +2907,7 @@ const PRODUCT_CATEGORIES = [
 
             <button
               onClick={() => handleTabChange('profile')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-2 transition-all duration-200 min-w-0 flex-1',
-                activeTab === 'profile'
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={providerBottomNavClass('profile')}
             >
               <User size={18} className="mb-1" />
               <span className="text-[10px] font-medium truncate leading-tight">Perfil</span>
@@ -2864,12 +2919,7 @@ const PRODUCT_CATEGORIES = [
           <div className="relative flex min-w-0 flex-1 items-end justify-around">
             <button
               onClick={() => handleTabChange('store')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-2 transition-all duration-200 min-w-0 flex-1',
-                activeTab === 'store'
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={providerBottomNavClass('store')}
             >
               <Store size={18} className="mb-1" />
               <span className="text-[10px] font-medium truncate leading-tight">Tienda</span>
@@ -2877,12 +2927,7 @@ const PRODUCT_CATEGORIES = [
 
             <button
               onClick={() => handleTabChange('orders')}
-              className={cn(
-                'flex w-full flex-col items-center justify-center rounded-xl p-2 transition-all duration-200 min-w-0 flex-1',
-                activeTab === 'orders'
-                  ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white shadow-lg scale-105'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
+              className={providerBottomNavClass('orders')}
             >
               <ShoppingBag size={18} className="mb-1" />
               <span className="text-[10px] font-medium truncate leading-tight">Pedidos</span>

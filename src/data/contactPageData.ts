@@ -8,6 +8,7 @@ export interface ContactChannel {
   title: string;
   details: string[];
   gradient: string;
+  colorText: string;
   href?: string;
 }
 
@@ -21,27 +22,31 @@ export const contactChannels: ContactChannel[] = [
     icon: Mail,
     title: 'Email',
     details: ['info@pethub.gt', 'soporte@pethub.gt'],
-    gradient: 'from-landing-aqua to-landing-mint',
+    gradient: 'bg-landing-aqua',
+    colorText: 'text-white',
     href: 'mailto:info@pethub.gt',
   },
   {
     icon: Phone,
     title: 'Teléfono',
     details: ['+502 1234-5678', '+502 9876-5432'],
-    gradient: 'from-landing-mint to-landing-aqua',
+    gradient: 'bg-landing-mint',
+    colorText: 'text-gray-900',
     href: 'tel:+50212345678',
   },
   {
     icon: MapPin,
     title: 'Cobertura',
     details: ['Latinoamérica', 'Operación regional'],
-    gradient: 'from-landing-mango to-landing-tropical',
+    gradient: 'bg-landing-mango',
+    colorText: 'text-gray-900',
   },
   {
     icon: Clock,
     title: 'Horarios',
     details: ['Lun – Vie: 8:00 AM – 6:00 PM', 'Sáb: 9:00 AM – 2:00 PM'],
-    gradient: 'from-landing-aqua to-landing-mango',
+    gradient: 'bg-landing-tropical',
+    colorText: 'text-gray-900',
   },
 ];
 
@@ -67,25 +72,29 @@ export const supportHighlights = [
     icon: MessageCircle,
     title: 'Respuesta en 24h',
     description: 'Tiempo promedio de respuesta a consultas por email y formulario.',
-    gradient: 'from-landing-aqua to-landing-mint',
+    gradient: 'bg-landing-aqua',
+    colorText: 'text-white',
   },
   {
     icon: Headphones,
     title: 'Soporte en español',
-    description: 'Atención personalizada para dueños, proveedores y refugios.',
-    gradient: 'from-landing-mango to-landing-tropical',
+    description: 'Atención personalizada para clientes, proveedores y refugios.',
+    gradient: 'bg-landing-mango',
+    colorText: 'text-gray-900',
   },
   {
     icon: Building2,
     title: 'Enfoque latinoamericano',
-    description: 'Plataforma pensada para dueños, proveedores y refugios en toda Latinoamérica.',
-    gradient: 'from-landing-mint to-landing-aqua',
+    description: 'Plataforma pensada para clientes, proveedores y refugios en toda Latinoamérica.',
+    gradient: 'bg-landing-mint',
+    colorText: 'text-gray-900',
   },
   {
     icon: HelpCircle,
     title: 'Centro de ayuda',
     description: '35+ preguntas frecuentes organizadas por categoría y rol.',
-    gradient: 'from-landing-aqua to-landing-mango',
+    gradient: 'bg-landing-tropical',
+    colorText: 'text-gray-900',
   },
 ];
 

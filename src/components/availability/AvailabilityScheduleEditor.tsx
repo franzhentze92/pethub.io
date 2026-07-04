@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useProviderDashboardThemeOptional } from '@/contexts/ProviderDashboardThemeContext';
+import { plainPageAccentOutlineBtn, plainPageAccentUi } from '@/lib/landingTheme';
 
 export interface ScheduleAvailabilityRow {
   id: string;
@@ -56,6 +58,10 @@ export const AvailabilityScheduleEditor: React.FC<AvailabilityScheduleEditorProp
   disabled = false,
   className,
 }) => {
+  const providerTheme = useProviderDashboardThemeOptional();
+  const ui = providerTheme?.ui ?? plainPageAccentUi('mint');
+  const outlineBtn = providerTheme?.outlineBtn ?? plainPageAccentOutlineBtn.mint;
+
   const addAvailability = (dayOfWeek: number) => {
     onAvailabilityChange([
       ...availability,
@@ -109,16 +115,16 @@ export const AvailabilityScheduleEditor: React.FC<AvailabilityScheduleEditorProp
 
   return (
     <div className={cn('space-y-4', className)}>
-      <Card className="rounded-xl border-landing-aqua/20">
+      <Card className={cn('rounded-xl border', ui.borderLight)}>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base text-landing-aqua-dark">
+          <CardTitle className={cn('flex items-center gap-2 text-base', ui.text)}>
             <Calendar className="w-5 h-5" />
             Horarios de Disponibilidad
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {DAYS_OF_WEEK.map((day) => (
-            <div key={day.value} className="rounded-xl border border-landing-aqua/15 p-4">
+            <div key={day.value} className={cn('rounded-xl border p-4', ui.borderLight)}>
               <div className="flex items-center justify-between mb-3 gap-2">
                 <h4 className="font-medium text-gray-800">{day.label}</h4>
                 <Button
@@ -127,7 +133,7 @@ export const AvailabilityScheduleEditor: React.FC<AvailabilityScheduleEditorProp
                   size="sm"
                   disabled={disabled}
                   onClick={() => addAvailability(day.value)}
-                  className="border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10"
+                  className={outlineBtn}
                 >
                   Agregar Horario
                 </Button>
@@ -187,16 +193,16 @@ export const AvailabilityScheduleEditor: React.FC<AvailabilityScheduleEditorProp
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-landing-aqua/20">
+      <Card className={cn('rounded-xl border', ui.borderLight)}>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base text-landing-aqua-dark">
+          <CardTitle className={cn('flex items-center gap-2 text-base', ui.text)}>
             <Clock className="w-5 h-5" />
             Franjas Horarias Específicas (opcional)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {DAYS_OF_WEEK.map((day) => (
-            <div key={day.value} className="rounded-xl border border-landing-aqua/15 p-4">
+            <div key={day.value} className={cn('rounded-xl border p-4', ui.borderLight)}>
               <div className="flex items-center justify-between mb-3 gap-2">
                 <h4 className="font-medium text-gray-800">{day.label}</h4>
                 <Button
@@ -205,7 +211,7 @@ export const AvailabilityScheduleEditor: React.FC<AvailabilityScheduleEditorProp
                   size="sm"
                   disabled={disabled}
                   onClick={() => addTimeSlot(day.value)}
-                  className="border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10"
+                  className={outlineBtn}
                 >
                   Agregar Franja
                 </Button>

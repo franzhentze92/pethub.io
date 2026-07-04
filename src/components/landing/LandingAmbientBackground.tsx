@@ -23,18 +23,7 @@ export const LandingAmbientBackground: React.FC<LandingAmbientBackgroundProps> =
 
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`} aria-hidden>
-      {/* Tech grid */}
-      <div
-        className="absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage: isDark
-            ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)'
-            : 'radial-gradient(circle at 1px 1px, rgba(0,240,200,0.12) 1px, transparent 0)',
-          backgroundSize: '32px 32px',
-        }}
-      />
-
-      {/* Gradient orbs */}
+      {/* Solid color orbs */}
       <div className={`absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full blur-3xl animate-pulse-glow ${
         isDark ? 'bg-landing-aqua/10' : 'bg-landing-aqua/25'
       }`} />
@@ -45,20 +34,14 @@ export const LandingAmbientBackground: React.FC<LandingAmbientBackgroundProps> =
         isDark ? 'bg-landing-mint/10' : 'bg-landing-mint/20'
       }`} style={{ animationDelay: '4s' }} />
 
-      {/* Flowing wave lines */}
+      {/* Flowing wave — solid fill */}
       <svg className="absolute bottom-0 left-0 w-full h-32 opacity-20" viewBox="0 0 1440 120" preserveAspectRatio="none">
         <path
           d="M0,60 C240,120 480,0 720,60 C960,120 1200,0 1440,60 L1440,120 L0,120 Z"
-          fill="url(#waveGrad)"
+          fill="#00F0C8"
+          fillOpacity="0.25"
           className="animate-float-slow"
         />
-        <defs>
-          <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00F0C8" stopOpacity="0.4" />
-            <stop offset="50%" stopColor="#38F9A0" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#FFB703" stopOpacity="0.4" />
-          </linearGradient>
-        </defs>
       </svg>
 
       {/* Floating paw prints — hero full, section/app subset */}

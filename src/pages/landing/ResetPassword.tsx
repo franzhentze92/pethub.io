@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Lock, PawPrint, Home, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { landingBtnHero, landingGradients } from '@/lib/landingTheme';
 
 export const ResetPassword: React.FC = () => {
   const { toast } = useToast();
@@ -128,7 +129,7 @@ export const ResetPassword: React.FC = () => {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-landing-aqua/10 via-landing-mint/10 to-landing-tropical/20 flex items-center justify-center p-4">
+      <div className={`min-h-screen ${landingGradients.authBg} flex items-center justify-center p-4`}>
         {/* BACK TO HOME BUTTON */}
         <div className="absolute top-6 left-6 z-50">
           <Link 
@@ -145,7 +146,7 @@ export const ResetPassword: React.FC = () => {
         <div className="w-full max-w-md">
           {/* Success Message */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/20 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-landing-mint to-landing-aqua rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-20 h-20 bg-landing-mint rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10 text-white" />
             </div>
             
@@ -159,7 +160,7 @@ export const ResetPassword: React.FC = () => {
             </p>
             
             <Link to="/login">
-              <Button className="w-full h-14 bg-gradient-to-r from-landing-aqua to-landing-mango hover:from-landing-aqua-dark hover:to-landing-mango-dark text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5">
+              <Button className={`w-full h-14 ${landingBtnHero} text-lg font-semibold rounded-xl transform hover:-translate-y-0.5`}>
                 Ir al Login
               </Button>
             </Link>
@@ -170,7 +171,7 @@ export const ResetPassword: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-landing-aqua/10 via-landing-mint/10 to-landing-tropical/20 flex items-center justify-center p-4">
+    <div className={`min-h-screen ${landingGradients.authBg} flex items-center justify-center p-4`}>
       {/* BACK TO HOME BUTTON */}
       <div className="absolute top-6 left-6 z-50">
         <Link 
@@ -187,7 +188,7 @@ export const ResetPassword: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-3xl mb-6 shadow-lg">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-landing-aqua rounded-3xl mb-6 shadow-lg">
             <PawPrint className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -274,7 +275,7 @@ export const ResetPassword: React.FC = () => {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-14 bg-gradient-to-r from-landing-aqua to-landing-mango hover:from-landing-aqua-dark hover:to-landing-mango-dark text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className={`w-full h-14 ${landingBtnHero} text-lg font-semibold rounded-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
             >
               {isSubmitting ? (
                 <>

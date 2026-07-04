@@ -25,13 +25,13 @@ export const Features: React.FC = () => {
       <section className="relative min-h-[60vh] flex items-center py-20 md:py-28 overflow-hidden">
         <LandingAmbientBackground variant="hero" />
         <LandingPetDecorations preset="hero" />
-        <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/90 via-landing-mint/85 to-landing-mango/90" />
+        <div className="absolute inset-0 bg-landing-mint" />
         <div className="absolute inset-0 bg-black/10" />
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
           <Badge className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-2 inline-flex items-center gap-2">
             <PawPrint className="w-4 h-4" />
-            Dueño · Proveedor · Refugio
+            Cliente · Proveedor · Refugio
           </Badge>
 
           <div className="flex flex-wrap justify-center gap-2 mb-8">
@@ -77,7 +77,7 @@ export const Features: React.FC = () => {
       <HowItWorksFlow />
 
       {/* ── CTA ── */}
-      <section className="relative py-20 md:py-28 bg-gradient-to-r from-landing-aqua to-landing-mango overflow-hidden">
+      <section className="relative py-20 md:py-28 bg-landing-aqua overflow-hidden">
         <LandingPetDecorations preset="cta" />
         <div className="absolute inset-0 bg-black/10" />
 

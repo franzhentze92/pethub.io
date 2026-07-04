@@ -192,9 +192,9 @@ export const Register: React.FC = () => {
                   }`}
                 >
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-                    selected ? `bg-gradient-to-br ${role.gradient}` : 'bg-gray-100'
+                    selected ? `${role.gradient} ${role.colorText}` : 'bg-gray-100'
                   }`}>
-                    <role.icon className={`w-3 h-3 ${selected ? 'text-white' : 'text-gray-400'}`} />
+                    <role.icon className={`w-3 h-3 ${selected ? role.colorText : 'text-gray-400'}`} />
                   </div>
                   <span className={`text-[11px] font-semibold leading-tight ${selected ? role.textActive : 'text-gray-700'}`}>
                     {role.shortLabel}

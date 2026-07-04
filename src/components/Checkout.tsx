@@ -19,11 +19,12 @@ import {
   formatCategoryLabel,
   getCategoryBadgeClass,
 } from '@/lib/categoryBadges';
-import { landingBadge, landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBadge, landingBtnSolid } from '@/lib/landingTheme';
 import { sendOrderConfirmationEmail } from '@/utils/sendOrderConfirmationEmail';
 import { createSubscriptionsFromOrder } from '@/lib/productSubscriptions';
 import { normalizePgTime } from '@/utils/appointmentDisplay';
 import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
+import { finalizeDogWalkOrders } from '@/utils/dogWalkCheckout';
 import {
   type FulfillmentMethod,
   buildDeliveryScheduleMessage,
@@ -40,7 +41,7 @@ import {
 } from '@/config/productSubscriptions';
 
 const checkoutCardClass =
-  'rounded-xl border border-landing-aqua/20 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 shadow-sm';
+  'rounded-xl border border-landing-aqua/20 bg-landing-aqua/5 shadow-sm';
 const checkoutInputClass =
   'border-landing-aqua/25 focus-visible:ring-landing-aqua/40 focus-visible:border-landing-aqua/50';
 const checkoutSelectNativeClass =
@@ -1046,6 +1047,10 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
       // Set success state
       setIsSuccess(true);
       dispatchNotificationsUpdated();
+
+      if (user?.id) {
+        void finalizeDogWalkOrders(items, orderData.id, user.id);
+      }
       if (isDeliveryFulfillment) {
         setDeliveryScheduleMessage(buildDeliveryScheduleMessage(new Date()));
       }
@@ -1098,11 +1103,11 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-md text-center rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0" aria-describedby="order-success-description">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-landing-aqua/10">
             <DialogTitle className="text-xl text-gray-900">¡Orden Confirmada!</DialogTitle>
           </DialogHeader>
           <div className="py-8 px-6" id="order-success-description">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-lg">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-landing-aqua text-white shadow-sm">
               <CheckCircle className="w-9 h-9" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -1143,9 +1148,9 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
         className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0"
         aria-describedby="checkout-form-description"
       >
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-landing-aqua/10">
           <DialogTitle className="flex items-center gap-2 text-xl text-gray-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-landing-aqua text-white shadow-sm">
               <CreditCard className="w-5 h-5" />
             </span>
             Finalizar Compra
@@ -1451,7 +1456,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
                                   {pet.image_url ? (
                                     <img src={pet.image_url} alt={pet.name} className="w-9 h-9 rounded-full object-cover shrink-0" />
                                   ) : (
-                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-landing-aqua to-landing-mint flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                    <div className="w-9 h-9 rounded-full bg-landing-aqua flex items-center justify-center text-white text-xs font-bold shrink-0">
                                       {pet.name.charAt(0).toUpperCase()}
                                     </div>
                                   )}
@@ -1510,7 +1515,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
                       <span className={cn(
                         'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
                         isDeliveryFulfillment
-                          ? 'bg-gradient-to-br from-landing-aqua to-landing-mint text-white'
+                          ? 'bg-landing-aqua text-white'
                           : 'bg-landing-aqua/10 text-landing-aqua-dark'
                       )}>
                         <Truck className="w-5 h-5" />
@@ -1536,7 +1541,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
                       <span className={cn(
                         'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
                         isPickupFulfillment
-                          ? 'bg-gradient-to-br from-landing-aqua to-landing-mint text-white'
+                          ? 'bg-landing-aqua text-white'
                           : 'bg-landing-aqua/10 text-landing-aqua-dark'
                       )}>
                         <Store className="w-5 h-5" />
@@ -1892,7 +1897,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, onSuccess }) => {
                 <Button
                   type="submit"
                   className={cn(
-                    landingBtnPrimary,
+                    landingBtnSolid,
                     'w-full border-0 min-h-[48px] text-sm sm:text-base py-3'
                   )}
                   disabled={

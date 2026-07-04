@@ -5,7 +5,7 @@ import { useShelters } from '@/hooks/useAdoption';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn, plainPageAccentOutlineBtn } from '@/lib/landingTheme';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const Shelters: React.FC = () => {
@@ -45,20 +45,20 @@ const Shelters: React.FC = () => {
             placeholder="Buscar por nombre..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 min-h-[44px] border-landing-aqua/20"
+            className="pl-9 min-h-[44px] border-landing-mango/20"
           />
         </div>
         <Input
           placeholder="Filtrar por ciudad..."
           value={locationFilter}
           onChange={(e) => setLocationFilter(e.target.value)}
-          className="min-h-[44px] border-landing-aqua/20"
+          className="min-h-[44px] border-landing-mango/20"
         />
       </MobileSectionCard>
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Users className="w-4 h-4 text-landing-aqua-dark" />
+          <Users className="w-4 h-4 text-landing-mango-dark" />
           <span>{filteredShelters.length} albergue{filteredShelters.length !== 1 ? 's' : ''}</span>
         </div>
         {(searchTerm || locationFilter) && (
@@ -69,7 +69,7 @@ const Shelters: React.FC = () => {
               setSearchTerm('');
               setLocationFilter('');
             }}
-            className="text-landing-aqua-dark"
+            className="text-landing-mango-dark"
           >
             Limpiar
           </Button>
@@ -93,7 +93,7 @@ const Shelters: React.FC = () => {
         </div>
       ) : filteredShelters.length === 0 ? (
         <MobileSectionCard className="p-8 text-center">
-          <Building2 className="w-14 h-14 mx-auto text-landing-aqua/30 mb-3" />
+          <Building2 className="w-14 h-14 mx-auto text-landing-mango/30 mb-3" />
           <h3 className="font-bold text-gray-900 mb-1">
             {searchTerm || locationFilter ? 'Sin resultados' : 'No hay albergues'}
           </h3>
@@ -109,7 +109,7 @@ const Shelters: React.FC = () => {
             <MobileSectionCard key={shelter.id}>
               <div className="p-4">
                 <div className="flex gap-3">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-landing-mango/10 flex items-center justify-center">
                     {(shelter.primary_image_url || shelter.image_url) ? (
                       <img
                         src={shelter.primary_image_url || shelter.image_url || ''}
@@ -117,7 +117,7 @@ const Shelters: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Building2 className="w-8 h-8 text-landing-aqua-dark" />
+                      <Building2 className="w-8 h-8 text-landing-mango-dark" />
                     )}
                   </div>
 
@@ -138,7 +138,7 @@ const Shelters: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleContactShelter(shelter, 'phone')}
-                          className="p-2 rounded-lg text-landing-aqua-dark hover:bg-landing-aqua/10"
+                          className="p-2 rounded-lg text-landing-mango-dark hover:bg-landing-mango/10"
                           aria-label="Llamar"
                         >
                           <Phone className="w-4 h-4" />
@@ -159,7 +159,7 @@ const Shelters: React.FC = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="min-h-[40px] border-landing-aqua/30 text-landing-aqua-dark"
+                    className="min-h-[40px] border-landing-mango/30 text-landing-mango-dark"
                     onClick={() => navigate(`/shelter/${shelter.id}?tab=pets`)}
                   >
                     <PawPrint className="w-4 h-4 mr-1.5" />
@@ -167,7 +167,7 @@ const Shelters: React.FC = () => {
                   </Button>
                   <Button
                     size="sm"
-                    className={`min-h-[40px] ${landingBtnPrimary}`}
+                    className={`min-h-[40px] ${plainPageAccentBtn.mango}`}
                     onClick={() => navigate(`/shelter/${shelter.id}`)}
                   >
                     Ver albergue

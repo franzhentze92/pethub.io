@@ -7,6 +7,7 @@ export interface AuthRoleOption {
   description: string;
   icon: LucideIcon;
   gradient: string;
+  colorText: string;
   borderActive: string;
   bgActive: string;
   textActive: string;
@@ -15,11 +16,12 @@ export interface AuthRoleOption {
 export const authRoleOptions: AuthRoleOption[] = [
   {
     value: 'client',
-    label: 'Dueño de mascota',
-    shortLabel: 'Dueño',
+    label: 'Cliente de mascota',
+    shortLabel: 'Cliente',
     description: 'Cuidado, compras y adopción',
     icon: PawPrint,
-    gradient: 'from-landing-aqua to-landing-mint',
+    gradient: 'bg-landing-aqua',
+    colorText: 'text-white',
     borderActive: 'border-landing-aqua',
     bgActive: 'bg-landing-aqua/10',
     textActive: 'text-landing-aqua-dark',
@@ -30,7 +32,8 @@ export const authRoleOptions: AuthRoleOption[] = [
     shortLabel: 'Proveedor',
     description: 'Productos y servicios',
     icon: ShoppingBag,
-    gradient: 'from-landing-mango to-landing-tropical',
+    gradient: 'bg-landing-mango',
+    colorText: 'text-gray-900',
     borderActive: 'border-landing-mango',
     bgActive: 'bg-landing-mango/10',
     textActive: 'text-landing-mango-dark',
@@ -41,7 +44,8 @@ export const authRoleOptions: AuthRoleOption[] = [
     shortLabel: 'Refugio',
     description: 'Adopciones y rescate',
     icon: Heart,
-    gradient: 'from-landing-mint to-landing-aqua',
+    gradient: 'bg-landing-mint',
+    colorText: 'text-gray-900',
     borderActive: 'border-landing-mint',
     bgActive: 'bg-landing-mint/10',
     textActive: 'text-landing-mint-dark',
@@ -62,7 +66,7 @@ export const authHighlights = [
   {
     icon: Heart,
     title: 'Comunidad activa',
-    description: 'Adopción, cría responsable y mascotas perdidas.',
+    description: 'Adopción, parejas y mascotas perdidas.',
   },
   {
     icon: Shield,

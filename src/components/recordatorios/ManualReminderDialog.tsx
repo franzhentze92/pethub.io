@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnSolidMint } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import {
   createPetReminder,
@@ -96,7 +96,7 @@ export const ManualReminderDialog: React.FC<ManualReminderDialogProps> = ({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5 text-landing-aqua-dark" />
+            <Plus className="h-5 w-5 text-landing-mint-dark" />
             Nuevo recordatorio
           </DialogTitle>
         </DialogHeader>
@@ -221,7 +221,7 @@ export const ManualReminderDialog: React.FC<ManualReminderDialogProps> = ({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !form.title} className={cn(landingBtnPrimary)}>
+            <Button type="submit" disabled={saving || !form.title} className={cn(landingBtnSolidMint)}>
               {saving ? 'Guardando…' : 'Crear recordatorio'}
             </Button>
           </DialogFooter>

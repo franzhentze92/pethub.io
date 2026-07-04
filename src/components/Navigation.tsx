@@ -3,9 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Activity, ShoppingBag, Heart, Settings, Package,
   Stethoscope, Bell, PawPrint, Search, HeartHandshake, Utensils,
-  ShoppingCart, Shield, RefreshCw,
+  ShoppingCart, Shield, RefreshCw, Footprints,
 } from 'lucide-react';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import { landingFeatureGradients, solidIconBgAt, isCarePage, isMarketplacePage, isDashboardPage, isSettingsPage, pethubRainbowEdge } from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPetHubAdminUser } from '@/lib/pethubAdminAccess';
 import { usePetBuddy } from '@/contexts/PetBuddyContext';
@@ -57,6 +58,7 @@ const Navigation: React.FC = () => {
   const socialOptions: NavItem[] = [
     { id: 'adopcion', label: 'Adopción', icon: Heart, gradientIndex: 1, path: '/adopcion' },
     { id: 'parejas', label: 'Parejas', icon: HeartHandshake, gradientIndex: 4, path: '/parejas' },
+    { id: 'paseos', label: 'Paseos', icon: Footprints, gradientIndex: 2, path: '/paseos' },
     { id: 'mascotas-perdidas', label: 'Mascotas Perdidas', icon: Search, gradientIndex: 3, path: '/mascotas-perdidas' },
   ];
 
@@ -87,18 +89,16 @@ const Navigation: React.FC = () => {
   }, [showPetHubAdmin]);
 
   const gradientAt = (index: number) =>
-    landingFeatureGradients[index % landingFeatureGradients.length];
+    solidIconBgAt(index);
 
   const closePetBuddy = useCallback(() => setIsOpen(false), [setIsOpen]);
 
   const isBottomActive = (item: NavItem) =>
     location.pathname === item.path ||
-    (item.id === 'shop' && location.pathname.startsWith('/marketplace')) ||
-    (item.id === 'shop' && location.pathname === '/client-orders') ||
-    (item.id === 'shop' && location.pathname === '/my-subscriptions') ||
+    (item.id === 'shop' && (location.pathname.startsWith('/marketplace') || location.pathname === '/client-orders' || location.pathname === '/my-subscriptions' || location.pathname === '/cart')) ||
     (item.id === 'dashboard' && location.pathname === '/dashboard') ||
-    (item.id === 'profile' && (location.pathname === '/ajustes' || location.pathname === '/pet-hub-blueprint')) ||
-    (item.id === 'social' && ['/adopcion', '/parejas', '/mascotas-perdidas'].includes(location.pathname)) ||
+    (item.id === 'profile' && isSettingsPage(location.pathname)) ||
+    (item.id === 'social' && ['/adopcion', '/parejas', '/paseos', '/mascotas-perdidas'].includes(location.pathname)) ||
     (item.id === 'care' && ['/feeding-schedules', '/trazabilidad', '/veterinaria', '/recordatorios'].includes(location.pathname)) ||
     (item.id === 'pethub-admin' && location.pathname.startsWith('/pethub-admin'));
 
@@ -120,9 +120,60 @@ const Navigation: React.FC = () => {
         ? 'right'
         : null;
 
+  const socialPlainPages = ['/adopcion', '/parejas', '/paseos', '/mascotas-perdidas'];
+  const isSocialPlainPage =
+    socialPlainPages.includes(location.pathname) || location.pathname.startsWith('/shelter/');
+
   const renderNavItem = (item: NavItem, side: 'left' | 'right') => {
     const gradient = gradientAt(item.gradientIndex);
     const active = isBottomActive(item) || expandedButton === item.id;
+    const useShopSolid = item.id === 'shop' && isMarketplacePage(location.pathname);
+    const useCareSolid = item.id === 'care' && isCarePage(location.pathname);
+    const useSocialSolid = item.id === 'social' && isSocialPlainPage;
+
+    const useSettingsSolid = item.id === 'profile' && isSettingsPage(location.pathname);
+
+    const useDashboardRainbow = item.id === 'home' && isDashboardPage(location.pathname);
+
+    const activeIconClass =
+      active && !item.expandable
+        ? useDashboardRainbow
+          ? cn(pethubRainbowEdge, 'text-gray-900 shadow-sm')
+          : useShopSolid
+            ? 'bg-landing-aqua text-white shadow-sm'
+            : useCareSolid
+              ? 'bg-landing-mint text-gray-900 shadow-sm'
+              : useSocialSolid
+                ? 'bg-landing-mango text-gray-900 shadow-sm'
+                : useSettingsSolid
+                  ? 'bg-landing-tropical text-gray-900 shadow-sm'
+                  : `${gradient} shadow-sm`
+        : active && item.expandable
+          ? useShopSolid
+            ? 'bg-landing-aqua text-white shadow-sm'
+            : useCareSolid
+              ? 'bg-landing-mint text-gray-900 shadow-sm'
+              : useSocialSolid
+                ? 'bg-landing-mango text-gray-900 shadow-sm'
+                : 'bg-landing-aqua/15 text-landing-aqua-dark'
+          : '';
+
+    const activeTextClass =
+      active && !item.expandable
+        ? useDashboardRainbow
+          ? 'text-landing-aqua-dark'
+          : useShopSolid
+            ? 'text-landing-aqua-dark'
+            : useCareSolid
+              ? 'text-landing-mint-dark'
+              : useSocialSolid
+                ? 'text-landing-mango-dark'
+                : useSettingsSolid
+                  ? 'text-landing-mango-dark'
+                  : 'text-landing-aqua-dark'
+        : active
+          ? 'text-landing-aqua-dark'
+          : 'text-gray-400 hover:text-gray-600';
 
     return (
       <div key={item.id} className={`relative min-w-0 flex-1 ${expandedButton === item.id ? 'z-[120]' : ''}`}>
@@ -138,25 +189,22 @@ const Navigation: React.FC = () => {
               setExpandedButton(null);
             }
           }}
-          className={`flex w-full flex-col items-center justify-center gap-0 rounded-lg py-1 transition-colors duration-200 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-landing-aqua/40 focus-visible:ring-inset ${
-            active ? 'text-landing-aqua-dark' : 'text-gray-400 hover:text-gray-600'
-          }`}
+          className={cn(
+            'flex w-full flex-col items-center justify-center gap-0 rounded-lg py-1 transition-colors duration-200 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-landing-aqua/40 focus-visible:ring-inset',
+            activeTextClass,
+          )}
         >
           <span
-            className={`flex h-6 w-8 items-center justify-center rounded-full transition-colors duration-200 ${
-              active && !item.expandable
-                ? `bg-gradient-to-r ${gradient} text-white shadow-sm`
-                : active && item.expandable
-                  ? 'bg-landing-aqua/15 text-landing-aqua-dark'
-                  : ''
-            }`}
+            className={`flex h-6 w-8 items-center justify-center rounded-full transition-colors duration-200 ${activeIconClass}`}
           >
             <item.icon size={18} strokeWidth={active ? 2.25 : 2} />
           </span>
           <span
-            className={`mt-0.5 w-full truncate px-0.5 text-center text-[9px] font-medium leading-none ${
-              active ? 'font-semibold text-landing-aqua-dark' : ''
-            }`}
+            className={cn(
+              'mt-0.5 w-full truncate px-0.5 text-center text-[9px] font-medium leading-none',
+              active && 'font-semibold',
+              active && activeTextClass,
+            )}
           >
             {item.label}
           </span>
@@ -169,6 +217,9 @@ const Navigation: React.FC = () => {
             {getSubmenuOptions(item.id).map((option) => {
               const optGradient = gradientAt(option.gradientIndex);
               const optActive = location.pathname === option.path;
+              const useSocialSolid = item.id === 'social' && isSocialPlainPage;
+              const useCareSolid = item.id === 'care' && isCarePage(location.pathname);
+              const useShopSolid = item.id === 'shop' && isMarketplacePage(location.pathname);
               return (
                 <button
                   key={option.id}
@@ -179,7 +230,13 @@ const Navigation: React.FC = () => {
                   }}
                   className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all ${
                     optActive
-                      ? `bg-gradient-to-r ${optGradient} text-white shadow-sm`
+                      ? useSocialSolid
+                        ? 'bg-landing-mango text-gray-900 shadow-sm'
+                        : useCareSolid
+                          ? 'bg-landing-mint text-gray-900 shadow-sm'
+                          : useShopSolid
+                            ? 'bg-landing-aqua text-white shadow-sm'
+                            : `${optGradient} shadow-sm`
                       : 'text-gray-700 hover:bg-landing-aqua/10'
                   }`}
                 >

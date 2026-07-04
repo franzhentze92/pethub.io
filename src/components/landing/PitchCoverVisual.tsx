@@ -8,12 +8,13 @@ import { cn } from '@/lib/utils';
 const ROLES = [
   {
     id: 'client',
-    label: 'Dueño',
+    label: 'Cliente',
     sub: 'Cuidado & vida pet',
     Icon: PawPrint,
     angle: -90,
     radius: 38,
-    gradient: 'from-landing-aqua to-landing-mint',
+    bg: 'bg-landing-aqua',
+    iconText: 'text-white',
     glow: 'shadow-landing-aqua/30',
   },
   {
@@ -23,7 +24,8 @@ const ROLES = [
     Icon: Store,
     angle: 30,
     radius: 38,
-    gradient: 'from-landing-mango to-landing-tropical',
+    bg: 'bg-landing-mango',
+    iconText: 'text-gray-900',
     glow: 'shadow-landing-mango/30',
   },
   {
@@ -33,7 +35,8 @@ const ROLES = [
     Icon: Home,
     angle: 150,
     radius: 38,
-    gradient: 'from-landing-mint to-landing-aqua',
+    bg: 'bg-landing-mint',
+    iconText: 'text-gray-900',
     glow: 'shadow-landing-mint/30',
   },
 ] as const;
@@ -74,25 +77,15 @@ const FLOAT_TAGS = [
 export const PitchCoverVisual: React.FC = () => (
   <div className="relative w-full max-w-lg mx-auto lg:max-w-none lg:ml-auto">
     <div
-      className="absolute -inset-8 rounded-full bg-gradient-to-br from-landing-aqua/25 via-landing-mint/10 to-landing-mango/20 blur-3xl opacity-70"
+      className="absolute -inset-8 rounded-full bg-landing-aqua/20 blur-3xl opacity-70"
       aria-hidden
     />
 
     <div
-      className="relative aspect-square w-full max-h-[min(480px,85vw)] rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#0a0f14] via-[#0d1218] to-[#080c10] shadow-[0_32px_80px_-16px_rgba(0,240,200,0.2),0_0_60px_-20px_rgba(255,183,3,0.15)] overflow-hidden"
+      className="relative aspect-square w-full max-h-[min(480px,85vw)] rounded-[2rem] border border-white/10 bg-[#0d1218] shadow-[0_32px_80px_-16px_rgba(0,240,200,0.2),0_0_60px_-20px_rgba(255,183,3,0.15)] overflow-hidden"
       role="img"
-      aria-label="Ecosistema PetHub conectando dueños, proveedores y refugios"
+      aria-label="Ecosistema PetHub conectando clientes, proveedores y refugios"
     >
-      {/* Grid de fondo */}
-      <div
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,240,200,0.15) 1px, transparent 0)',
-          backgroundSize: '24px 24px',
-        }}
-        aria-hidden
-      />
-
       {/* Anillos orbitales */}
       {[28, 42, 56].map((r, i) => (
         <div
@@ -124,19 +117,7 @@ export const PitchCoverVisual: React.FC = () => (
 
       {/* SVG: arcos de conexión + partículas */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" aria-hidden>
-        <defs>
-          <linearGradient id="pitchArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#00F0C8" stopOpacity="0.6" />
-            <stop offset="50%" stopColor="#38F9A0" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#FFB703" stopOpacity="0.5" />
-          </linearGradient>
-          <radialGradient id="pitchCoreGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#00F0C8" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#00F0C8" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        <circle cx="50" cy="50" r="18" fill="url(#pitchCoreGlow)" className="animate-pulse" />
+        <circle cx="50" cy="50" r="18" fill="#00F0C8" fillOpacity="0.15" className="animate-pulse" />
 
         {ROLES.map((role, i) => {
           const end = polar(role.angle, role.radius);
@@ -146,7 +127,7 @@ export const PitchCoverVisual: React.FC = () => (
               <path
                 d={path}
                 fill="none"
-                stroke="url(#pitchArcGrad)"
+                stroke="#00F0C8"
                 strokeWidth="0.35"
                 strokeDasharray="2 2"
                 opacity="0.5"
@@ -219,8 +200,8 @@ export const PitchCoverVisual: React.FC = () => (
                 role.glow,
               )}
             >
-              <div className={cn('w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center bg-gradient-to-br mb-2', role.gradient)}>
-                <Icon className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className={cn('w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center mb-2', role.bg)}>
+                <Icon className={cn('w-5 h-5', role.iconText)} strokeWidth={2} />
               </div>
               <p className="text-[11px] sm:text-xs font-bold text-white leading-none">{role.label}</p>
               <p className="text-[8px] sm:text-[9px] text-white/45 mt-0.5 whitespace-nowrap">{role.sub}</p>
@@ -232,8 +213,8 @@ export const PitchCoverVisual: React.FC = () => (
       {/* Núcleo central PetHub */}
       <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
         <div className="relative animate-float-slow">
-          <div className="absolute -inset-4 rounded-full bg-gradient-to-br from-landing-aqua/30 to-landing-mango/20 blur-xl animate-pulse" aria-hidden />
-          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-br from-landing-aqua via-landing-mint to-landing-mango p-[3px] shadow-[0_0_40px_rgba(0,240,200,0.35)]">
+          <div className="absolute -inset-4 rounded-full bg-landing-aqua/20 blur-xl animate-pulse" aria-hidden />
+          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-landing-aqua p-[3px] shadow-[0_0_40px_rgba(0,240,200,0.35)]">
             <div className="w-full h-full rounded-full bg-[#0d1218] flex flex-col items-center justify-center border border-white/10">
               <PawPrint className="w-9 h-9 sm:w-10 sm:h-10 text-landing-aqua mb-0.5" strokeWidth={2.5} />
               <span className="text-[9px] sm:text-[10px] font-bold tracking-widest text-white/80 uppercase">PetHub</span>

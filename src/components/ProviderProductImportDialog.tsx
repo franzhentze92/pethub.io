@@ -16,7 +16,8 @@ import { importProductFromUrl, type ImportedProductData } from '@/ai/llm/importP
 import { mapImportedToProductDraft } from '@/utils/productImport';
 import type { ProviderProduct } from '@/hooks/useProvider';
 import { cn } from '@/lib/utils';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainModalAccentClasses } from '@/lib/landingTheme';
+import { useProviderDashboardTheme } from '@/contexts/ProviderDashboardThemeContext';
 
 const CATEGORY_LABELS: Record<string, string> = {
   alimentos: 'Alimentos',
@@ -43,6 +44,9 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
   onCreate,
   onEditDraft,
 }) => {
+  const { accent, btn, outlineBtn, ui } = useProviderDashboardTheme();
+  const mc = plainModalAccentClasses(accent);
+
   const [url, setUrl] = useState('');
   const [stockQuantity, setStockQuantity] = useState('0');
   const [importing, setImporting] = useState(false);
@@ -122,10 +126,10 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl">
-        <DialogHeader>
+      <DialogContent className={cn('sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl border', mc.dialogBorder)}>
+        <DialogHeader className={cn('pb-2', mc.header, '-mx-6 px-6 pt-6')}>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-landing-aqua-dark" />
+            <Sparkles className={cn('w-5 h-5', ui.text)} />
             Importar producto con IA
           </DialogTitle>
           <DialogDescription>
@@ -154,7 +158,7 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
                 type="button"
                 onClick={handleExtract}
                 disabled={importing || creating || !url.trim()}
-                className={cn(landingBtnPrimary, 'shrink-0 border-0')}
+                className={cn(btn, 'shrink-0 border-0')}
               >
                 {importing ? (
                   <>
@@ -172,7 +176,7 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
           </div>
 
           {extracted && (
-            <div className="rounded-xl border border-landing-aqua/20 bg-gradient-to-br from-landing-aqua/5 to-landing-mint/5 p-4 space-y-3">
+            <div className={cn(mc.infoBanner, 'space-y-3')}>
               <div className="flex gap-3">
                 <div className="w-20 h-20 rounded-lg overflow-hidden bg-white shrink-0 ring-1 ring-gray-100">
                   {extracted.product_image_url ? (
@@ -208,7 +212,7 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
                   href={sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-landing-aqua-dark hover:underline"
+                  className={cn('inline-flex items-center gap-1 text-xs hover:underline', ui.text)}
                 >
                   Ver página original
                   <ExternalLink className="w-3 h-3" />
@@ -237,11 +241,11 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button type="button" variant="outline" onClick={handleClose} disabled={importing || creating}>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={importing || creating} className={outlineBtn}>
             Cancelar
           </Button>
           {extracted && onEditDraft && (
-            <Button type="button" variant="outline" onClick={handleEditDraft} disabled={creating}>
+            <Button type="button" variant="outline" onClick={handleEditDraft} disabled={creating} className={outlineBtn}>
               <Pencil className="w-4 h-4 mr-2" />
               Editar antes de crear
             </Button>
@@ -250,7 +254,7 @@ const ProviderProductImportDialog: React.FC<ProviderProductImportDialogProps> = 
             type="button"
             onClick={handleCreate}
             disabled={!extracted || creating || importing}
-            className={cn(landingBtnPrimary, 'border-0')}
+            className={cn(btn, 'border-0')}
           >
             {creating ? (
               <>

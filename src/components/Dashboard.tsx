@@ -4,7 +4,7 @@ import {
   Stethoscope, Utensils, ShoppingBag, Users, Settings,
   BarChart3, Zap, ArrowUpRight, 
   Eye, MessageCircle, ShoppingCart, CreditCard, Search,
-  Tag, Timer, Info, Building2, Coins
+  Tag, Timer, Info, Building2, Coins, Footprints
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -14,13 +14,21 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FeedingNotification from './FeedingNotification';
-import PageHeader from './PageHeader';
 import { DashboardShell } from './dashboard/DashboardShell';
 import PageLoader from '@/components/PageLoader';
 import { DashboardStatCard } from './dashboard/DashboardStatCard';
 import { DashboardGlassCard } from './dashboard/DashboardGlassCard';
 import { supabase } from '@/lib/supabase';
-import { landingBtnPrimary, landingChartColors, landingChartPalette, landingCardThemes } from '@/lib/landingTheme';
+import {
+  landingBtnSolidAt,
+  landingChartColors,
+  landingChartPalette,
+  pethubRainbowEdge,
+  solidCardThemeAt,
+  solidIconBgAt,
+  dashboardTabActiveAt,
+} from '@/lib/landingTheme';
+import { cn } from '@/lib/utils';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -584,6 +592,15 @@ const Dashboard: React.FC = () => {
       path: '/parejas'
     },
     {
+      id: 'paseos',
+      title: 'Paseos',
+      description: 'Encuentra paseadores cerca de ti',
+      icon: Footprints,
+      stats: 'Mapa de paseadores',
+      action: 'Ver Paseos',
+      path: '/paseos'
+    },
+    {
       id: 'mascotas-perdidas',
       title: 'Mascotas Perdidas',
       description: 'Reporta y busca mascotas perdidas',
@@ -605,36 +622,35 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="inline" message="Cargando tu dashboard…" />
       </DashboardShell>
     );
   }
 
   return (
-    <DashboardShell>
-      {/* Header */}
-      <PageHeader 
-        title={`¡Bienvenido, ${getUserDisplayName()}!`}
-        subtitle="Tu plataforma integral para el cuidado de mascotas"
-        gradient="from-landing-aqua via-landing-mint to-landing-mango"
-        showNotifications={false}
-      >
-        <div className="flex flex-wrap items-center gap-3 md:gap-4">
-          <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5">
+    <DashboardShell variant="plain">
+      <div className="space-y-3 mt-1">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900">¡Bienvenido, {getUserDisplayName()}!</h1>
+          <p className="text-sm text-gray-500">Tu plataforma integral para el cuidado de mascotas</p>
+        </div>
+        <div className={cn('h-1 rounded-full', pethubRainbowEdge)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm bg-landing-aqua/10 text-landing-aqua-dark border border-landing-aqua/25">
             <Heart className="w-4 h-4" />
-            <span className="text-sm font-medium">
+            <span className="font-medium">
               {stats.totalPets} mascota{stats.totalPets !== 1 ? 's' : ''}
             </span>
           </div>
           {stats.upcomingAppointments > 0 && (
-            <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm bg-landing-mango/10 text-landing-mango-dark border border-landing-mango/25">
               <Calendar className="w-4 h-4" />
-              <span className="text-sm font-medium">{stats.upcomingAppointments} cita{stats.upcomingAppointments !== 1 ? 's' : ''}</span>
+              <span className="font-medium">{stats.upcomingAppointments} cita{stats.upcomingAppointments !== 1 ? 's' : ''}</span>
             </div>
           )}
         </div>
-      </PageHeader>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -645,6 +661,7 @@ const Dashboard: React.FC = () => {
           footer={`${stats.totalCaloriesBurned} calorías quemadas`}
           trend={statTrends.exercise}
           gradientIndex={0}
+          variant="plain"
         />
         <DashboardStatCard
           icon={Utensils}
@@ -652,7 +669,8 @@ const Dashboard: React.FC = () => {
           label="Horarios Activos"
           footer={`${stats.totalFeedingSchedules} horarios configurados`}
           trend={statTrends.feeding}
-          gradientIndex={2}
+          gradientIndex={1}
+          variant="plain"
         />
         <DashboardStatCard
           icon={Stethoscope}
@@ -660,7 +678,8 @@ const Dashboard: React.FC = () => {
           label="Visitas Veterinarias"
           footer="Historial médico completo"
           trend={statTrends.vet}
-          gradientIndex={1}
+          gradientIndex={2}
+          variant="plain"
         />
         <DashboardStatCard
           icon={CreditCard}
@@ -669,6 +688,7 @@ const Dashboard: React.FC = () => {
           footer={`${completedOrders} órdenes completadas`}
           trend={statTrends.spent}
           gradientIndex={3}
+          variant="plain"
         />
       </div>
 
@@ -678,16 +698,18 @@ const Dashboard: React.FC = () => {
           title="Trazabilidad"
           subtitle="Historial completo y trazabilidad de tus mascotas"
           icon={Calendar}
-          gradientIndex={4}
+          gradientIndex={0}
+          variant="plain"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pets.map((pet, i) => {
-              const theme = landingCardThemes[i % landingCardThemes.length];
+              const theme = solidCardThemeAt(i);
+              const iconSolid = solidIconBgAt(i);
               return (
                 <div
                   key={pet.id}
                   onClick={() => navigate(`/pet-journey/${pet.id}`)}
-                  className={`group cursor-pointer rounded-xl p-4 border ${theme.border} ${theme.bg} hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}
+                  className={cn('group cursor-pointer rounded-xl p-4 border hover:shadow-md transition-all duration-200 hover:-translate-y-0.5', theme.border, theme.bg)}
                 >
                   <div className="flex items-center gap-3 mb-3">
                     {pet.image_url ? (
@@ -697,7 +719,7 @@ const Dashboard: React.FC = () => {
                         className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-md"
                       />
                     ) : (
-                      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${theme.icon} flex items-center justify-center text-white text-xl font-bold shadow-md`}>
+                      <div className={cn('w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow-sm', iconSolid)}>
                         {pet.name.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -711,7 +733,7 @@ const Dashboard: React.FC = () => {
                     {pet.weight ? <span>{pet.weight} kg</span> : <span />}
                   </div>
                   <Button
-                    className={`w-full ${landingBtnPrimary}`}
+                    className={cn('w-full border-0', landingBtnSolidAt(i))}
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/pet-journey/${pet.id}`);
@@ -733,17 +755,18 @@ const Dashboard: React.FC = () => {
         subtitle={appointments.length > 0 ? `${appointments.length} cita${appointments.length !== 1 ? 's' : ''} registrada${appointments.length !== 1 ? 's' : ''}` : 'Agenda de servicios'}
         icon={Calendar}
         gradientIndex={1}
+        variant="plain"
       >
           {appointments.length === 0 ? (
             <div className="text-center py-12 md:py-16">
-              <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center">
-                <Calendar className="w-10 h-10 text-landing-aqua-dark" />
+              <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-landing-mint/15 flex items-center justify-center">
+                <Calendar className="w-10 h-10 text-landing-mint-dark" />
               </div>
               <p className="text-lg font-semibold text-gray-800 mb-2">No tienes citas programadas</p>
               <p className="text-sm text-gray-500 mb-5 max-w-sm mx-auto">Reserva servicios desde el marketplace y aparecerán aquí en tu calendario</p>
               <Button
                 onClick={() => navigate('/marketplace/services')}
-                className={landingBtnPrimary}
+                className={cn(landingBtnSolidAt(0), 'border-0')}
               >
                 Ver Servicios Disponibles
               </Button>
@@ -764,7 +787,7 @@ const Dashboard: React.FC = () => {
                       )
                     }}
                     modifiersClassNames={{
-                      hasAppointments: "bg-gradient-to-br from-landing-aqua/30 to-landing-mint/30 text-landing-aqua-dark font-semibold border border-landing-aqua/40"
+                      hasAppointments: "bg-landing-aqua/25 text-landing-aqua-dark font-semibold border border-landing-aqua/40"
                     }}
                   />
                   {selectedDate && (
@@ -782,7 +805,7 @@ const Dashboard: React.FC = () => {
               {/* Appointments List for Selected Date */}
               <div className="lg:col-span-4 w-full">
                 <div className="sticky top-6 w-full">
-                  <div className="bg-gradient-to-br from-landing-aqua/5 to-landing-mint/10 rounded-xl p-4 mb-4 border border-landing-aqua/15">
+                  <div className="bg-landing-mango/10 rounded-xl p-4 mb-4 border border-landing-mango/20">
                     <h3 className="font-bold text-lg text-gray-800 capitalize">
                       {selectedDate ? format(selectedDate, "EEEE, d 'de' MMMM", { locale: es }) : 'Selecciona una fecha'}
                     </h3>
@@ -805,9 +828,8 @@ const Dashboard: React.FC = () => {
                         .map((appointment) => (
                           <div 
                             key={appointment.id} 
-                            className="group relative bg-white/90 border border-gray-100 rounded-xl p-5 hover:border-landing-aqua/40 hover:shadow-lg transition-all duration-300"
+                            className="group relative bg-white border border-gray-100 rounded-xl p-5 hover:border-landing-tropical/40 hover:shadow-md transition-all duration-200"
                           >
-                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
                               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                                 <div className="flex-1 min-w-0">
@@ -848,7 +870,7 @@ const Dashboard: React.FC = () => {
                                         <span className="truncate font-medium">{appointment.provider_services.providers.business_name}</span>
                                       </div>
                                     )}
-                                    <div className="flex items-center gap-2 text-sm text-gray-700 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 rounded-lg px-3 py-2 border border-landing-aqua/20">
+                                    <div className="flex items-center gap-2 text-sm text-gray-700 bg-landing-aqua/10 rounded-lg px-3 py-2 border border-landing-aqua/20">
                                       <Coins className="w-4 h-4 text-landing-aqua-dark shrink-0" />
                                       <span className="font-bold text-landing-aqua-dark">
                                         {appointment.provider_services?.currency === 'GTQ' ? 'Q.' : '$'}{appointment.provider_services?.price || 0}
@@ -911,6 +933,7 @@ const Dashboard: React.FC = () => {
           subtitle="Últimos 7 días"
           icon={TrendingUp}
           gradientIndex={0}
+          variant="plain"
         >
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={chartData}>
@@ -945,6 +968,7 @@ const Dashboard: React.FC = () => {
           subtitle="Actividad de los últimos 6 meses"
           icon={BarChart3}
           gradientIndex={2}
+          variant="plain"
         >
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={monthlyData}>
@@ -978,6 +1002,7 @@ const Dashboard: React.FC = () => {
           icon={Heart}
           gradientIndex={3}
           className="lg:col-span-1"
+          variant="plain"
         >
             {petActivityData.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-8">Sin sesiones de ejercicio registradas</p>
@@ -1031,29 +1056,31 @@ const Dashboard: React.FC = () => {
           icon={Zap}
           gradientIndex={4}
           className="lg:col-span-2"
+          variant="plain"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
             {platformSections.map((section, index) => {
               const IconComponent = section.icon;
-              const theme = landingCardThemes[index % landingCardThemes.length];
+              const theme = solidCardThemeAt(index);
+              const iconSolid = solidIconBgAt(index);
               return (
                 <div 
                   key={section.id}
-                  className={`group cursor-pointer rounded-xl p-3 md:p-4 border ${theme.border} ${theme.bg} hover:shadow-md transition-all duration-300 hover:-translate-y-0.5`}
+                  className={cn('group cursor-pointer rounded-xl p-3 md:p-4 border hover:shadow-md transition-all duration-200 hover:-translate-y-0.5', theme.border, theme.bg)}
                   onClick={() => section.path ? navigate(section.path) : navigate(`/client-dashboard?section=${section.id}`)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${theme.icon} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
-                      <IconComponent className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                    <div className={cn('shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform', iconSolid)}>
+                      <IconComponent className={cn('w-4 h-4 md:w-5 md:h-5', iconSolid.includes('text-gray-900') ? 'text-gray-900' : 'text-white')} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="font-semibold text-sm md:text-base text-gray-900 truncate">{section.title}</h3>
-                        <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-landing-aqua-dark shrink-0 transition-colors" />
+                        <ArrowUpRight className={cn('w-4 h-4 shrink-0 transition-colors', theme.icon)} />
                       </div>
                       <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{section.description}</p>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs font-medium text-landing-aqua-dark">{section.stats}</span>
+                        <span className={cn('text-xs font-medium', theme.icon)}>{section.stats}</span>
                         <span className="text-xs text-gray-400">{section.action}</span>
                       </div>
                     </div>
@@ -1071,21 +1098,22 @@ const Dashboard: React.FC = () => {
         subtitle="Resumen de salud, gastos y actividad social"
         icon={BarChart3}
         gradientIndex={5}
+        variant="plain"
       >
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-gray-100/80 p-1 rounded-xl">
-              <TabsTrigger value="overview" className="text-xs md:text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm">Resumen</TabsTrigger>
-              <TabsTrigger value="health" className="text-xs md:text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm">Salud</TabsTrigger>
-              <TabsTrigger value="spending" className="text-xs md:text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm">Gastos</TabsTrigger>
-              <TabsTrigger value="social" className="text-xs md:text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm">Social</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-gray-100 p-1 rounded-xl">
+              <TabsTrigger value="overview" className={cn('text-xs md:text-sm rounded-lg data-[state=active]:shadow-sm', dashboardTabActiveAt(0))}>Resumen</TabsTrigger>
+              <TabsTrigger value="health" className={cn('text-xs md:text-sm rounded-lg data-[state=active]:shadow-sm', dashboardTabActiveAt(1))}>Salud</TabsTrigger>
+              <TabsTrigger value="spending" className={cn('text-xs md:text-sm rounded-lg data-[state=active]:shadow-sm', dashboardTabActiveAt(2))}>Gastos</TabsTrigger>
+              <TabsTrigger value="social" className={cn('text-xs md:text-sm rounded-lg data-[state=active]:shadow-sm', dashboardTabActiveAt(3))}>Social</TabsTrigger>
             </TabsList>
             
             <TabsContent value="overview" className="mt-4 md:mt-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                <div className="bg-gradient-to-br from-landing-mint/10 to-landing-aqua/10 p-4 md:p-6 rounded-xl border border-landing-mint/20">
+                <div className="bg-landing-mint/10 p-4 md:p-6 rounded-xl border border-landing-mint/25">
                   <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-landing-mint to-landing-aqua rounded-xl flex items-center justify-center shadow-sm">
-                      <Activity className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-landing-mint rounded-xl flex items-center justify-center shadow-sm">
+                      <Activity className="w-5 h-5 md:w-6 md:h-6 text-gray-900" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800 text-sm md:text-base">Ejercicio</h3>
@@ -1099,14 +1127,14 @@ const Dashboard: React.FC = () => {
                     </div>
                     <Progress
                       value={Math.min(100, (stats.exerciseMinutesThisWeek / 300) * 100)}
-                      className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-landing-mint [&>div]:to-landing-aqua"
+                      className="h-2 [&>div]:bg-landing-mint"
                     />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-landing-aqua/10 to-landing-mango/10 p-6 rounded-xl border border-landing-aqua/20">
+                <div className="bg-landing-aqua/10 p-6 rounded-xl border border-landing-aqua/25">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-xl flex items-center justify-center shadow-sm">
+                    <div className="w-12 h-12 bg-landing-aqua rounded-xl flex items-center justify-center shadow-sm">
                       <Eye className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -1121,15 +1149,15 @@ const Dashboard: React.FC = () => {
                     </div>
                     <Progress
                       value={Math.min(100, stats.totalReminders * 10)}
-                      className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-landing-aqua [&>div]:to-landing-mango"
+                      className="h-2 [&>div]:bg-landing-aqua"
                     />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-landing-mango/10 to-landing-tropical/10 p-6 rounded-xl border border-landing-mango/20">
+                <div className="bg-landing-mango/10 p-6 rounded-xl border border-landing-mango/25">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-landing-mango to-landing-tropical rounded-xl flex items-center justify-center shadow-sm">
-                      <MessageCircle className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 bg-landing-mango rounded-xl flex items-center justify-center shadow-sm">
+                      <MessageCircle className="w-6 h-6 text-gray-900" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-800">Adopción</h3>
@@ -1147,7 +1175,7 @@ const Dashboard: React.FC = () => {
                           ? Math.min(100, (stats.pendingAdoptionRequests / stats.totalAdoptionRequests) * 100)
                           : 0
                       }
-                      className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-landing-mango [&>div]:to-landing-tropical"
+                      className="h-2 [&>div]:bg-landing-mango"
                     />
                   </div>
                 </div>
@@ -1156,7 +1184,7 @@ const Dashboard: React.FC = () => {
 
             <TabsContent value="health" className="mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-landing-mango/10 to-landing-tropical/10 p-6 rounded-xl border border-landing-mango/20">
+                <div className="bg-landing-mango/10 p-6 rounded-xl border border-landing-mango/25">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Stethoscope className="w-5 h-5 text-landing-mango-dark" />
                     Salud Veterinaria
@@ -1179,7 +1207,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-landing-mint/10 to-landing-aqua/10 p-6 rounded-xl border border-landing-mint/20">
+                <div className="bg-landing-mint/10 p-6 rounded-xl border border-landing-mint/25">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Utensils className="w-5 h-5 text-landing-aqua-dark" />
                     Nutrición
@@ -1206,9 +1234,9 @@ const Dashboard: React.FC = () => {
 
             <TabsContent value="spending" className="mt-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-landing-mint/10 to-landing-aqua/10 p-6 rounded-xl border border-landing-mint/20">
+                <div className="bg-landing-mint/10 p-6 rounded-xl border border-landing-mint/25">
                   <div className="flex items-center gap-3 mb-4">
-                    <ShoppingCart className="w-8 h-8 text-emerald-600" />
+                    <ShoppingCart className="w-8 h-8 text-landing-mint-dark" />
                     <div>
                       <h3 className="font-semibold text-gray-800">Marketplace</h3>
                       <p className="text-2xl font-bold text-gray-900">Q{stats.totalSpent.toFixed(0)}</p>
@@ -1217,7 +1245,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm text-gray-600">{completedOrders} órdenes completadas</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-landing-mango/10 to-landing-tropical/10 p-6 rounded-xl border border-landing-mango/20">
+                <div className="bg-landing-mango/10 p-6 rounded-xl border border-landing-mango/25">
                   <div className="flex items-center gap-3 mb-4">
                     <Stethoscope className="w-8 h-8 text-landing-mango-dark" />
                     <div>
@@ -1228,7 +1256,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm text-gray-600">{stats.totalVeterinaryVisits} visitas registradas</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-landing-aqua/10 to-landing-mango/10 p-6 rounded-xl border border-landing-aqua/20">
+                <div className="bg-landing-aqua/10 p-6 rounded-xl border border-landing-aqua/25">
                   <div className="flex items-center gap-3 mb-4">
                     <CreditCard className="w-8 h-8 text-landing-aqua-dark" />
                     <div>
@@ -1243,7 +1271,7 @@ const Dashboard: React.FC = () => {
 
             <TabsContent value="social" className="mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-landing-aqua/10 to-landing-mango/10 p-6 rounded-xl border border-landing-aqua/20">
+                <div className="bg-landing-aqua/10 p-6 rounded-xl border border-landing-aqua/25">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Heart className="w-5 h-5 text-landing-aqua-dark" />
                     Parejas
@@ -1256,7 +1284,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-landing-mint/10 to-landing-tropical/10 p-6 rounded-xl border border-landing-mint/20">
+                <div className="bg-landing-tropical/20 p-6 rounded-xl border border-landing-tropical/35">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <Users className="w-5 h-5 text-landing-mint-dark" />
                     Adopción

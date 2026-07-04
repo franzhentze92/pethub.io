@@ -22,7 +22,7 @@ import PageHeader from './PageHeader';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary, landingCardThemes, landingFeatureGradients } from '@/lib/landingTheme';
+import { landingBtnSolidMint, solidCardThemeAt, solidIconBgAt } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 
 import {
@@ -282,18 +282,18 @@ const MealJournal: React.FC = () => {
 
   if (!selectedPet) {
     return (
-      <DashboardShell>
-        <PageHeader title="Diario de comidas" subtitle="Registra y da seguimiento a la alimentación de tus mascotas">
+      <DashboardShell variant="plain">
+        <PageHeader variant="solid" accent="mint" title="Diario de comidas" subtitle="Registra y da seguimiento a la alimentación de tus mascotas">
           <Utensils className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
         </PageHeader>
-        <MobileSectionCard>
+        <MobileSectionCard variant="plain">
           <div className="text-center py-10 px-4">
             <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-gray-800">Primero agrega una mascota</p>
             <p className="text-sm text-gray-500 mt-1 mb-4 max-w-sm mx-auto">
               Crea tu primera mascota para comenzar su diario de alimentación.
             </p>
-            <Button className={landingBtnPrimary} onClick={() => navigate('/pet-creation')}>
+            <Button className={landingBtnSolidMint} onClick={() => navigate('/pet-creation')}>
               <Plus className="w-4 h-4 mr-2" />
               Registrar mascota
             </Button>
@@ -304,12 +304,12 @@ const MealJournal: React.FC = () => {
   }
 
   return (
-    <DashboardShell>
-      <PageHeader title="Diario de comidas" subtitle={`Alimentación y bienestar de ${selectedPet.name}`}>
+    <DashboardShell variant="plain">
+      <PageHeader variant="solid" accent="mint" title="Diario de comidas" subtitle={`Alimentación y bienestar de ${selectedPet.name}`}>
         <Utensils className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
       </PageHeader>
 
-      <MobileSectionCard>
+      <MobileSectionCard variant="plain">
         <div className="p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -322,8 +322,8 @@ const MealJournal: React.FC = () => {
               ) : (
                 <div
                   className={cn(
-                    'w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white text-2xl border-4 border-white shadow-lg shrink-0 bg-gradient-to-r',
-                    landingFeatureGradients[2],
+                    'w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-2xl border-4 border-white shadow-lg shrink-0',
+                    solidIconBgAt(2),
                   )}
                 >
                   {getPetEmoji(selectedPet.species)}
@@ -350,7 +350,7 @@ const MealJournal: React.FC = () => {
               </div>
               <div className="w-full sm:w-32 h-2 rounded-full bg-gray-100 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-landing-mango to-landing-tropical transition-all duration-500"
+                  className="h-full rounded-full bg-landing-mango transition-all duration-500"
                   style={{ width: `${Math.min(100, todayMeals * 33)}%` }}
                 />
               </div>
@@ -359,10 +359,10 @@ const MealJournal: React.FC = () => {
         </div>
       </MobileSectionCard>
 
-      <MobileTabStrip tabs={mealTabs} activeTab={activeTab} onChange={setActiveTab} columns={3} />
+      <MobileTabStrip tabs={mealTabs} activeTab={activeTab} onChange={setActiveTab} variant="solid" accent="mint" columns={3} />
 
       {activeTab === 'feed' && (
-        <MobileSectionCard>
+        <MobileSectionCard variant="plain">
           <div className="p-4 sm:p-5">
             <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
               <Utensils className="w-5 h-5 text-landing-aqua-dark shrink-0" />
@@ -375,7 +375,7 @@ const MealJournal: React.FC = () => {
                   value={quickFeedForm.meal_type}
                   onValueChange={(value) => setQuickFeedForm((prev) => ({ ...prev, meal_type: value }))}
                 >
-                  <SelectTrigger className="bg-white/90">
+                  <SelectTrigger className="bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -393,7 +393,7 @@ const MealJournal: React.FC = () => {
                   value={quickFeedForm.food_name}
                   onChange={(e) => setQuickFeedForm((prev) => ({ ...prev, food_name: e.target.value }))}
                   placeholder="Croquetas, pollo, etc."
-                  className="bg-white/90"
+                  className="bg-white"
                 />
               </div>
               <div>
@@ -404,7 +404,7 @@ const MealJournal: React.FC = () => {
                   value={quickFeedForm.quantity}
                   onChange={(e) => setQuickFeedForm((prev) => ({ ...prev, quantity: e.target.value }))}
                   placeholder="150"
-                  className="bg-white/90"
+                  className="bg-white"
                 />
               </div>
               <div>
@@ -414,11 +414,11 @@ const MealJournal: React.FC = () => {
                   value={quickFeedForm.notes}
                   onChange={(e) => setQuickFeedForm((prev) => ({ ...prev, notes: e.target.value }))}
                   placeholder="¿Cómo se comportó?"
-                  className="bg-white/90"
+                  className="bg-white"
                 />
               </div>
             </div>
-            <Button onClick={handleQuickFeed} className={cn('w-full mt-4 min-h-[44px]', landingBtnPrimary)}>
+            <Button onClick={handleQuickFeed} className={cn('w-full mt-4 min-h-[44px]', landingBtnSolidMint)}>
               <Utensils className="w-4 h-4 mr-2" />
               Registrar comida
             </Button>
@@ -430,9 +430,9 @@ const MealJournal: React.FC = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {statCards.map((stat, index) => {
-              const theme = landingCardThemes[index % landingCardThemes.length];
+              const theme = solidCardThemeAt(index);
               return (
-                <div key={stat.label} className={cn('rounded-2xl border p-4 backdrop-blur-sm', theme.bg, theme.border)}>
+                <div key={stat.label} className={cn('rounded-2xl border p-4 bg-white', theme.bg, theme.border)}>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
                   <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{stat.sub}</p>
@@ -441,7 +441,7 @@ const MealJournal: React.FC = () => {
             })}
           </div>
 
-          <MobileSectionCard>
+          <MobileSectionCard variant="plain">
             <div className="p-4 sm:p-5">
               <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-3">
                 <Info className="w-4 h-4 text-landing-aqua-dark shrink-0" />
@@ -459,7 +459,7 @@ const MealJournal: React.FC = () => {
       )}
 
       {activeTab === 'history' && (
-        <MobileSectionCard>
+        <MobileSectionCard variant="plain">
           <div className="p-4 sm:p-5">
             <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
               <Calendar className="w-5 h-5 text-landing-aqua-dark shrink-0" />

@@ -6,6 +6,7 @@ import { fetchSettingsNotificationsForBell } from '@/utils/settingsNotifications
 import { fetchAdoptionNotificationsForBell } from '@/utils/adoptionNotifications';
 import { fetchBreedingNotificationsForBell } from '@/utils/breedingNotifications';
 import { fetchLostPetNotificationsForBell } from '@/utils/lostPetNotifications';
+import { fetchDogWalkNotificationsForBell } from '@/utils/dogWalkNotifications';
 import { fetchMarketplaceNotificationsForBell } from '@/utils/marketplaceNotifications';
 import type { AppNotification, UserNotificationPreferences } from '@/types/notifications';
 
@@ -69,6 +70,14 @@ export async function loadBellNotifications(
     queries.push(
       fetchLostPetNotificationsForBell(userId, prefs).then((lostPetItems) => {
         items.push(...lostPetItems);
+      }),
+    );
+  }
+
+  if (prefs.notify_dog_walks) {
+    queries.push(
+      fetchDogWalkNotificationsForBell(userId, prefs).then((dogWalkItems) => {
+        items.push(...dogWalkItems);
       }),
     );
   }

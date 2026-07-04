@@ -74,12 +74,12 @@ const SimpleMap: React.FC<SimpleMapProps> = ({
     return (
       <div className={cn('w-full h-full flex flex-col', className)}>
         {!compact && (
-          <div className="shrink-0 bg-gradient-to-r from-landing-aqua to-landing-mint text-white px-4 py-3">
+          <div className="shrink-0 bg-landing-mango text-gray-900 px-4 py-3">
             <h3 className="text-sm font-bold flex items-center gap-2">
               <MapPin className="w-4 h-4" />
               Mapa de mascotas perdidas
             </h3>
-            <p className="text-white/80 text-xs mt-0.5">
+            <p className="text-gray-700 text-xs mt-0.5">
               {lostPets.length} reporte{lostPets.length !== 1 ? 's' : ''} activo{lostPets.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -100,7 +100,7 @@ const SimpleMap: React.FC<SimpleMapProps> = ({
 
   return (
     <div className={cn('w-full h-full flex flex-col rounded-2xl overflow-hidden border border-landing-aqua/15 bg-white', className)}>
-      <div className="shrink-0 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 px-4 py-3 border-b border-landing-aqua/10">
+      <div className="shrink-0 bg-landing-mango/10 px-4 py-3 border-b border-landing-mango/20">
         <p className="text-sm font-semibold text-gray-900">
           {lostPets.length} reporte{lostPets.length !== 1 ? 's' : ''}
         </p>

@@ -9,7 +9,7 @@ import { Button } from './ui/button';
 import { toast } from 'sonner';
 import NutritionProgressChart from './NutritionProgressChart';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingCardThemes } from '@/lib/landingTheme';
+import { solidCardThemeAt } from '@/lib/landingTheme';
 import { mealTypeLabel, matchFoodByName } from '@/utils/nutritionSession';
 import { formatNutritionSessionDate } from '@/utils/nutritionComparison';
 import { fetchMergedNutritionFoodCatalog } from '@/utils/nutritionFoodCatalog';
@@ -317,7 +317,7 @@ const NutritionAnalytics: React.FC = () => {
 
   if (loading) {
     return (
-      <MobileSectionCard>
+      <MobileSectionCard variant="plain">
         <div className="p-6">
           <SectionLoader message="Cargando análisis nutricional…" />
         </div>
@@ -336,7 +336,7 @@ const NutritionAnalytics: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <MobileSectionCard>
+      <MobileSectionCard variant="plain">
         <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between gap-3">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <BarChart3 className="w-5 h-5 text-landing-aqua" />
@@ -378,10 +378,10 @@ const NutritionAnalytics: React.FC = () => {
       {nutritionStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statCards.map((card, index) => {
-            const theme = landingCardThemes[index % landingCardThemes.length];
+            const theme = solidCardThemeAt(index);
             return (
-              <MobileSectionCard key={card.label}>
-                <div className={cn('p-4 sm:p-5', theme.bg)}>
+              <MobileSectionCard key={card.label} variant="plain" className={cn(theme.border, theme.bg)}>
+                <div className="p-4 sm:p-5">
                   <p className="text-sm font-medium text-gray-600">{card.label}</p>
                   <p className={cn('font-bold text-gray-900 mt-1', card.small ? 'text-lg' : 'text-2xl')}>
                     {card.value}
@@ -399,7 +399,7 @@ const NutritionAnalytics: React.FC = () => {
         <NutritionProgressChart sessions={getFilteredNutritionSessions()} />
       )}
 
-      <MobileSectionCard>
+      <MobileSectionCard variant="plain">
         <div className="p-4 sm:p-6 border-b border-gray-100">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <Utensils className="w-5 h-5 text-landing-aqua" />
@@ -421,11 +421,11 @@ const NutritionAnalytics: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {getFilteredNutritionSessions().map((session, index) => {
-                const theme = landingCardThemes[index % landingCardThemes.length];
+                const theme = solidCardThemeAt(index);
                 return (
                 <div
                   key={session.id}
-                  className={cn('border-l-4 pl-4 py-3 rounded-r-xl', theme.border, theme.bg)}
+                  className={cn('border-l-4 pl-4 py-3 rounded-r-xl bg-white', theme.border, theme.bg)}
                 >
                   <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                     <div className="flex items-center gap-2">

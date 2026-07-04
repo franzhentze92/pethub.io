@@ -29,19 +29,9 @@ import {
   parseOptionalNutritionPct,
 } from '@/config/productNutrition';
 import { cn } from '@/lib/utils';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainModalAccentClasses, plainPageAccentTabActive } from '@/lib/landingTheme';
+import { useProviderDashboardTheme } from '@/contexts/ProviderDashboardThemeContext';
 import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
-
-const modalTabListClass =
-  'grid w-full bg-landing-aqua/10 p-1 rounded-xl border border-landing-aqua/15 h-auto gap-1';
-const modalTabTriggerClass =
-  'rounded-lg text-gray-600 data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm py-2.5';
-const modalInfoBannerClass =
-  'rounded-xl border border-landing-aqua/20 bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 p-4';
-const modalSectionCardClass =
-  'rounded-xl border border-landing-aqua/15 bg-white/80 shadow-sm';
-const modalOutlineBtnClass =
-  'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
 
 interface ProviderProductModalProps {
   isOpen: boolean;
@@ -72,6 +62,8 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
   isEditing = false,
   initialDraft = null,
 }) => {
+  const { accent, btn, outlineBtn, ui } = useProviderDashboardTheme();
+  const mc = plainModalAccentClasses(accent);
   
   const [activeTab, setActiveTab] = useState('basic');
   const [formData, setFormData] = useState({
@@ -454,12 +446,12 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0"
+        className={cn('sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl p-0 gap-0 border', mc.dialogBorder)}
         aria-describedby="product-modal-description"
       >
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+        <DialogHeader className={cn('px-6 pt-6 pb-4', mc.header)}>
           <DialogTitle className="text-xl flex items-center gap-2 text-gray-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+            <span className={mc.iconBadge}>
               <Package className="w-5 h-5" />
             </span>
             {isEditing ? 'Editar Producto' : 'Agregar Nuevo Producto'}
@@ -468,19 +460,19 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5" id="product-modal-description">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={cn(modalTabListClass, showNutritionTab ? 'grid-cols-4' : 'grid-cols-3')}>
-              <TabsTrigger value="basic" className={modalTabTriggerClass}>
+            <TabsList className={cn(mc.tabList, showNutritionTab ? 'grid-cols-4' : 'grid-cols-3')}>
+              <TabsTrigger value="basic" className={mc.tabTrigger}>
                 Información Básica
               </TabsTrigger>
-              <TabsTrigger value="details" className={modalTabTriggerClass}>
+              <TabsTrigger value="details" className={mc.tabTrigger}>
                 Detalles
               </TabsTrigger>
               {showNutritionTab && (
-                <TabsTrigger value="nutrition" className={modalTabTriggerClass}>
+                <TabsTrigger value="nutrition" className={mc.tabTrigger}>
                   Nutrición
                 </TabsTrigger>
               )}
-              <TabsTrigger value="inventory" className={modalTabTriggerClass}>
+              <TabsTrigger value="inventory" className={mc.tabTrigger}>
                 Inventario
               </TabsTrigger>
             </TabsList>
@@ -528,7 +520,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </div>
               </div>
 
-              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+              <div className={cn(mc.sectionCard, 'p-4 space-y-3')}>
                 <Label className="text-base font-semibold text-gray-900">¿Para qué mascota es? *</Label>
                 <p className="text-sm text-gray-600">
                   Esto alimenta el filtro de marketplace. Si aplica a todas, elige &quot;Todas las mascotas&quot;.
@@ -544,8 +536,8 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                         className={cn(
                           'rounded-full px-3 py-1.5 text-sm font-medium border transition-colors',
                           selected
-                            ? 'bg-landing-aqua/15 border-landing-aqua/40 text-landing-aqua-dark'
-                            : 'bg-white border-gray-200 text-gray-600 hover:border-landing-aqua/30',
+                            ? cn(plainPageAccentTabActive[accent], 'border shadow-sm')
+                            : cn('bg-white border-gray-200 text-gray-600', ui.hoverBg),
                         )}
                       >
                         {species.label}
@@ -620,9 +612,9 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
               </div>
 
               {/* Precio General */}
-              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+              <div className={cn(mc.sectionCard, 'p-4 space-y-3')}>
                 <Label className="text-base font-semibold flex items-center gap-2 text-gray-900">
-                  <DollarSign className="w-4 h-4 text-landing-aqua-dark" />
+                  <DollarSign className={cn('w-4 h-4', mc.ui.text)} />
                   Precio General (Opcional)
                 </Label>
                 <p className="text-sm text-gray-600">Usa este campo si el producto no requiere diferenciación por tamaño de perro.</p>
@@ -644,9 +636,9 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
               </div>
 
               {/* Precios por tamaño de perro */}
-              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+              <div className={cn(mc.sectionCard, 'p-4 space-y-3')}>
                 <Label className="text-base font-semibold flex items-center gap-2 text-gray-900">
-                  <Scale className="w-4 h-4 text-landing-aqua-dark" />
+                  <Scale className={cn('w-4 h-4', mc.ui.text)} />
                   Precios por Tamaño de Perro (Opcional)
                 </Label>
                 <p className="text-sm text-gray-600">O establece el precio para cada tamaño según el peso del perro. Si no aplica, déjalo vacío.</p>
@@ -811,8 +803,8 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </div>
               </div>
 
-              <div className={cn(modalSectionCardClass, 'p-4 space-y-4')}>
-                <div className="flex items-center justify-between gap-2 text-landing-aqua-dark">
+              <div className={cn(mc.sectionCard, 'p-4 space-y-4')}>
+                <div className={cn('flex items-center justify-between gap-2', mc.ui.text)}>
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5" />
                     <Label htmlFor="product-images" className="text-base font-semibold">
@@ -824,7 +816,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className={modalOutlineBtnClass}
+                      className={outlineBtn}
                       disabled={loading || generatingImage}
                       onClick={handleGenerateProductImage}
                     >
@@ -849,9 +841,9 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </p>
               </div>
 
-              <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+              <div className={cn(mc.sectionCard, 'p-4 space-y-3')}>
                 <Label htmlFor="product-tags" className="flex items-center gap-2 text-base font-semibold">
-                  <Tag className="w-4 h-4 text-landing-aqua-dark" />
+                  <Tag className={cn('w-4 h-4', mc.ui.text)} />
                   Etiquetas
                 </Label>
                 <div className="space-y-2">
@@ -863,7 +855,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                       onKeyPress={handleKeyPress}
                       placeholder="Agregar etiqueta y presionar Enter"
                     />
-                    <Button type="button" variant="outline" onClick={addTag} className={modalOutlineBtnClass}>
+                    <Button type="button" variant="outline" onClick={addTag} className={outlineBtn}>
                       Agregar
                     </Button>
                   </div>
@@ -873,13 +865,13 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                         <Badge
                           key={index}
                           variant="outline"
-                          className="flex items-center gap-1 border-landing-aqua/25 bg-landing-aqua/5 text-landing-aqua-dark"
+                          className={cn('flex items-center gap-1', mc.ui.badge)}
                         >
                           {tag}
                           <button
                             type="button"
                             onClick={() => removeTag(tag)}
-                            className="ml-1 text-landing-aqua-dark/70 hover:text-landing-aqua-dark"
+                            className={cn('ml-1 opacity-70 hover:opacity-100', mc.ui.text)}
                           >
                             ×
                           </button>
@@ -896,8 +888,8 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
 
             {showNutritionTab && (
               <TabsContent value="nutrition" className="space-y-4">
-                <div className={modalInfoBannerClass}>
-                  <div className="flex items-center gap-2 text-landing-aqua-dark">
+                <div className={mc.infoBanner}>
+                  <div className={cn('flex items-center gap-2', mc.ui.text)}>
                     <Apple className="w-5 h-5" />
                     <span className="font-medium">Perfil nutricional para PetBuddy</span>
                   </div>
@@ -923,7 +915,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                   </p>
                 </div>
 
-                <div className={cn(modalSectionCardClass, 'p-4 space-y-3')}>
+                <div className={cn(mc.sectionCard, 'p-4 space-y-3')}>
                   <Label className="text-base font-semibold text-gray-900">
                     Análisis garantizado (% en alimento tal como se vende)
                   </Label>
@@ -1012,8 +1004,8 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
 
             {/* Inventory Tab */}
             <TabsContent value="inventory" className="space-y-4">
-              <div className={modalInfoBannerClass}>
-                <div className="flex items-center gap-2 text-landing-aqua-dark">
+              <div className={mc.infoBanner}>
+                <div className={cn('flex items-center gap-2', mc.ui.text)}>
                   <Info className="w-5 h-5" />
                   <span className="font-medium">Gestión de Inventario</span>
                 </div>
@@ -1022,10 +1014,10 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                 </p>
               </div>
 
-              <Card className={cn(modalSectionCardClass, 'border-0 shadow-none')}>
+              <Card className={cn(mc.sectionCard, 'border-0 shadow-none')}>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-gray-900">
-                    <Package className="w-5 h-5 text-landing-aqua-dark" />
+                    <Package className={cn('w-5 h-5', mc.ui.text)} />
                     Control de Stock
                   </CardTitle>
                 </CardHeader>
@@ -1063,7 +1055,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-xl border border-landing-aqua/20 bg-landing-aqua/5 p-4">
+                  <div className={cn('flex items-center justify-between rounded-xl border p-4', ui.border, ui.bgSoft)}>
                     <div>
                       <Label htmlFor="subscription-enabled" className="text-sm font-medium text-gray-900">
                         Permitir suscripción
@@ -1079,7 +1071,7 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
                     />
                   </div>
 
-                  <div className="rounded-xl border border-landing-mango/25 bg-gradient-to-br from-landing-mango/10 to-landing-tropical/10 p-4">
+                  <div className={cn('rounded-xl border p-4', ui.border, ui.bgSoft)}>
                     <div className="flex items-center gap-2 text-landing-mango-dark">
                       <Info className="w-4 h-4" />
                       <span className="text-sm font-medium">Estado del Inventario</span>
@@ -1102,11 +1094,11 @@ const ProviderProductModal: React.FC<ProviderProductModalProps> = ({
             </TabsContent>
           </Tabs>
 
-          <DialogFooter className="-mx-6 -mb-5 mt-2 px-6 py-4 border-t border-landing-aqua/10 bg-gray-50/80 sm:justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className={modalOutlineBtnClass}>
+          <DialogFooter className={cn('-mx-6 -mb-5 mt-2 px-6 py-4 sm:justify-end gap-2', mc.footer)}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className={outlineBtn}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} data-blueprint-guided="save-product" className={cn(landingBtnPrimary, 'border-0 min-w-[160px]')}>
+            <Button type="submit" disabled={loading} data-blueprint-guided="save-product" className={cn(btn, 'border-0 min-w-[160px]')}>
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

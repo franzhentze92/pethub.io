@@ -22,7 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 import { cn } from '@/lib/utils';
 
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnPrimary, plainPageHeaderActionBtn, type HeaderSurface } from '@/lib/landingTheme';
 
 import { markNutritionNotificationsRead } from '@/utils/nutritionNotifications';
 
@@ -31,11 +31,14 @@ import { markAdoptionNotificationsRead } from '@/utils/adoptionNotifications';
 import { markBreedingNotificationsRead } from '@/utils/breedingNotifications';
 
 import { markLostPetNotificationsRead } from '@/utils/lostPetNotifications';
+import { markDogWalkNotificationsRead } from '@/utils/dogWalkNotifications';
 import { markMarketplaceNotificationsRead } from '@/utils/marketplaceNotifications';
 import { markExerciseNotificationsRead } from '@/utils/exerciseNotifications';
 import { markVeterinaryNotificationsRead } from '@/utils/veterinaryNotifications';
 
 import { loadBellNotifications } from '@/services/notificationService';
+
+import { supabase } from '@/lib/supabase';
 
 import { getNotificationPreferences } from '@/services/notificationPreferencesService';
 
@@ -50,6 +53,8 @@ interface NotificationBellProps {
   className?: string;
 
   variant?: 'gradient' | 'header';
+
+  headerSurface?: HeaderSurface;
 
 }
 
@@ -83,6 +88,8 @@ const NotificationList: React.FC<{
 
       case 'lost_pet': return 'bg-orange-500';
 
+      case 'dog_walk': return 'bg-landing-mango';
+
       case 'orders': return 'bg-amber-500';
 
       case 'account': return 'bg-landing-aqua';
@@ -111,7 +118,7 @@ const NotificationList: React.FC<{
 
             <p className="font-medium text-gray-700">Sin notificaciones</p>
 
-            <p className="text-sm mt-1">Cuenta, adopción, parejas y mascotas perdidas</p>
+            <p className="text-sm mt-1">Cuenta, adopción, parejas, paseos y mascotas perdidas</p>
 
           </div>
 
@@ -237,7 +244,11 @@ const NotificationList: React.FC<{
 
 
 
-const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', variant = 'gradient' }) => {
+const NotificationBell: React.FC<NotificationBellProps> = ({
+  className = '',
+  variant = 'gradient',
+  headerSurface = 'gradient',
+}) => {
 
   const { user } = useAuth();
 
@@ -315,6 +326,66 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', var
 
   useEffect(() => {
 
+    if (!user?.id) return;
+
+    const channel = supabase
+
+      .channel(`bell_dog_walks_${user.id}`)
+
+      .on(
+
+        'postgres_changes',
+
+        {
+
+          event: '*',
+
+          schema: 'public',
+
+          table: 'dog_walk_requests',
+
+          filter: `walker_id=eq.${user.id}`,
+
+        },
+
+        () => loadNotifications(),
+
+      )
+
+      .on(
+
+        'postgres_changes',
+
+        {
+
+          event: '*',
+
+          schema: 'public',
+
+          table: 'dog_walk_requests',
+
+          filter: `client_id=eq.${user.id}`,
+
+        },
+
+        () => loadNotifications(),
+
+      )
+
+      .subscribe();
+
+    return () => {
+
+      supabase.removeChannel(channel);
+
+    };
+
+  }, [user?.id, loadNotifications]);
+
+
+
+  useEffect(() => {
+
     if (showNotifications) {
 
       loadNotifications();
@@ -361,7 +432,10 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', var
 
     variant === 'header'
 
-      ? 'relative flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 p-0 transition-colors active:scale-95'
+      ? cn(
+          'relative flex items-center justify-center w-10 h-10 rounded-full border-0 p-0 transition-colors active:scale-95',
+          plainPageHeaderActionBtn(headerSurface),
+        )
 
       : 'bg-white/20 text-white border-white/40 hover:bg-white/30 hover:text-white backdrop-blur-sm p-2';
 
@@ -393,6 +467,10 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', var
       await markLostPetNotificationsRead(user.id, [notification.id]);
     }
 
+    if (notification.type === 'dog_walk' && user?.id) {
+      await markDogWalkNotificationsRead(user.id, [notification.id]);
+    }
+
     if (notification.type === 'orders' && user?.id) {
       await markMarketplaceNotificationsRead(user.id, [notification.id]);
     }
@@ -417,6 +495,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', var
         applicationId?: string;
         breedingMatchId?: string;
         lostPetId?: string;
+        dogWalkRequestId?: string;
         petId?: string;
         petReminderId?: string;
         vaccinationId?: string;
@@ -435,6 +514,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', var
       if (notification.adoptionApplicationId) state.applicationId = notification.adoptionApplicationId;
       if (notification.breedingMatchId) state.breedingMatchId = notification.breedingMatchId;
       if (notification.lostPetId) state.lostPetId = notification.lostPetId;
+      if (notification.dogWalkRequestId) state.dogWalkRequestId = notification.dogWalkRequestId;
       if (notification.petId) state.petId = notification.petId;
       if (notification.petReminderId) state.petReminderId = notification.petReminderId;
       if (notification.vaccinationId) state.vaccinationId = notification.vaccinationId;
@@ -492,6 +572,11 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '', var
     const lostPetIds = notifications.filter((n) => n.type === 'lost_pet' && n.unread).map((n) => n.id);
     if (lostPetIds.length > 0) {
       await markLostPetNotificationsRead(user.id, lostPetIds);
+    }
+
+    const dogWalkIds = notifications.filter((n) => n.type === 'dog_walk' && n.unread).map((n) => n.id);
+    if (dogWalkIds.length > 0) {
+      await markDogWalkNotificationsRead(user.id, dogWalkIds);
     }
 
     const orderIds = notifications.filter((n) => n.type === 'orders' && n.unread).map((n) => n.id);

@@ -18,7 +18,7 @@ const emptyFilters = {
   age: 'all',
 };
 
-const inputClass = 'min-h-[44px] border-landing-aqua/20';
+const inputClass = 'min-h-[44px] border-landing-mango/20';
 const labelClass = 'text-sm font-medium text-gray-700 mb-1.5';
 
 const BreedingFilters: React.FC<BreedingFiltersProps> = ({ onFiltersChange, availableBreeds = [] }) => {
@@ -36,10 +36,10 @@ const BreedingFilters: React.FC<BreedingFiltersProps> = ({ onFiltersChange, avai
   };
 
   return (
-    <MobileSectionCard className="overflow-hidden">
-      <div className="p-4 border-b border-landing-aqua/10 flex items-center justify-between gap-3">
+    <MobileSectionCard variant="plain" className="overflow-hidden">
+      <div className="p-4 border-b border-landing-mango/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-9 h-9 rounded-xl bg-gradient-to-r from-landing-aqua to-landing-mint flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-landing-mango text-gray-900 flex items-center justify-center shrink-0">
             <Filter className="w-4 h-4 text-white" />
           </span>
           <h3 className="text-base font-bold text-gray-900 truncate">Filtros de búsqueda</h3>
@@ -47,7 +47,7 @@ const BreedingFilters: React.FC<BreedingFiltersProps> = ({ onFiltersChange, avai
         <button
           type="button"
           onClick={clearAllFilters}
-          className="text-sm text-landing-aqua-dark hover:text-landing-aqua font-medium shrink-0"
+          className="text-sm text-landing-mango-dark hover:text-landing-mango font-medium shrink-0"
         >
           Limpiar
         </button>
@@ -55,7 +55,7 @@ const BreedingFilters: React.FC<BreedingFiltersProps> = ({ onFiltersChange, avai
 
       <div className="p-4 space-y-4">
         <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-          <PawPrint className="w-4 h-4 text-landing-aqua-dark" />
+          <PawPrint className="w-4 h-4 text-landing-mango-dark" />
           Información básica
         </h4>
 

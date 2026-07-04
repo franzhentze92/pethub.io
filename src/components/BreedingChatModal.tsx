@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn } from '@/lib/landingTheme';
 import { getPrimaryPetImageUrl } from '@/utils/petImages';
 import {
   markBreedingChatRoomRead,
@@ -63,12 +63,12 @@ const PetChip = ({ pet }: { pet: { name: string; breed?: string; image_url?: str
   const imageUrl = getPrimaryPetImageUrl(pet);
   return (
     <div className="flex items-center gap-2 min-w-0 flex-1">
-      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-landing-aqua/10 ring-2 ring-white shadow-sm">
+      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-landing-mango/10 ring-2 ring-white shadow-sm">
         {imageUrl ? (
           <img src={imageUrl} alt={pet.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <PawPrint className="w-4 h-4 text-landing-aqua-dark" />
+            <PawPrint className="w-4 h-4 text-landing-mango-dark" />
           </div>
         )}
       </div>
@@ -284,20 +284,20 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
           'flex flex-col gap-0 p-0 overflow-hidden',
           'w-[calc(100vw-0.5rem)] max-w-lg',
           'h-[min(96dvh,640px)] max-h-[96dvh]',
-          'rounded-2xl border-landing-aqua/15'
+          'rounded-2xl border-landing-mango/15'
         )}
       >
         {/* Header */}
-        <div className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+        <div className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100 bg-landing-mango/10">
           <DialogTitle className="flex items-center gap-2 text-lg font-bold text-gray-900">
-            <Heart className="w-5 h-5 text-landing-aqua-dark" />
+            <Heart className="w-5 h-5 text-landing-mango-dark" />
             Chat de reproducción
           </DialogTitle>
           <p className="text-xs text-gray-500 mt-1 truncate">
             Conversación con {otherUserName}
           </p>
 
-          <div className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-white/80 border border-landing-aqua/10">
+          <div className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-white/80 border border-landing-mango/10">
             <PetChip pet={breedingMatch.pet} />
             <Heart className="w-4 h-4 text-landing-mango shrink-0" />
             <PetChip pet={breedingMatch.potential_partner} />
@@ -305,14 +305,14 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-gradient-to-b from-white to-landing-aqua/[0.03]">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3 bg-white">
           {loading ? (
             <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-landing-aqua/20 border-t-landing-aqua" />
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-landing-mango/20 border-t-landing-mango" />
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-10">
-              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-landing-aqua/30" />
+              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-landing-mango/30" />
               <p className="text-sm font-medium text-gray-700">Sin mensajes aún</p>
               <p className="text-xs text-gray-500 mt-1">
                 Inicia la conversación sobre la reproducción
@@ -343,12 +343,12 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
                     className={cn(
                       'max-w-[85%] rounded-2xl px-3 py-2 shadow-sm',
                       isOwnMessage
-                        ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white rounded-br-md'
+                        ? 'bg-landing-mango text-gray-900 rounded-br-md'
                         : 'bg-white border border-gray-100 text-gray-900 rounded-bl-md'
                     )}
                   >
                     {!isOwnMessage && (
-                      <p className="text-[10px] font-medium text-landing-aqua-dark mb-0.5">
+                      <p className="text-[10px] font-medium text-landing-mango-dark mb-0.5">
                         {otherUserName}
                       </p>
                     )}
@@ -378,12 +378,12 @@ const BreedingChatModal: React.FC<BreedingChatModalProps> = ({
               onKeyDown={handleKeyPress}
               placeholder="Escribe tu mensaje..."
               disabled={sending || loading}
-              className="flex-1 min-h-[48px] rounded-xl border-landing-aqua/20 focus-visible:ring-landing-aqua/30"
+              className="flex-1 min-h-[48px] rounded-xl border-landing-mango/20 focus-visible:ring-landing-mango/30"
             />
             <Button
               onClick={sendMessage}
               disabled={!newMessage.trim() || sending || loading}
-              className={cn('min-h-[48px] min-w-[48px] px-0 rounded-xl shrink-0', landingBtnPrimary)}
+              className={cn('min-h-[48px] min-w-[48px] px-0 rounded-xl shrink-0', plainPageAccentBtn.mango)}
               aria-label="Enviar mensaje"
             >
               {sending ? (

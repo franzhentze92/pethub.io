@@ -3,7 +3,7 @@ import { MapPin, Calendar, Phone, Mail, DollarSign, AlertTriangle, PawPrint, Che
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import {
   PetPhotoCarousel,
@@ -51,7 +51,7 @@ const InfoChip = ({
   value: React.ReactNode;
 }) => (
   <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/70 border border-gray-100">
-    <span className="text-landing-aqua-dark shrink-0 mt-0.5">{icon}</span>
+    <span className="text-landing-mango-dark shrink-0 mt-0.5">{icon}</span>
     <div className="min-w-0">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="text-sm font-semibold text-gray-900 break-words">{value}</p>
@@ -121,7 +121,7 @@ const LostPetDetailsModal: React.FC<LostPetDetailsModalProps> = ({
           'flex flex-col gap-0 p-0 overflow-hidden',
           'w-[calc(100vw-0.5rem)] max-w-lg',
           'max-h-[96dvh] sm:max-h-[92dvh]',
-          'rounded-2xl border-landing-aqua/15'
+          'rounded-2xl border-landing-mango/15'
         )}
       >
         <div className="shrink-0 px-4 pt-4 pb-2 border-b border-gray-100">
@@ -154,7 +154,7 @@ const LostPetDetailsModal: React.FC<LostPetDetailsModalProps> = ({
               showDots={images.length > 1}
               setApi={setCarouselApi}
               fallback={
-                <div className="w-full h-full bg-gradient-to-br from-landing-mango/30 to-landing-tropical/30 flex items-center justify-center rounded-xl">
+                <div className="w-full h-full bg-landing-mango/15 flex items-center justify-center rounded-xl">
                   <PawPrint className="w-16 h-16 text-white/80" />
                 </div>
               }
@@ -195,7 +195,7 @@ const LostPetDetailsModal: React.FC<LostPetDetailsModalProps> = ({
             )}
 
             {pet.description && (
-              <div className="rounded-xl bg-landing-aqua/5 border border-landing-aqua/15 p-4">
+              <div className="rounded-xl bg-landing-mango/5 border border-landing-mango/15 p-4">
                 <h4 className="font-bold text-gray-900 text-sm mb-2">Descripción</h4>
                 <p className="text-sm text-gray-700 leading-relaxed">{pet.description}</p>
               </div>
@@ -212,13 +212,13 @@ const LostPetDetailsModal: React.FC<LostPetDetailsModalProps> = ({
               <div className="rounded-xl bg-white/70 border border-gray-100 p-4 space-y-2">
                 <h4 className="font-bold text-gray-900 text-sm">Contacto</h4>
                 {pet.contact_phone && (
-                  <a href={`tel:${pet.contact_phone}`} className="flex items-center gap-2 text-sm text-landing-aqua-dark font-medium">
+                  <a href={`tel:${pet.contact_phone}`} className="flex items-center gap-2 text-sm text-landing-mango-dark font-medium">
                     <Phone className="w-4 h-4" />
                     {pet.contact_phone}
                   </a>
                 )}
                 {pet.contact_email && (
-                  <a href={`mailto:${pet.contact_email}`} className="flex items-center gap-2 text-sm text-landing-aqua-dark font-medium break-all">
+                  <a href={`mailto:${pet.contact_email}`} className="flex items-center gap-2 text-sm text-landing-mango-dark font-medium break-all">
                     <Mail className="w-4 h-4 shrink-0" />
                     {pet.contact_email}
                   </a>
@@ -231,7 +231,7 @@ const LostPetDetailsModal: React.FC<LostPetDetailsModalProps> = ({
         <div className="shrink-0 p-4 border-t border-gray-100 bg-white/95 flex flex-col gap-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {isOwner && onMarkAsFound && pet.status === 'lost' && (
             <Button
-              className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+              className={`w-full min-h-[48px] ${plainPageAccentBtn.mango}`}
               onClick={onMarkAsFound}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -240,14 +240,14 @@ const LostPetDetailsModal: React.FC<LostPetDetailsModalProps> = ({
           )}
           {pet.contact_phone && (
             <Button
-              className={`w-full min-h-[48px] ${landingBtnPrimary}`}
+              className={`w-full min-h-[48px] ${plainPageAccentBtn.mango}`}
               onClick={() => window.open(`tel:${pet.contact_phone}`, '_self')}
             >
               <Phone className="w-4 h-4 mr-2" />
               Llamar al dueño
             </Button>
           )}
-          <Button variant="outline" onClick={onClose} className="w-full min-h-[44px] border-landing-aqua/30">
+          <Button variant="outline" onClick={onClose} className="w-full min-h-[44px] border-landing-mango/30">
             Cerrar
           </Button>
         </div>

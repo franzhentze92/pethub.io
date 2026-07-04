@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Filter, MapPin, Heart, PawPrint, Shield } from 'lucide-react';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import { solidIconBgAt } from '@/lib/landingTheme';
 
 interface AdoptionFiltersProps {
   onFiltersChange: (filters: Record<string, unknown>) => void;
@@ -25,7 +25,7 @@ const emptyFilters = {
 };
 
 const inputClass =
-  'w-full min-h-[44px] px-3 py-2 text-sm border border-landing-aqua/20 rounded-xl bg-white/80 focus:outline-none focus:ring-2 focus:ring-landing-aqua/30 focus:border-landing-aqua/40';
+  'w-full min-h-[44px] px-3 py-2 text-sm border border-landing-mango/20 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-landing-mango/30 focus:border-landing-mango/40';
 
 const labelClass = 'block text-sm font-medium text-gray-700 mb-1.5';
 
@@ -38,11 +38,11 @@ const SectionHeader = ({
   title: string;
   gradientIndex: number;
 }) => {
-  const gradient = landingFeatureGradients[gradientIndex % landingFeatureGradients.length];
+  const iconBg = solidIconBgAt(gradientIndex);
   return (
     <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-      <span className={`w-7 h-7 rounded-lg bg-gradient-to-r ${gradient} flex items-center justify-center shrink-0`}>
-        <Icon className="w-3.5 h-3.5 text-white" />
+      <span className={`w-7 h-7 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+        <Icon className="w-3.5 h-3.5" />
       </span>
       {title}
     </h4>
@@ -64,10 +64,10 @@ const AdoptionFilters: React.FC<AdoptionFiltersProps> = ({ onFiltersChange }) =>
   };
 
   return (
-    <MobileSectionCard className="overflow-hidden">
-      <div className="p-4 border-b border-landing-aqua/10 flex items-center justify-between gap-3">
+    <MobileSectionCard variant="plain" className="overflow-hidden">
+      <div className="p-4 border-b border-landing-mango/10 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-9 h-9 rounded-xl bg-gradient-to-r from-landing-aqua to-landing-mint flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-xl bg-landing-mango text-gray-900 flex items-center justify-center shrink-0">
             <Filter className="w-4 h-4 text-white" />
           </span>
           <h3 className="text-base font-bold text-gray-900 truncate">Filtros de búsqueda</h3>
@@ -75,7 +75,7 @@ const AdoptionFilters: React.FC<AdoptionFiltersProps> = ({ onFiltersChange }) =>
         <button
           type="button"
           onClick={clearAllFilters}
-          className="text-sm text-landing-aqua-dark hover:text-landing-aqua font-medium shrink-0"
+          className="text-sm text-landing-mango-dark hover:text-landing-mango font-medium shrink-0"
         >
           Limpiar
         </button>
@@ -272,7 +272,7 @@ const AdoptionFilters: React.FC<AdoptionFiltersProps> = ({ onFiltersChange }) =>
 
             <div className="sm:col-span-2">
               <label className={labelClass}>
-                Distancia máxima: <span className="text-landing-aqua-dark font-semibold">{filters.distance} km</span>
+                Distancia máxima: <span className="text-landing-mango-dark font-semibold">{filters.distance} km</span>
               </label>
               <input
                 type="range"
@@ -280,7 +280,7 @@ const AdoptionFilters: React.FC<AdoptionFiltersProps> = ({ onFiltersChange }) =>
                 max="100"
                 value={filters.distance}
                 onChange={(e) => updateFilter('distance', parseInt(e.target.value, 10))}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-landing-aqua bg-landing-aqua/15"
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-landing-mango bg-landing-mango/15"
               />
             </div>
           </div>

@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ChevronDown } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useSettings';
 import { useCart } from '@/contexts/CartContext';
 import NotificationBell from '@/components/NotificationBell';
 import RoleSwitcherDropdown from '@/components/RoleSwitcherDropdown';
 import { cn } from '@/lib/utils';
+import { plainPageAccentHeader, plainPageAccentHeaderForeground, plainPageHeaderActionBtn, pethubRainbowEdge, type HeaderSurface, type PlainPageAccent } from '@/lib/landingTheme';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -27,7 +28,15 @@ function getInitials(name: string | null | undefined, email: string | null | und
  * Native-style mobile header: user greeting + notifications + cart (client).
  * Shared across client, provider, and shelter dashboards.
  */
-export const AppMobileHeader: React.FC<{ showCart?: boolean }> = ({ showCart = true }) => {
+export const AppMobileHeader: React.FC<{
+  showCart?: boolean;
+  variant?: 'gradient' | 'solid';
+  accent?: PlainPageAccent;
+}> = ({
+  showCart = true,
+  variant = 'gradient',
+  accent = 'aqua',
+}) => {
   const { user } = useAuth();
   const { data: profile } = useUserProfile(user?.id);
   const { getItemCount } = useCart();
@@ -38,6 +47,11 @@ export const AppMobileHeader: React.FC<{ showCart?: boolean }> = ({ showCart = t
     || 'Usuario';
   const initials = getInitials(profile?.full_name, user?.email ?? null);
   const itemCount = getItemCount();
+  const isSolid = variant === 'solid';
+  const isRainbow = isSolid && accent === 'rainbow';
+  const headerSurface: HeaderSurface = variant === 'gradient' ? 'gradient' : accent;
+  const headerFg = isSolid ? plainPageAccentHeaderForeground[accent] : 'text-white';
+  const actionBtnClass = plainPageHeaderActionBtn(headerSurface);
 
   return (
     <>
@@ -49,53 +63,64 @@ export const AppMobileHeader: React.FC<{ showCart?: boolean }> = ({ showCart = t
         />
         <div
           className={cn(
-            'relative overflow-hidden',
-            'bg-gradient-to-br from-landing-aqua via-landing-mint to-landing-mango',
-            'px-4 pt-3 pb-5',
-            'rounded-b-[1.75rem]',
-            'shadow-[0_8px_32px_rgba(0,240,200,0.25)]'
+            'relative overflow-hidden px-4 pt-3 pb-5 rounded-b-[1.75rem]',
+            variant === 'solid'
+              ? plainPageAccentHeader[accent]
+              : 'bg-gradient-to-br from-landing-aqua via-landing-mint to-landing-mango shadow-[0_8px_32px_rgba(0,240,200,0.25)]',
           )}
         >
-          {/* Subtle scrim for text legibility on bright gradient */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/10 via-black/5 to-black/20" />
-          {/* Decorative blobs */}
-          <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-4 -left-4 w-24 h-24 rounded-full bg-landing-tropical/20 blur-xl" />
+          {variant === 'gradient' && (
+            <>
+              <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/10 via-black/5 to-black/20" />
+              <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-4 -left-4 w-24 h-24 rounded-full bg-landing-tropical/20 blur-xl" />
+            </>
+          )}
+          {isRainbow && (
+            <div
+              aria-hidden
+              className={cn('pointer-events-none absolute inset-x-0 bottom-0 h-1.5 rounded-b-[1.75rem]', pethubRainbowEdge)}
+            />
+          )}
 
           <div className="relative flex items-center justify-between gap-3">
             {/* User block */}
             <Link
               to="/ajustes"
-              className="flex items-center gap-3 min-w-0 flex-1 group"
+              className="flex items-center gap-3 min-w-0 flex-1"
             >
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
                   alt=""
-                  className="w-11 h-11 rounded-full object-cover ring-2 ring-white/40 shadow-md shrink-0"
+                  className="w-11 h-11 rounded-full object-cover ring-2 ring-white/60 shadow-md shrink-0"
                 />
               ) : (
-                <div className="w-11 h-11 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center text-white font-bold text-sm ring-2 ring-white/40 shadow-md shrink-0">
+                <div className={cn(
+                  'w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm ring-2 shadow-md shrink-0',
+                  isRainbow
+                    ? 'bg-gray-100 text-gray-900 ring-gray-200'
+                    : isSolid
+                      ? 'bg-white/50 text-gray-900 ring-white/60 backdrop-blur-sm'
+                      : 'bg-white/25 backdrop-blur-sm text-white ring-white/40',
+                )}>
                   {initials}
                 </div>
               )}
 
               <div className="min-w-0">
-                <p className="text-white text-xs font-semibold leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
+                <p className={cn('text-xs font-semibold leading-tight', headerFg, !isSolid && '[text-shadow:0_1px_2px_rgba(0,0,0,0.35)]')}>
                   {getGreeting()}
                 </p>
-                <div className="flex items-center gap-0.5 min-w-0">
-                  <span className="text-white font-bold text-base truncate capitalize [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">
-                    {firstName}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-white shrink-0 drop-shadow-sm group-hover:translate-y-0.5 transition-transform" />
-                </div>
+                <span className={cn('font-bold text-base truncate capitalize block', headerFg, !isSolid && '[text-shadow:0_1px_2px_rgba(0,0,0,0.25)]')}>
+                  {firstName}
+                </span>
               </div>
             </Link>
 
             {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
-              <NotificationBell variant="header" />
+              <NotificationBell variant="header" headerSurface={headerSurface} />
 
               {showCart && (
                 <button
@@ -105,9 +130,8 @@ export const AppMobileHeader: React.FC<{ showCart?: boolean }> = ({ showCart = t
                   className={cn(
                     'relative flex items-center justify-center',
                     'w-10 h-10 rounded-full',
-                    'bg-white/20 backdrop-blur-sm',
-                    'text-white hover:bg-white/30',
-                    'transition-colors active:scale-95'
+                    actionBtnClass,
+                    'transition-colors active:scale-95',
                   )}
                 >
                   <ShoppingCart className="w-5 h-5" strokeWidth={2} />
@@ -119,7 +143,7 @@ export const AppMobileHeader: React.FC<{ showCart?: boolean }> = ({ showCart = t
                 </button>
               )}
 
-              <RoleSwitcherDropdown variant="header" />
+              <RoleSwitcherDropdown variant="header" headerSurface={headerSurface} />
             </div>
           </div>
         </div>

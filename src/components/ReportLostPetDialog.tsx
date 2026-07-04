@@ -13,7 +13,7 @@ import { formatSpeciesLabel } from '@/utils/petLabels';
 import { MobileFormDialog, MobileFormActions } from '@/components/mobile/MobileFormDialog';
 import { MobileSectionCard } from '@/components/mobile/MobileUi';
 import { PetPhotoCarousel } from '@/components/mobile/PetPhotoCarousel';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainPageAccentBtn } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 
 interface Pet {
@@ -215,7 +215,7 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
             type="button"
             onClick={() => setStep('details')}
             disabled={!selectedLocation}
-            className={cn('w-full min-h-[48px] rounded-xl font-semibold text-white disabled:opacity-50', landingBtnPrimary)}
+            className={cn('w-full min-h-[48px] rounded-xl font-semibold disabled:opacity-50', plainPageAccentBtn.mango)}
           >
             Continuar
           </button>
@@ -250,6 +250,7 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
       title={stepTitle}
       description={stepDescription}
       footer={renderFooter()}
+      accent="mango"
     >
       {/* Step indicator */}
       <div className="flex items-center gap-2 mb-4">
@@ -258,10 +259,10 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
             <div
               className={cn(
                 'w-full h-1.5 rounded-full transition-colors',
-                i <= stepIndex ? 'bg-gradient-to-r from-landing-aqua to-landing-mint' : 'bg-gray-200'
+                i <= stepIndex ? 'bg-landing-mango' : 'bg-gray-200'
               )}
             />
-            <span className={cn('text-[10px] font-medium', i === stepIndex ? 'text-landing-aqua-dark' : 'text-gray-400')}>
+            <span className={cn('text-[10px] font-medium', i === stepIndex ? 'text-landing-mango-dark' : 'text-gray-400')}>
               {s.label}
             </span>
           </div>
@@ -299,15 +300,15 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
                     aspectClassName="aspect-[16/9]"
                     showCounter
                     fallback={
-                      <div className="w-full h-full bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center">
-                        <PawPrint className="w-10 h-10 text-landing-aqua-dark" />
+                      <div className="w-full h-full bg-landing-mango/10 flex items-center justify-center">
+                        <PawPrint className="w-10 h-10 text-landing-mango-dark" />
                       </div>
                     }
                   />
                   <div className="p-3 space-y-1">
                     <h4 className="font-bold text-gray-900">{pet.name}</h4>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                      <Badge variant="outline" className="text-xs border-landing-aqua/20 text-landing-aqua-dark">
+                      <Badge variant="outline" className="text-xs border-landing-mango/20 text-landing-mango-dark">
                         {formatSpeciesLabel(pet.species)}
                       </Badge>
                       {pet.breed && <span className="text-xs">{pet.breed}</span>}
@@ -325,7 +326,7 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
       {step === 'location' && (
         <div className="space-y-3">
           {selectedPet && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-landing-aqua/5 border border-landing-aqua/15">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-landing-mango/5 border border-landing-mango/15">
               <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
                 <PetPhotoCarousel
                   pet={selectedPet}
@@ -335,7 +336,7 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
                   showCounter={false}
                   fallback={
                     <div className="w-full h-full bg-landing-mint/20 flex items-center justify-center">
-                      <PawPrint className="w-5 h-5 text-landing-aqua-dark" />
+                      <PawPrint className="w-5 h-5 text-landing-mango-dark" />
                     </div>
                   }
                 />
@@ -355,13 +356,13 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
             variant="outline"
             onClick={handleUseCurrentLocation}
             disabled={locating}
-            className="w-full min-h-[44px] border-landing-aqua/30 text-landing-aqua-dark"
+            className="w-full min-h-[44px] border-landing-mango/30 text-landing-mango-dark"
           >
             <Navigation className="w-4 h-4 mr-2" />
             {locating ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}
           </Button>
 
-          <div className="h-[280px] rounded-2xl overflow-hidden border border-landing-aqua/15 shadow-inner">
+          <div className="h-[280px] rounded-2xl overflow-hidden border border-landing-mango/15 shadow-inner">
             <RealMap
               lostPets={[]}
               onLocationSelect={handleLocationSelect}
@@ -391,7 +392,7 @@ const ReportLostPetDialog: React.FC<ReportLostPetDialogProps> = ({ open, onClose
 
       {step === 'details' && selectedPet && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-landing-aqua/5 border border-landing-aqua/15">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-landing-mango/5 border border-landing-mango/15">
             <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0">
               <PetPhotoCarousel
                 pet={selectedPet}

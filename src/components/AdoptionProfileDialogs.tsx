@@ -5,8 +5,6 @@ import { Mail, MapPin, PawPrint, Phone, User } from 'lucide-react';
 import { PetPhotoCarousel } from '@/components/mobile/PetPhotoCarousel';
 import { formatSpeciesLabel } from '@/utils/petLabels';
 import { getPetImageUrls, type PetImageRow } from '@/utils/petImages';
-import { landingBtnPrimary } from '@/lib/landingTheme';
-import { cn } from '@/lib/utils';
 
 export interface AdoptionUserProfile {
   user_id?: string;
@@ -66,18 +64,18 @@ export const AdoptionUserProfileDialog: React.FC<AdoptionUserProfileDialogProps>
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="w-[calc(100vw-0.5rem)] max-w-lg max-h-[92dvh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl">
-        <div className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+        <div className="shrink-0 px-4 pt-5 pb-3 border-b border-gray-100 bg-landing-mango/10">
           <DialogTitle className="text-lg font-bold text-gray-900">{title}</DialogTitle>
           {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-landing-aqua/30 to-landing-mint/30 ring-2 ring-white shadow flex items-center justify-center shrink-0">
+            <div className="w-16 h-16 rounded-full overflow-hidden bg-landing-mango/10 ring-2 ring-white shadow flex items-center justify-center shrink-0">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-lg font-bold text-landing-aqua-dark">{initials}</span>
+                <span className="text-lg font-bold text-landing-mango-dark">{initials}</span>
               )}
             </div>
             <div>
@@ -89,19 +87,19 @@ export const AdoptionUserProfileDialog: React.FC<AdoptionUserProfileDialogProps>
           <div className="space-y-2 text-sm">
             {profile.phone && (
               <a href={`tel:${profile.phone.replace(/\s/g, '')}`} className="flex items-center gap-2 p-3 rounded-xl bg-white border border-gray-100">
-                <Phone className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+                <Phone className="w-4 h-4 text-landing-mango-dark shrink-0" />
                 <span className="text-gray-800">{profile.phone}</span>
               </a>
             )}
             {profile.email && (
               <a href={`mailto:${profile.email}`} className="flex items-center gap-2 p-3 rounded-xl bg-white border border-gray-100">
-                <Mail className="w-4 h-4 text-landing-aqua-dark shrink-0" />
+                <Mail className="w-4 h-4 text-landing-mango-dark shrink-0" />
                 <span className="text-gray-800 truncate">{profile.email}</span>
               </a>
             )}
             {profile.address && (
               <div className="flex items-start gap-2 p-3 rounded-xl bg-white border border-gray-100">
-                <MapPin className="w-4 h-4 text-landing-aqua-dark shrink-0 mt-0.5" />
+                <MapPin className="w-4 h-4 text-landing-mango-dark shrink-0 mt-0.5" />
                 <span className="text-gray-800">{profile.address}</span>
               </div>
             )}
@@ -138,8 +136,8 @@ export const AdoptionUserProfileDialog: React.FC<AdoptionUserProfileDialogProps>
                       showDots={false}
                       showCounter={false}
                       fallback={
-                        <div className="w-full h-full bg-landing-aqua/10 flex items-center justify-center">
-                          <PawPrint className="w-6 h-6 text-landing-aqua-dark" />
+                        <div className="w-full h-full bg-landing-mango/10 flex items-center justify-center">
+                          <PawPrint className="w-6 h-6 text-landing-mango-dark" />
                         </div>
                       }
                     />
@@ -233,7 +231,7 @@ export const AdoptionRegisteredPetDialog: React.FC<AdoptionRegisteredPetDialogPr
         </div>
 
         <div className="shrink-0 p-4 border-t border-gray-100">
-          <Button type="button" className={cn('w-full min-h-[44px]', landingBtnPrimary)} onClick={onClose}>
+          <Button type="button" variant="outline" className="w-full min-h-[44px]" onClick={onClose}>
             Cerrar
           </Button>
         </div>

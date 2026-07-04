@@ -32,7 +32,7 @@ export const LandingNavbar: React.FC = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center space-x-2 group">
-              <div className="w-8 h-8 bg-gradient-to-r from-landing-aqua to-landing-mango rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 bg-landing-aqua rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <PawPrint className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-gray-900 group-hover:text-landing-aqua-dark transition-colors duration-300">PetHub</span>

@@ -338,7 +338,7 @@ const NutritionProgressChart: React.FC<NutritionProgressChartProps> = ({ session
                 <span className="w-24 text-xs text-gray-600 capitalize truncate">{item.category.replace(/_/g, ' ')}</span>
                 <div className="flex-1 bg-gray-200 rounded-full h-2.5 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint"
+                    className="h-full rounded-full bg-landing-aqua"
                     style={{ width: `${item.percentage}%` }}
                   />
                 </div>

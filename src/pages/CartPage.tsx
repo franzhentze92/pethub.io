@@ -18,7 +18,7 @@ import {
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { MobileSectionCard } from '@/components/mobile/MobileUi';
 import Checkout from '@/components/Checkout';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnSolid } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getSubscriptionIntervalLabel } from '@/config/productSubscriptions';
@@ -39,7 +39,7 @@ const CartPage: React.FC = () => {
 
   if (items.length === 0) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <div className="px-4 pt-2 pb-8 max-w-3xl mx-auto w-full">
           <button
             type="button"
@@ -50,15 +50,15 @@ const CartPage: React.FC = () => {
             Volver
           </button>
 
-          <MobileSectionCard className="p-10 text-center">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-landing-aqua/15 to-landing-mint/15 flex items-center justify-center">
+          <MobileSectionCard variant="plain" className="p-10 text-center">
+            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-landing-aqua/15 flex items-center justify-center">
               <ShoppingCart className="w-10 h-10 text-landing-aqua-dark/60" />
             </div>
             <h1 className="text-xl font-bold text-gray-900 mb-2">Tu carrito está vacío</h1>
             <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto">
               Agrega productos o servicios del marketplace para comenzar tu compra.
             </p>
-            <Button onClick={() => navigate('/marketplace/products')} className={cn(landingBtnPrimary, 'border-0')}>
+            <Button onClick={() => navigate('/marketplace/products')} className={cn(landingBtnSolid, 'border-0')}>
               <ShoppingBag className="w-4 h-4 mr-2" />
               Explorar productos
             </Button>
@@ -69,7 +69,7 @@ const CartPage: React.FC = () => {
   }
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <div className="px-4 pt-2 pb-36 max-w-3xl mx-auto w-full">
         <button
           type="button"
@@ -82,7 +82,7 @@ const CartPage: React.FC = () => {
 
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-landing-aqua text-white shadow-sm">
               <ShoppingCart className="w-5 h-5" />
             </span>
             Carrito
@@ -96,7 +96,7 @@ const CartPage: React.FC = () => {
           {items.map((item) => {
             const lineTotal = item.price * item.quantity;
             return (
-              <MobileSectionCard key={item.id} className="p-4">
+              <MobileSectionCard key={item.id} variant="plain" className="p-4">
                 <div className="flex gap-3">
                   <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-landing-aqua/15 bg-gray-50 flex items-center justify-center">
                     {item.image_url ? (
@@ -224,7 +224,7 @@ const CartPage: React.FC = () => {
               <Button
                 type="button"
                 onClick={() => setCheckoutOpen(true)}
-                className={cn(landingBtnPrimary, 'min-h-[48px] border-0')}
+                className={cn(landingBtnSolid, 'min-h-[48px] border-0')}
               >
                 Pagar
               </Button>

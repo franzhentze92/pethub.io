@@ -3,14 +3,17 @@ import { createPortal } from 'react-dom';
 import { Check, LogOut, User, UserRoundCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROLE_OPTIONS, useRoleSwitcher } from '@/hooks/useRoleSwitcher';
+import { plainPageHeaderActionBtn, plainPageHeaderActionBtnActiveRing, type HeaderSurface } from '@/lib/landingTheme';
 
 interface RoleSwitcherDropdownProps {
   variant?: 'header' | 'default';
+  headerSurface?: HeaderSurface;
   className?: string;
 }
 
 const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
   variant = 'header',
+  headerSurface = 'gradient',
   className,
 }) => {
   const [open, setOpen] = useState(false);
@@ -68,10 +71,9 @@ const RoleSwitcherDropdown: React.FC<RoleSwitcherDropdownProps> = ({
       ? cn(
           'relative flex items-center justify-center',
           'w-10 h-10 rounded-full',
-          'bg-white/20 backdrop-blur-sm',
-          'text-white hover:bg-white/30',
           'transition-colors active:scale-95',
-          open && 'bg-white/30 ring-2 ring-white/40'
+          plainPageHeaderActionBtn(headerSurface),
+          open && plainPageHeaderActionBtnActiveRing(headerSurface),
         )
       : cn(
           'relative flex items-center justify-center',

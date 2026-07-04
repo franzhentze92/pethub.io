@@ -32,7 +32,7 @@ import PageHeader from '@/components/PageHeader';
 import { PageLoader } from '@/components/PageLoader';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { MobileSectionCard } from '@/components/mobile/MobileUi';
-import { landingBtnPrimary, landingCardThemes } from '@/lib/landingTheme';
+import { landingBtnSolidMint } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import { getAppointmentTypeLabel, isVaccinationType } from '@/lib/veterinaryTypes';
 import { computeVaccinationStatus } from '@/lib/vaccinationCatalog';
@@ -643,7 +643,7 @@ const Recordatorios: React.FC = () => {
             <Button
               size="sm"
               onClick={() => handleMarkAsCompleted(reminder)}
-              className={cn('min-h-[36px] flex-1 sm:flex-none', landingBtnPrimary)}
+              className={cn('min-h-[36px] flex-1 sm:flex-none', landingBtnSolidMint)}
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               Completar
@@ -671,9 +671,16 @@ const Recordatorios: React.FC = () => {
     { label: 'Vencidos', value: String(stats.overdue), sub: 'Requieren acción', icon: AlertTriangle },
   ];
 
+  const statCardStyles = [
+    { bg: 'bg-landing-mint/10', border: 'border-landing-mint/25', icon: 'text-landing-mint-dark' },
+    { bg: 'bg-landing-aqua/10', border: 'border-landing-aqua/25', icon: 'text-landing-aqua-dark' },
+    { bg: 'bg-landing-tropical/25', border: 'border-landing-tropical/40', icon: 'text-landing-mango-dark' },
+    { bg: 'bg-landing-mango/10', border: 'border-landing-mango/30', icon: 'text-landing-mango-dark' },
+  ];
+
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="inline" message="Cargando recordatorios…" />
       </DashboardShell>
     );
@@ -688,8 +695,10 @@ const Recordatorios: React.FC = () => {
         : 'Próximos recordatorios';
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <PageHeader
+        variant="solid"
+        accent="mint"
         title="Recordatorios"
         subtitle="Vacunas, citas, comidas y alertas personalizadas"
       >
@@ -699,7 +708,7 @@ const Recordatorios: React.FC = () => {
               size="sm"
               onClick={() => setShowAddDialog(true)}
               data-blueprint-guided="create-reminder"
-              className={cn(landingBtnPrimary)}
+              className="bg-white text-gray-900 hover:bg-white/90 shadow-sm border-0"
             >
               <Plus className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Nuevo</span>
@@ -710,7 +719,7 @@ const Recordatorios: React.FC = () => {
       </PageHeader>
 
       {pushPermission !== 'granted' && pushPermission !== 'unsupported' && (
-        <MobileSectionCard className="border-landing-aqua/30 bg-landing-aqua/5">
+        <MobileSectionCard variant="plain" className="border-landing-mint/25 bg-landing-mint/5">
           <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <p className="font-medium text-gray-900 text-sm">Activa las notificaciones push</p>
@@ -727,24 +736,24 @@ const Recordatorios: React.FC = () => {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((stat, index) => {
-          const theme = landingCardThemes[index % landingCardThemes.length];
+          const style = statCardStyles[index % statCardStyles.length];
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className={cn('rounded-2xl border p-4 backdrop-blur-sm', theme.bg, theme.border)}>
+            <div key={stat.label} className={cn('rounded-2xl border p-4 bg-white', style.bg, style.border)}>
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
                   <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{stat.sub}</p>
                 </div>
-                <Icon className="h-5 w-5 text-landing-aqua-dark shrink-0 opacity-80" />
+                <Icon className={cn('h-5 w-5 shrink-0 opacity-90', style.icon)} />
               </div>
             </div>
           );
         })}
       </div>
 
-      <MobileSectionCard>
+      <MobileSectionCard variant="plain">
         <div className="p-4 sm:p-5">
           <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900 mb-4">
             <Filter className="w-4 h-4 text-landing-aqua-dark shrink-0" />
@@ -754,7 +763,7 @@ const Recordatorios: React.FC = () => {
             <div>
               <Label htmlFor="filter_pet">Mascota</Label>
               <Select value={filterPet} onValueChange={setFilterPet}>
-                <SelectTrigger className="bg-white/90">
+                <SelectTrigger className="bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -770,7 +779,7 @@ const Recordatorios: React.FC = () => {
             <div>
               <Label htmlFor="filter_date">Fecha</Label>
               <Select value={filterDate} onValueChange={setFilterDate}>
-                <SelectTrigger className="bg-white/90">
+                <SelectTrigger className="bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -788,7 +797,7 @@ const Recordatorios: React.FC = () => {
       </MobileSectionCard>
 
       {stats.overdue > 0 && (
-        <MobileSectionCard className="border-red-200/60">
+        <MobileSectionCard variant="plain" className="border-red-200/60">
           <div className="p-4 sm:p-5">
             <h3 className="flex items-center gap-2 text-base font-bold text-red-800 mb-4">
               <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -802,7 +811,7 @@ const Recordatorios: React.FC = () => {
       )}
 
       {stats.pending > 0 && (
-        <MobileSectionCard>
+        <MobileSectionCard variant="plain">
           <div className="p-4 sm:p-5">
             <h3 className="flex items-center gap-2 text-base font-bold text-landing-mango-dark mb-4">
               <Clock className="w-5 h-5 shrink-0" />
@@ -816,7 +825,7 @@ const Recordatorios: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <MobileSectionCard>
+        <MobileSectionCard variant="plain">
           <div className="p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2 mb-4">
               <h3 className="flex items-center gap-2 text-base font-bold text-gray-900">
@@ -839,7 +848,7 @@ const Recordatorios: React.FC = () => {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              className="rounded-xl border border-gray-100 bg-white/90 w-full"
+              className="rounded-xl border border-gray-100 bg-white w-full"
               modifiers={{
                 hasReminders: activeReminders.map((r) => startOfDay(parseISO(r.date))),
                 hasOverdue: activeReminders.filter((r) => r.status === 'overdue').map((r) => startOfDay(parseISO(r.date))),
@@ -850,8 +859,8 @@ const Recordatorios: React.FC = () => {
               }}
             />
             {selectedDate && (
-              <div className="mt-4 p-3 rounded-xl bg-landing-aqua/10 border border-landing-aqua/20">
-                <p className="text-sm font-medium text-landing-aqua-dark">
+              <div className="mt-4 p-3 rounded-xl bg-landing-mint/10 border border-landing-mint/20">
+                <p className="text-sm font-medium text-landing-mint-dark">
                   {remindersForSelectedDate.length} recordatorio
                   {remindersForSelectedDate.length !== 1 ? 's' : ''} el{' '}
                   {format(selectedDate, "d 'de' MMMM", { locale: es })}
@@ -862,7 +871,7 @@ const Recordatorios: React.FC = () => {
         </MobileSectionCard>
 
         <div className="lg:col-span-2">
-          <MobileSectionCard>
+          <MobileSectionCard variant="plain">
             <div className="p-4 sm:p-5">
               <h3 className="text-base font-bold text-gray-900 mb-4">{listTitle}</h3>
               {listReminders.length === 0 ? (

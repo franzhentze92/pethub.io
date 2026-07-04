@@ -8,7 +8,6 @@ import {
 import { landingBtnHero, landingBadge } from '@/lib/landingTheme';
 import { LandingAmbientBackground } from '@/components/landing/LandingAmbientBackground';
 import { LandingPetDecorations } from '@/components/landing/LandingPetDecorations';
-import { HeroDashboardPreview } from '@/components/landing/HeroDashboardPreview';
 import { LiveStatsMarquee } from '@/components/landing/LiveStatsMarquee';
 import { PlatformRolesExplorer } from '@/components/landing/PlatformRolesExplorer';
 import { HowItWorksFlow } from '@/components/landing/HowItWorksFlow';
@@ -37,19 +36,18 @@ export const Home: React.FC = () => {
               </Badge>
 
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[3.5rem] font-bold text-gray-900 mb-6 leading-[1.1]">
-                El ecosistema que{' '}
-                <span className="bg-gradient-to-r from-landing-aqua via-landing-mint to-landing-mango bg-clip-text text-transparent">
-                  conecta todo
-                </span>{' '}
-                el mundo pet
+                Todo lo que tu mascota necesita,{' '}
+                <span className="text-landing-aqua-dark">
+                  en una sola app
+                </span>
               </h1>
 
               <p className="text-lg sm:text-xl text-gray-600 mb-8 leading-relaxed max-w-xl">
-                Adopta, cuida, compra y conecta — salud, marketplace y comunidad pet
-                en una sola app para dueños, proveedores y refugios.
+                Cuida su salud, agenda recordatorios, encuentra servicios y mantén toda su
+                información organizada con ayuda de IA.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
                 <Link to="/register">
                   <Button size="lg" className={`w-full sm:w-auto ${landingBtnHero} text-base px-7 py-3 h-auto font-semibold`}>
                     Comenzar Gratis
@@ -64,8 +62,14 @@ export const Home: React.FC = () => {
                 </Link>
               </div>
 
+              <p className="text-sm text-gray-500 mb-6 max-w-md leading-relaxed">
+                Con{' '}
+                <span className="font-semibold text-landing-aqua-dark">PetBuddy</span>
+                , tu mascota tiene un asistente de cuidado siempre activo.
+              </p>
+
               <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {['Plataforma gratis', 'Sin tarjeta', 'Dueño · Proveedor · Refugio'].map((item) => (
+                {['Plataforma gratis', 'Sin tarjeta', 'Cliente · Proveedor · Refugio'].map((item) => (
                   <div key={item} className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-landing-mint-dark shrink-0" />
                     <span className="text-sm text-gray-600">{item}</span>
@@ -75,7 +79,19 @@ export const Home: React.FC = () => {
             </div>
 
             <div className="order-1 lg:order-2">
-              <HeroDashboardPreview />
+              <div className="relative w-full max-w-2xl mx-auto lg:max-w-none lg:ml-auto">
+                <div
+                  className="absolute -inset-4 rounded-[2rem] bg-landing-aqua/15 blur-2xl opacity-70"
+                  aria-hidden
+                />
+                <img
+                  src="/hero-image.png"
+                  alt="Mascotas conectadas en el ecosistema PetHub"
+                  className="relative w-full h-auto rounded-2xl shadow-[0_24px_60px_-12px_rgba(0,240,200,0.2)]"
+                  loading="eager"
+                  fetchPriority="high"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -87,7 +103,7 @@ export const Home: React.FC = () => {
       <EcosystemDiagram />
       <PlatformHighlights />
 
-      <section className="py-16 md:py-24 bg-gradient-to-r from-landing-aqua to-landing-mango relative overflow-hidden">
+      <section className="py-16 md:py-24 bg-landing-mango relative overflow-hidden">
         <LandingAmbientBackground variant="dark" className="opacity-40" />
         <LandingPetDecorations preset="cta" />
         <div className="absolute inset-0 bg-black/10" />
@@ -102,7 +118,7 @@ export const Home: React.FC = () => {
             ¿Listo para empezar?
           </h2>
           <p className="text-lg md:text-xl text-white/85 mb-10 max-w-2xl mx-auto">
-            Regístrate gratis como dueño, proveedor o refugio y accede a tu experiencia PetHub en segundos.
+            Regístrate gratis como cliente, proveedor o refugio y accede a tu experiencia PetHub en segundos.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">

@@ -14,10 +14,9 @@ import {
   ArrowLeft,
   CreditCard,
 } from 'lucide-react';
-import PageHeader from './PageHeader';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnSolid } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 import PageLoader from './PageLoader';
 import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
@@ -112,14 +111,14 @@ const ClientSubscriptions: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader message="Cargando suscripciones..." />
       </DashboardShell>
     );
   }
 
   return (
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <div className="px-4 pt-2 pb-8 max-w-3xl mx-auto w-full">
         <button
           type="button"
@@ -130,21 +129,21 @@ const ClientSubscriptions: React.FC = () => {
           Volver al marketplace
         </button>
 
-        <PageHeader
-          title="Mis Suscripciones"
-          subtitle="Administra tus entregas recurrentes y frecuencia de cobro"
-        />
+        <div className="space-y-1 mt-1 mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">Mis Suscripciones</h1>
+          <p className="text-sm text-gray-500">Administra tus entregas recurrentes y frecuencia de cobro</p>
+        </div>
 
         {subscriptions.length === 0 ? (
-          <MobileSectionCard className="p-10 text-center mt-6">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-landing-aqua/15 to-landing-mint/15 flex items-center justify-center">
+          <MobileSectionCard variant="plain" className="p-10 text-center mt-6">
+            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-landing-aqua/15 flex items-center justify-center">
               <RefreshCw className="w-10 h-10 text-landing-aqua-dark/60" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Sin suscripciones activas</h2>
             <p className="text-gray-500 text-sm mb-6 max-w-xs mx-auto">
               Compra un producto con opción de suscripción en el marketplace para recibir entregas automáticas.
             </p>
-            <Button onClick={() => navigate('/marketplace/products')} className={cn(landingBtnPrimary, 'border-0')}>
+            <Button onClick={() => navigate('/marketplace/products')} className={cn(landingBtnSolid, 'border-0')}>
               <Package className="w-4 h-4 mr-2" />
               Explorar productos
             </Button>
@@ -155,7 +154,7 @@ const ClientSubscriptions: React.FC = () => {
               const status = statusConfig[sub.status];
               const lineTotal = sub.unit_price * sub.quantity;
               return (
-                <MobileSectionCard key={sub.id} className="p-4">
+                <MobileSectionCard key={sub.id} variant="plain" className="p-4">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
                       <h3 className="font-semibold text-gray-900 leading-snug">{sub.product_name}</h3>

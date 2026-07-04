@@ -21,18 +21,17 @@ import { cn } from '@/lib/utils';
 
 const SlideShell: React.FC<{
   children: React.ReactNode;
-  gradient?: string;
+  bgClass?: string;
   dark?: boolean;
   className?: string;
-}> = ({ children, gradient = 'from-gray-900 via-gray-900 to-gray-950', dark = true, className }) => (
+}> = ({ children, bgClass = 'bg-gray-950', dark = true, className }) => (
   <div
     className={cn(
       'h-full w-full flex items-center justify-center',
       'px-8 sm:px-12 lg:px-16 xl:px-20',
       'py-8 sm:py-10 pb-24',
       'lg:pl-20',
-      'bg-gradient-to-br',
-      gradient,
+      bgClass,
       dark ? 'text-white' : 'text-gray-900',
       className,
     )}
@@ -81,11 +80,11 @@ const ModuleGrid: React.FC<{
         )}
       >
         <div className={cn(
-          'rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br',
+          'rounded-lg flex items-center justify-center shrink-0',
           compact ? 'w-8 h-8' : 'w-10 h-10',
           accent,
         )}>
-          <mod.icon className={cn(compact ? 'w-4 h-4' : 'w-5 h-5', 'text-white')} />
+          <mod.icon className={cn(compact ? 'w-4 h-4' : 'w-5 h-5', accent.includes('mango') || accent.includes('mint') || accent.includes('tropical') ? 'text-gray-900' : 'text-white')} />
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
@@ -112,7 +111,8 @@ const RoleSlideWithVideos: React.FC<{
   role: PitchRoleSlideData;
   icon: React.ReactNode;
   highlightClass: string;
-  gradient: string;
+  accentBg: string;
+  accentText: string;
   videos?: string[];
   images?: string[];
   showModuleTags?: boolean;
@@ -120,16 +120,17 @@ const RoleSlideWithVideos: React.FC<{
   role,
   icon,
   highlightClass,
-  gradient,
+  accentBg,
+  accentText,
   videos = PITCH_VIDEO_SOURCES,
   images,
   showModuleTags,
 }) => (
-  <SlideShell gradient={gradient}>
+  <SlideShell bgClass="bg-gray-950">
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-center h-full">
       <div className="min-w-0">
         <div className="flex items-center gap-4 mb-4">
-          <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br shrink-0', role.gradient)}>
+          <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center shrink-0', accentBg, accentText)}>
             {icon}
           </div>
           <div className="min-w-0">
@@ -137,7 +138,7 @@ const RoleSlideWithVideos: React.FC<{
             <p className="text-sm text-white/60 leading-snug">{role.tagline}</p>
           </div>
         </div>
-        <ModuleGrid modules={role.modules} accent={role.gradient} compact showTags={showModuleTags} />
+        <ModuleGrid modules={role.modules} accent={accentBg} compact showTags={showModuleTags} />
         <div className="flex flex-wrap gap-2 mt-4">
           {role.highlights.map((h) => (
             <span key={h} className={cn('flex items-center gap-1.5 text-xs', highlightClass)}>
@@ -163,7 +164,7 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'cover',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-aqua/20 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <div className="flex items-center gap-3 mb-6">
@@ -175,7 +176,7 @@ const pitchSlides: PitchSlide[] = [
               </Badge>
             </div>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-4 leading-[1.05]">
-              <span className="bg-gradient-to-r from-landing-aqua via-landing-mint to-landing-mango bg-clip-text text-transparent">
+              <span className="text-landing-aqua">
                 PetHub
               </span>
             </h1>
@@ -183,7 +184,7 @@ const pitchSlides: PitchSlide[] = [
               El ecosistema que conecta todo el mundo pet
             </p>
             <p className="text-white/60 text-lg max-w-lg">
-              Plataforma pet-tech integral para dueños, proveedores y refugios en Latinoamérica.
+              Plataforma pet-tech integral para clientes, proveedores y refugios en Latinoamérica.
             </p>
           </div>
           <div className="flex justify-center lg:justify-end">
@@ -198,14 +199,14 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'intro',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-mint/10 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle compact subtitle="Una sola plataforma que unifica salud, comercio y comunidad pet.">
           ¿Qué es PetHub?
         </SlideTitle>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 xl:gap-14 items-center min-h-0">
           <div className="space-y-4 text-white/75 text-base sm:text-lg leading-relaxed lg:pr-4">
             <p>
-              PetHub es un <strong className="text-white">ecosistema digital</strong> que conecta a dueños de mascotas,
+              PetHub es un <strong className="text-white">ecosistema digital</strong> que conecta a clientes de mascotas,
               proveedores de productos y servicios, y refugios/albergues en una experiencia unificada.
             </p>
             <p>
@@ -233,7 +234,7 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'roles',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-mango/10 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle
           compact
           subtitle="Cada perfil accede a una experiencia especializada dentro del mismo ecosistema."
@@ -250,12 +251,13 @@ const pitchSlides: PitchSlide[] = [
                 className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm text-center hover:bg-white/10 transition-all"
               >
                 <div className={cn(
-                  'w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center bg-gradient-to-br shadow-lg',
+                  'w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center shadow-lg',
                   role.gradient,
+                  role.colorText,
                 )}>
-                  {role.id === 'client' && <PawPrint className="w-6 h-6 text-white" />}
-                  {role.id === 'provider' && <Store className="w-6 h-6 text-white" />}
-                  {role.id === 'shelter' && <Home className="w-6 h-6 text-white" />}
+                  {role.id === 'client' && <PawPrint className="w-6 h-6" />}
+                  {role.id === 'provider' && <Store className="w-6 h-6" />}
+                  {role.id === 'shelter' && <Home className="w-6 h-6" />}
                 </div>
                 <h3 className="text-base font-bold mb-1">{role.label}</h3>
                 <p className="text-xs text-white/60 leading-relaxed line-clamp-3">{role.tagline}</p>
@@ -278,11 +280,11 @@ const pitchSlides: PitchSlide[] = [
                     className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/10"
                   >
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gradient-to-r text-white', fromRole?.gradient)}>
+                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', fromRole?.gradient, fromRole?.colorText)}>
                         {fromRole?.shortLabel}
                       </span>
                       <span className="text-landing-aqua text-xs">→</span>
-                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gradient-to-r text-white', toRole?.gradient)}>
+                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', toRole?.gradient, toRole?.colorText)}>
                         {toRole?.shortLabel}
                       </span>
                     </div>
@@ -305,7 +307,8 @@ const pitchSlides: PitchSlide[] = [
         role={pitchClientSlide}
         icon={<PawPrint className="w-6 h-6 text-white" />}
         highlightClass="text-landing-aqua"
-        gradient="from-gray-950 via-landing-aqua/15 to-gray-950"
+        accentBg="bg-landing-aqua"
+        accentText="text-white"
         showModuleTags
       />
     ),
@@ -319,7 +322,8 @@ const pitchSlides: PitchSlide[] = [
         role={pitchProviderSlide}
         icon={<Store className="w-6 h-6 text-white" />}
         highlightClass="text-landing-mango"
-        gradient="from-gray-950 via-landing-mango/15 to-gray-950"
+        accentBg="bg-landing-mango"
+        accentText="text-gray-900"
         images={PITCH_PROVIDER_SCREENSHOTS}
         showModuleTags
       />
@@ -334,7 +338,8 @@ const pitchSlides: PitchSlide[] = [
         role={pitchShelterSlide}
         icon={<Home className="w-6 h-6 text-white" />}
         highlightClass="text-landing-mint"
-        gradient="from-gray-950 via-landing-mint/15 to-gray-950"
+        accentBg="bg-landing-mint"
+        accentText="text-gray-900"
         images={PITCH_SHELTER_SCREENSHOTS}
         showModuleTags
       />
@@ -345,7 +350,7 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'daily-value',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-aqua/10 to-landing-mango/10">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle subtitle="PetHub resuelve problemas reales cada día para cada actor del ecosistema.">
           Impacto en el día a día
         </SlideTitle>
@@ -353,8 +358,9 @@ const pitchSlides: PitchSlide[] = [
           {[
             {
               icon: PawPrint,
-              role: 'Dueño de Mascota',
-              color: 'from-landing-aqua to-landing-mint',
+              role: 'Cliente de mascota',
+              color: 'bg-landing-aqua',
+              iconText: 'text-white',
               items: [
                 'Recordatorios automáticos de comida, vacunas y citas',
                 'Historial médico y nutricional en un solo lugar',
@@ -365,7 +371,8 @@ const pitchSlides: PitchSlide[] = [
             {
               icon: Store,
               role: 'Proveedor',
-              color: 'from-landing-mango to-landing-tropical',
+              color: 'bg-landing-mango',
+              iconText: 'text-gray-900',
               items: [
                 'Catálogo digital con gestión de stock y precios',
                 'Calendario de citas y reservas automatizado',
@@ -376,7 +383,8 @@ const pitchSlides: PitchSlide[] = [
             {
               icon: Home,
               role: 'Refugio / Albergue',
-              color: 'from-landing-mint to-landing-aqua',
+              color: 'bg-landing-mint',
+              iconText: 'text-gray-900',
               items: [
                 'Publicar mascotas en adopción con perfiles detallados',
                 'Gestionar solicitudes y dar seguimiento post-adopción',
@@ -386,8 +394,8 @@ const pitchSlides: PitchSlide[] = [
             },
           ].map((block) => (
             <div key={block.role} className="p-5 rounded-2xl bg-white/5 border border-white/10">
-              <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-gradient-to-br', block.color)}>
-                <block.icon className="w-5 h-5 text-white" />
+              <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-4', block.color, block.iconText)}>
+                <block.icon className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-lg mb-3">{block.role}</h3>
               <ul className="space-y-2">
@@ -409,7 +417,7 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'benefits',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-mint/10 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle subtitle="Ventajas competitivas que posicionan a PetHub como líder regional.">
           Beneficios clave
         </SlideTitle>
@@ -417,8 +425,8 @@ const pitchSlides: PitchSlide[] = [
           {[
             { icon: Target, title: 'Todo en uno', desc: 'Salud, marketplace, adopción y comunidad integrados — sin apps fragmentadas.' },
             { icon: Shield, title: 'Trazabilidad 360°', desc: 'Historial completo por mascota: nutrición, ejercicio, veterinaria y recordatorios.' },
-            { icon: Users, title: 'Red conectada', desc: 'Dueños, proveedores y refugios interactúan en un ecosistema real, no aislado.' },
-            { icon: BarChart3, title: 'Datos accionables', desc: 'Analytics para dueños, proveedores y refugios con métricas de negocio e impacto.' },
+            { icon: Users, title: 'Red conectada', desc: 'Clientes, proveedores y refugios interactúan en un ecosistema real, no aislado.' },
+            { icon: BarChart3, title: 'Datos accionables', desc: 'Analytics para clientes, proveedores y refugios con métricas de negocio e impacto.' },
             { icon: Zap, title: 'Time-to-value rápido', desc: 'Registro por rol y onboarding guiado — operativo en minutos, no semanas.' },
             { icon: TrendingUp, title: 'Escalable regional', desc: 'Arquitectura SaaS multi-rol lista para expansión en Centroamérica y LATAM.' },
           ].map((b) => (
@@ -437,10 +445,10 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'business-model',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-mango/10 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle
           compact
-          subtitle="Plataforma 100% gratuita para dueños, proveedores y refugios. Los ingresos vienen del marketplace, la logística y servicios B2B."
+          subtitle="Plataforma 100% gratuita para clientes, proveedores y refugios. Los ingresos vienen del marketplace, la logística y servicios B2B."
         >
           Modelo de negocio
         </SlideTitle>
@@ -491,7 +499,7 @@ const pitchSlides: PitchSlide[] = [
           </div>
 
           <div className="space-y-4">
-            <div className="p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-landing-aqua/20 to-landing-mango/20 border border-white/10">
+            <div className="p-4 lg:p-5 rounded-2xl bg-landing-aqua/20 border border-white/10">
               <DollarSign className="w-8 h-8 text-landing-mango mb-3" />
               <h3 className="text-lg lg:text-xl font-bold mb-3">Unit Economics</h3>
               <div className="space-y-2.5 text-white/80 text-sm">
@@ -532,7 +540,7 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'costs',
     content: (
-      <SlideShell gradient="from-gray-950 via-gray-900 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle
           compact
           subtitle="MVP desarrollado por el fundador. La inversión principal es operativa: logística y arranque comercial."
@@ -580,7 +588,7 @@ const pitchSlides: PitchSlide[] = [
                 </div>
               ))}
 
-              <div className="flex justify-between p-3 lg:p-4 rounded-xl bg-gradient-to-r from-landing-aqua/20 to-landing-mango/20 border border-landing-aqua/30 font-bold mt-2">
+              <div className="flex justify-between p-3 lg:p-4 rounded-xl bg-landing-aqua/20 border border-landing-aqua/30 font-bold mt-2">
                 <span className="text-sm lg:text-base">Capital a levantar</span>
                 <span className="text-landing-aqua text-lg">Q50,000</span>
               </div>
@@ -629,7 +637,7 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'projections',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-aqua/10 to-gray-950">
+      <SlideShell bgClass="bg-gray-950">
         <SlideTitle
           compact
           subtitle="Escenarios para cubrir el burn de Q16,500/mes con comisión (3–5%) + delivery (~Q15/pedido)."
@@ -736,22 +744,22 @@ const pitchSlides: PitchSlide[] = [
   {
     id: 'closing',
     content: (
-      <SlideShell gradient="from-gray-950 via-landing-aqua/20 to-landing-mango/10">
+      <SlideShell bgClass="bg-gray-950">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-center max-w-6xl mx-auto py-2">
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-landing-aqua to-landing-mango flex items-center justify-center mb-4 shadow-lg shadow-landing-aqua/20">
+            <div className="w-14 h-14 rounded-2xl bg-landing-aqua flex items-center justify-center mb-4 shadow-lg shadow-landing-aqua/20">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
               El futuro del cuidado pet{' '}
-              <span className="bg-gradient-to-r from-landing-aqua to-landing-mango bg-clip-text text-transparent">
+              <span className="text-landing-mango">
                 empieza hoy
               </span>
             </h2>
 
             <p className="text-sm sm:text-base text-white/70 mb-5 leading-relaxed max-w-md">
-              PetHub es la infraestructura digital que conecta dueños, proveedores y refugios
+              PetHub es la infraestructura digital que conecta clientes, proveedores y refugios
               en un solo ecosistema pet. Estamos listos para escalar en Latinoamérica.
             </p>
 
@@ -774,14 +782,14 @@ const pitchSlides: PitchSlide[] = [
           </div>
 
           <div className="relative flex justify-center lg:justify-end">
-            <div className="absolute -inset-4 bg-gradient-to-br from-landing-aqua/25 to-landing-mango/20 rounded-3xl blur-2xl opacity-70" aria-hidden />
+            <div className="absolute -inset-4 bg-landing-aqua/20 rounded-3xl blur-2xl opacity-70" aria-hidden />
             <div className="relative overflow-hidden rounded-2xl border border-white/15 shadow-2xl ring-1 ring-white/10 max-w-md w-full">
               <img
                 src="/pethub-staff.png"
                 alt="Equipo PetHub con camisas de la marca"
                 className="w-full h-auto object-cover"
               />
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-black/60 pointer-events-none" />
               <p className="absolute bottom-3 left-4 text-xs font-medium text-white/80">El equipo detrás de PetHub</p>
             </div>
           </div>

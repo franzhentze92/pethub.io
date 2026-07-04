@@ -20,15 +20,9 @@ import {
   type ScheduleTimeSlotRow,
 } from '@/components/availability/AvailabilityScheduleEditor';
 import { cn } from '@/lib/utils';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { plainModalAccentClasses } from '@/lib/landingTheme';
+import { useProviderDashboardTheme } from '@/contexts/ProviderDashboardThemeContext';
 import { ActionConfirmDialog } from '@/components/ui/ActionConfirmDialog';
-
-const modalTabListClass =
-  'grid w-full bg-landing-aqua/10 p-1 rounded-xl border border-landing-aqua/15 h-auto gap-1';
-const modalTabTriggerClass =
-  'rounded-lg text-gray-600 data-[state=active]:bg-white data-[state=active]:text-landing-aqua-dark data-[state=active]:shadow-sm py-2.5 text-xs sm:text-sm';
-const modalOutlineBtnClass =
-  'border-landing-aqua/30 text-landing-aqua-dark hover:bg-landing-aqua/10';
 
 interface ProviderServiceModalProps {
   isOpen: boolean;
@@ -64,6 +58,8 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
   onFetchAvailability,
   onFetchTimeSlots
 }) => {
+  const { accent, btn, outlineBtn, ui } = useProviderDashboardTheme();
+  const mc = plainModalAccentClasses(accent);
   const [activeTab, setActiveTab] = useState('basic');
   const [formData, setFormData] = useState({
     service_name: '',
@@ -347,12 +343,12 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl border-landing-aqua/20 shadow-xl p-0 gap-0"
+        className={cn('sm:max-w-[800px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl p-0 gap-0 border', mc.dialogBorder)}
         aria-describedby="service-modal-description"
       >
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-landing-aqua/10 bg-gradient-to-r from-landing-aqua/5 to-landing-mint/5">
+        <DialogHeader className={cn('px-6 pt-6 pb-4', mc.header)}>
           <DialogTitle className="text-xl flex items-center gap-2 text-gray-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mint text-white shadow-md">
+            <span className={mc.iconBadge}>
               <Star className="w-5 h-5" />
             </span>
             {isEditing ? 'Editar Servicio' : 'Agregar Nuevo Servicio'}
@@ -361,11 +357,11 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-6 px-6 py-5" id="service-modal-description">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={cn(modalTabListClass, 'grid-cols-2 sm:grid-cols-4')}>
-              <TabsTrigger value="basic" className={modalTabTriggerClass}>Información Básica</TabsTrigger>
-              <TabsTrigger value="details" className={modalTabTriggerClass}>Detalles</TabsTrigger>
-              <TabsTrigger value="availability" className={modalTabTriggerClass}>Disponibilidad</TabsTrigger>
-              <TabsTrigger value="policies" className={modalTabTriggerClass}>Políticas</TabsTrigger>
+            <TabsList className={cn(mc.tabList, 'grid-cols-2 sm:grid-cols-4')}>
+              <TabsTrigger value="basic" className={mc.tabTrigger}>Información Básica</TabsTrigger>
+              <TabsTrigger value="details" className={mc.tabTrigger}>Detalles</TabsTrigger>
+              <TabsTrigger value="availability" className={mc.tabTrigger}>Disponibilidad</TabsTrigger>
+              <TabsTrigger value="policies" className={mc.tabTrigger}>Políticas</TabsTrigger>
             </TabsList>
 
             {/* Basic Information Tab */}
@@ -400,7 +396,7 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-landing-aqua/15 bg-landing-aqua/5 p-4 space-y-3">
+              <div className={cn('rounded-xl p-4 space-y-3 border', mc.ui.borderLight, mc.ui.bgSoft)}>
                 <div className="flex items-center justify-between gap-2">
                   <Label className="text-base font-semibold">Imágenes del servicio</Label>
                   {isEditing && service?.id && (
@@ -408,7 +404,7 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className={modalOutlineBtnClass}
+                      className={outlineBtn}
                       disabled={loading || generatingImage}
                       onClick={handleGenerateServiceImage}
                     >
@@ -610,8 +606,8 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
 
             {/* Availability Tab */}
             <TabsContent value="availability" className="space-y-4">
-              <div className="rounded-xl border border-landing-aqua/20 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 p-4">
-                <div className="flex items-start gap-2 text-landing-aqua-dark">
+              <div className={mc.infoBanner}>
+                <div className={cn('flex items-start gap-2', mc.ui.text)}>
                   <Info className="w-5 h-5 shrink-0 mt-0.5" />
                   <div className="text-sm space-y-1">
                     <p className="font-medium">Horario del negocio por defecto</p>
@@ -623,7 +619,7 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-landing-aqua/15 p-4">
+              <div className={cn('flex items-center justify-between rounded-xl border p-4', mc.ui.borderLight)}>
                 <div>
                   <Label htmlFor="custom-availability" className="font-medium text-gray-800">
                     Horario personalizado para este servicio
@@ -647,8 +643,8 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
                   onTimeSlotsChange={setTimeSlots}
                 />
               ) : (
-                <div className="rounded-xl border border-dashed border-landing-aqua/25 bg-landing-aqua/5 p-6 text-center text-sm text-gray-600">
-                  <Calendar className="w-8 h-8 mx-auto mb-2 text-landing-aqua" />
+                <div className={cn('rounded-xl border border-dashed p-6 text-center text-sm text-gray-600', mc.ui.border, mc.ui.bgSoft)}>
+                  <Calendar className={cn('w-8 h-8 mx-auto mb-2', mc.ui.text)} />
                   Los clientes verán el horario del negocio al reservar este servicio.
                 </div>
               )}
@@ -706,11 +702,11 @@ const ProviderServiceModal: React.FC<ProviderServiceModalProps> = ({
             </TabsContent>
           </Tabs>
 
-          <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-3 px-6 py-4 border-t border-landing-aqua/10 bg-gray-50/80">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className={modalOutlineBtnClass}>
+          <div className={cn('-mx-6 -mb-5 mt-2 flex justify-end gap-3 px-6 py-4', mc.footer)}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className={outlineBtn}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} data-blueprint-guided="save-service" className={cn(landingBtnPrimary, 'border-0 min-w-[160px]')}>
+            <Button type="submit" disabled={loading} data-blueprint-guided="save-service" className={cn(btn, 'border-0 min-w-[160px]')}>
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

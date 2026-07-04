@@ -16,29 +16,33 @@ const values = [
     icon: Heart,
     title: 'Amor por los Animales',
     description: 'Cada decisión que tomamos — de producto a partnerships — nace del respeto genuino por el bienestar animal.',
-    color: 'from-landing-mango to-landing-tropical',
-    bg: 'from-landing-mango/10 to-landing-tropical/10',
+    color: 'bg-landing-mango',
+    bg: 'bg-landing-mango/10',
+    iconText: 'text-gray-900',
   },
   {
     icon: Users,
     title: 'Comunidad',
-    description: 'No construimos software en aislamiento: escuchamos a dueños, refugios y veterinarios para crecer juntos.',
-    color: 'from-landing-aqua to-landing-mint',
-    bg: 'from-landing-aqua/10 to-landing-mint/10',
+    description: 'No construimos software en aislamiento: escuchamos a clientes, refugios y veterinarios para crecer juntos.',
+    color: 'bg-landing-aqua',
+    bg: 'bg-landing-aqua/10',
+    iconText: 'text-white',
   },
   {
     icon: Lightbulb,
     title: 'Innovación con Propósito',
     description: 'Adoptamos tecnología solo cuando resuelve un problema real del cuidado animal en nuestra región.',
-    color: 'from-landing-mint to-landing-aqua',
-    bg: 'from-landing-mint/10 to-landing-aqua/10',
+    color: 'bg-landing-mint',
+    bg: 'bg-landing-mint/10',
+    iconText: 'text-gray-900',
   },
   {
     icon: Shield,
     title: 'Responsabilidad',
     description: 'Transparencia, privacidad de datos y estándares éticos en cada relación con usuarios y aliados.',
-    color: 'from-landing-aqua to-landing-mango',
-    bg: 'from-landing-aqua/10 to-landing-mango/10',
+    color: 'bg-landing-aqua',
+    bg: 'bg-landing-aqua/10',
+    iconText: 'text-white',
   },
 ];
 
@@ -48,21 +52,24 @@ const milestones = [
     icon: Lightbulb,
     title: 'El problema',
     description: 'Vimos familias usando hojas de cálculo, WhatsApp y cuadernos para cuidar a sus mascotas. Refugios sin herramientas digitales. Negocios pet desconectados.',
-    color: 'from-landing-tropical to-landing-mango',
+    color: 'bg-landing-tropical',
+    iconText: 'text-gray-900',
   },
   {
     year: '2024',
     icon: Rocket,
     title: 'PetHub nace',
     description: 'Fundamos PetHub con la convicción de que el cuidado animal en Latinoamérica merece una respuesta accesible y humana — respaldada por buena tecnología.',
-    color: 'from-landing-aqua to-landing-mint',
+    color: 'bg-landing-aqua',
+    iconText: 'text-white',
   },
   {
     year: 'Hoy',
     icon: Sparkles,
     title: 'Creciendo con propósito',
     description: 'Seguimos construyendo al lado de nuestra comunidad, ampliando alianzas con refugios, clínicas y emprendedores pet en la región.',
-    color: 'from-landing-mango to-landing-aqua',
+    color: 'bg-landing-mango',
+    iconText: 'text-gray-900',
   },
 ];
 
@@ -98,7 +105,7 @@ export const AboutUs: React.FC = () => {
       <section className="relative min-h-[65vh] flex items-center py-20 md:py-28 overflow-hidden">
         <LandingAmbientBackground variant="hero" />
         <LandingPetDecorations preset="hero" />
-        <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/90 via-landing-mint/80 to-landing-mango/90" />
+        <div className="absolute inset-0 bg-landing-aqua" />
         <div className="absolute inset-0 bg-black/15" />
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
@@ -168,14 +175,14 @@ export const AboutUs: React.FC = () => {
             </div>
 
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/20 to-landing-mango/20 rounded-3xl blur-2xl" />
-              <div className="relative bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 rounded-2xl p-8 md:p-10 border border-landing-aqua/20 shadow-lg">
+              <div className="absolute inset-0 bg-landing-aqua/20 rounded-3xl blur-2xl" />
+              <div className="relative bg-landing-aqua/10 rounded-2xl p-8 md:p-10 border border-landing-aqua/20 shadow-lg">
                 <blockquote className="text-lg md:text-xl text-gray-800 font-medium leading-relaxed italic mb-6">
                   "Creemos que cuando una comunidad tiene las herramientas correctas,
                   cada mascota tiene más oportunidades de una vida sana, feliz y amada."
                 </blockquote>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-landing-aqua rounded-full flex items-center justify-center">
                     <PawPrint className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -190,7 +197,7 @@ export const AboutUs: React.FC = () => {
       </section>
 
       {/* ── TIMELINE ── */}
-      <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-to-br from-gray-50 via-landing-aqua/5 to-landing-mint/10">
+      <section className="relative py-20 md:py-28 overflow-hidden bg-landing-aqua/5">
         <LandingPetDecorations preset="section" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -211,12 +218,12 @@ export const AboutUs: React.FC = () => {
             {milestones.map((m, i) => (
               <div key={i} className="relative group">
                 {i < milestones.length - 1 && (
-                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-landing-aqua/40 to-transparent" />
+                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-landing-aqua/40" />
                 )}
                 <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-100 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${m.color} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                      <m.icon className="w-6 h-6 text-white" />
+                    <div className={`w-12 h-12 rounded-xl ${m.color} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
+                      <m.icon className={`w-6 h-6 ${m.iconText}`} />
                     </div>
                     <span className="text-2xl font-black text-landing-aqua/30">{m.year}</span>
                   </div>
@@ -235,9 +242,9 @@ export const AboutUs: React.FC = () => {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-            <div className="rounded-2xl p-8 md:p-10 bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 border border-landing-aqua/20 shadow-lg">
+            <div className="rounded-2xl p-8 md:p-10 bg-landing-aqua/10 border border-landing-aqua/20 shadow-lg">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-landing-aqua to-landing-mint rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-landing-aqua rounded-xl flex items-center justify-center">
                   <Target className="w-6 h-6 text-white" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Misión</h2>
@@ -257,7 +264,7 @@ export const AboutUs: React.FC = () => {
               <div className="absolute top-0 right-0 w-40 h-40 bg-landing-aqua/10 rounded-full blur-3xl" />
               <div className="relative">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 bg-gradient-to-r from-landing-mango to-landing-tropical rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-landing-mango rounded-xl flex items-center justify-center">
                     <Eye className="w-6 h-6 text-white" />
                   </div>
                   <h2 className="text-2xl md:text-3xl font-bold">Visión</h2>
@@ -286,7 +293,7 @@ export const AboutUs: React.FC = () => {
       </section>
 
       {/* ── VALORES ── */}
-      <section className="relative py-20 md:py-28 bg-gradient-to-b from-white to-landing-aqua/5 overflow-hidden">
+      <section className="relative py-20 md:py-28 bg-white overflow-hidden">
         <LandingPetDecorations preset="section" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -307,10 +314,10 @@ export const AboutUs: React.FC = () => {
             {values.map((value, i) => (
               <div
                 key={i}
-                className={`group rounded-2xl p-6 bg-gradient-to-br ${value.bg} border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
+                className={`group rounded-2xl p-6 ${value.bg} border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
               >
-                <div className={`w-14 h-14 bg-gradient-to-r ${value.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md`}>
-                  <value.icon className="w-7 h-7 text-white" />
+                <div className={`w-14 h-14 ${value.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md`}>
+                  <value.icon className={`w-7 h-7 ${value.iconText}`} />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">{value.title}</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">{value.description}</p>
@@ -344,7 +351,7 @@ export const AboutUs: React.FC = () => {
                 key={i}
                 className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 md:p-8 hover:bg-white/10 transition-colors"
               >
-                <div className="w-12 h-12 bg-gradient-to-br from-landing-aqua to-landing-mango rounded-xl flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-landing-mint rounded-xl flex items-center justify-center mb-4">
                   <item.icon className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
@@ -392,7 +399,7 @@ export const AboutUs: React.FC = () => {
               ].map((item, i) => (
                 <div
                   key={i}
-                  className="bg-gradient-to-br from-landing-aqua/10 to-landing-mint/10 rounded-2xl p-5 border border-landing-aqua/15 text-center"
+                  className="bg-landing-aqua/10 rounded-2xl p-5 border border-landing-aqua/15 text-center"
                 >
                   <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{item.label}</p>
                   <p className="text-xl font-bold text-landing-aqua-dark">{item.value}</p>
@@ -405,7 +412,7 @@ export const AboutUs: React.FC = () => {
       </section>
 
       {/* ── CTA ── */}
-      <section className="relative py-20 md:py-28 bg-gradient-to-r from-landing-aqua to-landing-mango overflow-hidden">
+      <section className="relative py-20 md:py-28 bg-landing-tropical overflow-hidden">
         <LandingPetDecorations preset="cta" />
         <div className="absolute inset-0 bg-black/10" />
 

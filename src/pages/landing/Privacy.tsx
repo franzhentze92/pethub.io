@@ -11,7 +11,7 @@ export const Privacy: React.FC = () => {
       
       <main className="pt-20">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-landing-aqua to-landing-mango py-20 relative overflow-hidden">
+        <section className="bg-landing-mango py-20 relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">

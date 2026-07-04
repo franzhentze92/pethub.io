@@ -24,7 +24,7 @@ export const HowItWorksFlow: React.FC = () => {
 
         <div className="relative">
           {/* Connecting line (desktop) */}
-          <div className="hidden lg:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-landing-aqua via-landing-mint to-landing-mango opacity-30" />
+          <div className="hidden lg:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-landing-aqua/30" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
             {howItWorksSteps.map((step, i) => (
@@ -36,7 +36,7 @@ export const HowItWorksFlow: React.FC = () => {
                 <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-landing-aqua/30 transition-all duration-300 hover:-translate-y-1 h-full">
                   {/* Step number */}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-landing-aqua to-landing-mango flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <div className="w-12 h-12 rounded-xl bg-landing-aqua flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                       <step.icon className="w-5 h-5 text-white" />
                     </div>
                     <span className="text-3xl font-black text-white/10 group-hover:text-landing-aqua/30 transition-colors">

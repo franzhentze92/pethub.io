@@ -2,7 +2,9 @@ import {
   Activity, Utensils, Stethoscope, Bell, ShoppingBag, Package,
   Heart, Users, MapPin, MessageCircle, Truck, Shield, BarChart3,
   Store, Home, ClipboardList, DollarSign, PawPrint, Search,
-  Calendar, TrendingUp, type LucideIcon,
+  Calendar, TrendingUp, Grid, User, Clock, Scissors, Star,
+  Settings, RefreshCw, HeartHandshake, Building2, Image,
+  type LucideIcon,
 } from 'lucide-react';
 
 export interface PlatformModule {
@@ -17,7 +19,10 @@ export interface PlatformRole {
   label: string;
   shortLabel: string;
   tagline: string;
+  /** Fondo sólido de marca — usar directamente, sin bg-gradient */
   gradient: string;
+  /** Texto legible sobre el fondo sólido */
+  colorText: string;
   accent: string;
   dashboardTitle: string;
   dashboardStats: { label: string; value: string; trend?: string }[];
@@ -28,10 +33,11 @@ export interface PlatformRole {
 export const platformRoles: PlatformRole[] = [
   {
     id: 'client',
-    label: 'Dueño de Mascota',
-    shortLabel: 'Dueño',
+    label: 'Cliente de mascota',
+    shortLabel: 'Cliente',
     tagline: 'Registra, cuida y conecta con todo el ecosistema pet desde tu dashboard personal.',
-    gradient: 'from-landing-aqua to-landing-mint',
+    gradient: 'bg-landing-aqua',
+    colorText: 'text-white',
     accent: 'text-landing-aqua-dark',
     dashboardTitle: 'Dashboard Cliente',
     dashboardStats: [
@@ -40,26 +46,30 @@ export const platformRoles: PlatformRole[] = [
       { label: 'Órdenes activas', value: '2', trend: 'En camino' },
     ],
     modules: [
-      { icon: PawPrint, title: 'Pet Room', description: 'Perfil completo de cada mascota con historial y accesos rápidos.', tag: 'Core' },
-      { icon: Activity, title: 'Ejercicio', description: 'Sesiones, calorías, metas y Adventure Log con gráficos.', tag: 'Salud' },
+      { icon: Grid, title: 'Dashboard', description: 'Resumen de mascotas, actividad reciente y accesos rápidos.', tag: 'Inicio' },
+      { icon: PawPrint, title: 'Mis Mascotas', description: 'Registra, edita y gestiona el perfil de cada mascota.', tag: 'Perfil' },
+      { icon: Calendar, title: 'Trazabilidad', description: 'Pet Journey con historial completo y timeline por mascota.', tag: 'Core' },
       { icon: Utensils, title: 'Nutrición', description: 'Horarios automáticos, porciones y Meal Journal diario.', tag: 'Salud' },
+      { icon: Activity, title: 'Ejercicio', description: 'Sesiones, calorías, metas y Adventure Log con gráficos.', tag: 'Salud' },
       { icon: Stethoscope, title: 'Veterinaria', description: 'Historial médico, vacunas, citas y Health Journal.', tag: 'Salud' },
       { icon: Bell, title: 'Recordatorios', description: 'Alertas de medicamentos, citas y eventos importantes.', tag: 'Salud' },
-      { icon: ShoppingBag, title: 'Marketplace', description: 'Productos y servicios con carrito, checkout y entrega.', tag: 'Comercio' },
-      { icon: Heart, title: 'Adopción', description: 'Swipe, favoritos, solicitudes y chat con refugios.', tag: 'Social' },
-      { icon: Users, title: 'Parejas / Cría', description: 'Matching de mascotas compatibles y chat de coordinación.', tag: 'Social' },
-      { icon: MapPin, title: 'Mascotas Perdidas', description: 'Reportes con mapa interactivo y estado de búsqueda.', tag: 'Comunidad' },
-      { icon: MessageCircle, title: 'Social Hub', description: 'Red social, mensajes y descubrimiento de mascotas.', tag: 'Social' },
+      { icon: ShoppingBag, title: 'Tienda', description: 'Productos y servicios del marketplace pet.', tag: 'Comercio' },
       { icon: Package, title: 'Mis Órdenes', description: 'Seguimiento de compras desde pending hasta delivered.', tag: 'Comercio' },
+      { icon: RefreshCw, title: 'Suscripciones', description: 'Planes recurrentes y servicios suscritos.', tag: 'Comercio' },
+      { icon: Heart, title: 'Adopción', description: 'Swipe, favoritos, solicitudes y chat con refugios.', tag: 'Social' },
+      { icon: HeartHandshake, title: 'Parejas', description: 'Matching de mascotas compatibles y chat de coordinación.', tag: 'Social' },
+      { icon: Search, title: 'Mascotas Perdidas', description: 'Reportes con mapa interactivo y estado de búsqueda.', tag: 'Comunidad' },
+      { icon: Settings, title: 'Ajustes', description: 'Perfil, direcciones, tarjetas y preferencias de cuenta.', tag: 'Cuenta' },
     ],
-    highlights: ['Trazabilidad 360° por mascota', 'Marketplace + checkout integrado', 'Adopción, cría y comunidad'],
+    highlights: ['Trazabilidad 360° por mascota', 'Marketplace + checkout integrado', 'Adopción y comunidad'],
   },
   {
     id: 'provider',
     label: 'Proveedor',
     shortLabel: 'Proveedor',
     tagline: 'Vende productos, agenda servicios y analiza tu negocio pet en tiempo real.',
-    gradient: 'from-landing-mango to-landing-tropical',
+    gradient: 'bg-landing-mango',
+    colorText: 'text-gray-900',
     accent: 'text-landing-mango-dark',
     dashboardTitle: 'Dashboard Proveedor',
     dashboardStats: [
@@ -68,12 +78,15 @@ export const platformRoles: PlatformRole[] = [
       { label: 'Calificación', value: '4.9★', trend: '127 reseñas' },
     ],
     modules: [
-      { icon: Store, title: 'Catálogo Productos', description: 'Stock, precios por talla/tamaño e imágenes múltiples.', tag: 'Ventas' },
-      { icon: Calendar, title: 'Servicios & Citas', description: 'Disponibilidad, slots de tiempo y calendario de reservas.', tag: 'Servicios' },
-      { icon: ClipboardList, title: 'Gestión de Órdenes', description: 'Estados completos: pending → confirmed → delivered.', tag: 'Ventas' },
+      { icon: Grid, title: 'Dashboard', description: 'Ingresos, órdenes, citas y métricas del negocio en tiempo real.', tag: 'Inicio' },
+      { icon: User, title: 'Perfil', description: 'Datos del negocio, verificación, ubicación y foto.', tag: 'Perfil' },
+      { icon: Clock, title: 'Disponibilidad', description: 'Horarios y franjas de atención para servicios.', tag: 'Perfil' },
+      { icon: Package, title: 'Productos', description: 'Stock, precios por talla/tamaño e imágenes múltiples.', tag: 'Ventas' },
+      { icon: Scissors, title: 'Servicios', description: 'Catálogo de servicios, duración y precios.', tag: 'Servicios' },
+      { icon: ShoppingBag, title: 'Pedidos', description: 'Estados completos: pending → confirmed → delivered.', tag: 'Ventas' },
+      { icon: Calendar, title: 'Citas', description: 'Calendario de reservas y slots de servicios.', tag: 'Servicios' },
+      { icon: Star, title: 'Reseñas', description: 'Calificaciones de clientes y reputación del negocio.', tag: 'Reputación' },
       { icon: BarChart3, title: 'Analytics', description: 'Ingresos mensuales, tendencias y productos top.', tag: 'Negocio' },
-      { icon: TrendingUp, title: 'Reseñas', description: 'Calificaciones de clientes y reputación del negocio.', tag: 'Reputación' },
-      { icon: MapPin, title: 'Perfil & Ubicación', description: 'Google Places, verificación y datos del negocio.', tag: 'Perfil' },
     ],
     highlights: ['Productos + servicios en un panel', 'Analytics financieros avanzados', 'Verificación automática'],
   },
@@ -82,7 +95,8 @@ export const platformRoles: PlatformRole[] = [
     label: 'Refugio / Albergue',
     shortLabel: 'Refugio',
     tagline: 'Publica mascotas, gestiona adopciones y conecta con familias responsables.',
-    gradient: 'from-landing-mint to-landing-aqua',
+    gradient: 'bg-landing-mint',
+    colorText: 'text-gray-900',
     accent: 'text-landing-mint-dark',
     dashboardTitle: 'Dashboard Refugio',
     dashboardStats: [
@@ -91,11 +105,12 @@ export const platformRoles: PlatformRole[] = [
       { label: 'Adopciones 2024', value: '156', trend: '+22%' },
     ],
     modules: [
-      { icon: Heart, title: 'Mascotas en Adopción', description: 'Perfiles detallados con compatibilidad y galería.', tag: 'Adopción' },
+      { icon: BarChart3, title: 'Dashboard', description: 'Resumen de adopciones, solicitudes y actividad del refugio.', tag: 'Inicio' },
+      { icon: Building2, title: 'Perfil', description: 'Galería, misión, contacto y datos públicos del albergue.', tag: 'Perfil' },
+      { icon: PawPrint, title: 'Mascotas', description: 'Perfiles detallados con compatibilidad y galería.', tag: 'Adopción' },
       { icon: ClipboardList, title: 'Solicitudes', description: 'Aprobar, rechazar y dar seguimiento post-adopción.', tag: 'Adopción' },
+      { icon: Image, title: 'Media', description: 'Fotos y videos del albergue para la página pública.', tag: 'Perfil' },
       { icon: MessageCircle, title: 'Chat Adoptantes', description: 'Mensajería en tiempo real con interesados.', tag: 'Comunicación' },
-      { icon: Home, title: 'Perfil del Refugio', description: 'Galería, videos YouTube y estadísticas públicas.', tag: 'Perfil' },
-      { icon: BarChart3, title: 'Estadísticas', description: 'Adopciones por mes, éxito y tendencias.', tag: 'Análisis' },
     ],
     highlights: ['Flujo completo de adopción', 'Chat integrado con adoptantes', 'Estadísticas de impacto'],
   },
@@ -104,7 +119,8 @@ export const platformRoles: PlatformRole[] = [
     label: 'Repartidor',
     shortLabel: 'Repartidor',
     tagline: 'Gestiona entregas, rutas y gastos operativos del marketplace.',
-    gradient: 'from-landing-aqua to-landing-mango',
+    gradient: 'bg-landing-tropical',
+    colorText: 'text-gray-900',
     accent: 'text-landing-aqua-dark',
     dashboardTitle: 'Dashboard Repartidor',
     dashboardStats: [
@@ -124,7 +140,8 @@ export const platformRoles: PlatformRole[] = [
     label: 'Administrador',
     shortLabel: 'Admin',
     tagline: 'Supervisa usuarios, operaciones, finanzas y todo el ecosistema PetHub.',
-    gradient: 'from-gray-700 to-gray-900',
+    gradient: 'bg-gray-800',
+    colorText: 'text-white',
     accent: 'text-gray-700',
     dashboardTitle: 'Panel Admin',
     dashboardStats: [
@@ -136,7 +153,7 @@ export const platformRoles: PlatformRole[] = [
       { icon: Users, title: 'Usuarios & Roles', description: 'Gestión de clientes, proveedores, refugios y repartidores.', tag: 'Gestión' },
       { icon: ShoppingBag, title: 'Productos & Servicios', description: 'Moderación del catálogo global del marketplace.', tag: 'Marketplace' },
       { icon: Package, title: 'Órdenes & Delivery', description: 'Supervisión de pedidos y operaciones logísticas.', tag: 'Operaciones' },
-      { icon: Heart, title: 'Adopciones & Cría', description: 'Monitoreo de solicitudes y matches de reproducción.', tag: 'Comunidad' },
+      { icon: Heart, title: 'Adopciones y Parejas', description: 'Monitoreo de solicitudes y matches de parejas.', tag: 'Comunidad' },
       { icon: Activity, title: 'Registros de Salud', description: 'Veterinaria, nutrición y ejercicio a nivel plataforma.', tag: 'Datos' },
       { icon: DollarSign, title: 'Análisis Financiero', description: 'Costos, ingresos y reportes operacionales.', tag: 'Finanzas' },
       { icon: Shield, title: 'Seguridad & RLS', description: 'Políticas, verificaciones y control de acceso.', tag: 'Sistema' },
@@ -173,7 +190,7 @@ export const howItWorksSteps = [
   {
     step: '01',
     title: 'Regístrate según tu rol',
-    description: 'Dueño, proveedor o refugio — cada perfil accede a su experiencia especializada.',
+    description: 'Cliente, proveedor o refugio — cada perfil accede a su experiencia especializada.',
     icon: Users,
   },
   {
@@ -206,11 +223,11 @@ export const marqueeModules = publicPlatformRoles.flatMap((role) =>
 );
 
 export const floatingNotifications = [
-  { icon: Utensils, text: 'Comida programada — Max 18:30', color: 'from-landing-mango to-landing-tropical', delay: '0s' },
-  { icon: Stethoscope, text: 'Cita vet confirmada mañana', color: 'from-landing-aqua to-landing-mint', delay: '1s' },
-  { icon: Heart, text: 'Match de adopción — Luna 🐕', color: 'from-landing-mint to-landing-aqua', delay: '2s' },
-  { icon: ShoppingBag, text: 'Pedido #2847 en camino', color: 'from-landing-aqua to-landing-mango', delay: '0.5s' },
-  { icon: Bell, text: 'Vacuna pendiente — Bella', color: 'from-landing-tropical to-landing-mango', delay: '1.5s' },
+  { icon: Utensils, text: 'Comida programada — Max 18:30', color: 'bg-landing-mango', delay: '0s' },
+  { icon: Stethoscope, text: 'Cita vet confirmada mañana', color: 'bg-landing-aqua', delay: '1s' },
+  { icon: Heart, text: 'Match de adopción — Luna 🐕', color: 'bg-landing-mint', delay: '2s' },
+  { icon: ShoppingBag, text: 'Pedido #2847 en camino', color: 'bg-landing-tropical', delay: '0.5s' },
+  { icon: Bell, text: 'Vacuna pendiente — Bella', color: 'bg-landing-mango', delay: '1.5s' },
 ];
 
 export interface PlatformHighlightCategory {
@@ -222,7 +239,7 @@ export interface PlatformHighlightCategory {
 export const platformHighlightCategories: PlatformHighlightCategory[] = [
   {
     title: 'Salud & Bienestar',
-    gradient: 'from-landing-aqua to-landing-mint',
+    gradient: 'bg-landing-aqua',
     items: [
       { icon: Stethoscope, title: 'Veterinaria', description: 'Historial médico, vacunas y citas' },
       { icon: Utensils, title: 'Nutrición', description: 'Horarios automáticos y Meal Journal' },
@@ -231,7 +248,7 @@ export const platformHighlightCategories: PlatformHighlightCategory[] = [
   },
   {
     title: 'Marketplace & Comercio',
-    gradient: 'from-landing-mango to-landing-tropical',
+    gradient: 'bg-landing-mango',
     items: [
       { icon: ShoppingBag, title: 'Tienda', description: 'Productos, servicios y checkout integrado' },
       { icon: Package, title: 'Mis Órdenes', description: 'Seguimiento de compras de punta a punta' },
@@ -240,16 +257,16 @@ export const platformHighlightCategories: PlatformHighlightCategory[] = [
   },
   {
     title: 'Comunidad & Adopción',
-    gradient: 'from-landing-mint to-landing-aqua',
+    gradient: 'bg-landing-mint',
     items: [
       { icon: Heart, title: 'Adopción', description: 'Swipe, solicitudes y chat con refugios' },
-      { icon: Users, title: 'Parejas / Cría', description: 'Matching y coordinación' },
+      { icon: HeartHandshake, title: 'Parejas', description: 'Matching y coordinación' },
       { icon: MapPin, title: 'Mascotas Perdidas', description: 'Reportes con mapa interactivo' },
     ],
   },
   {
     title: 'Para tu negocio',
-    gradient: 'from-landing-aqua to-landing-mango',
+    gradient: 'bg-landing-tropical',
     items: [
       { icon: Store, title: 'Catálogo Proveedor', description: 'Productos, servicios y reservas' },
       { icon: Home, title: 'Panel Refugio', description: 'Publica adopciones y gestiona solicitudes' },

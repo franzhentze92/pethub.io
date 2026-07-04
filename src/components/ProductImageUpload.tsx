@@ -6,6 +6,7 @@ import { Card, CardContent } from './ui/card';
 import { Image as ImageIcon, Upload, X, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface ProductImageUploadProps {
   currentImageUrl?: string;
@@ -30,13 +31,13 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
     
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona solo archivos de imagen.');
+      toast.warning('Por favor selecciona solo archivos de imagen.');
       return;
     }
 
     // Validate file size (max 50MB - Supabase default limit)
     if (file.size > 50 * 1024 * 1024) {
-      alert('El archivo es demasiado grande. El tamaño máximo es 50MB.');
+      toast.warning('El archivo es demasiado grande. El tamaño máximo es 50MB.');
       return;
     }
 
@@ -74,7 +75,7 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
         type: file.type,
         sizeInMB: (file.size / (1024 * 1024)).toFixed(2)
       });
-      alert('Error al subir la imagen. Inténtalo de nuevo.');
+      toast.error('Error al subir la imagen. Inténtalo de nuevo.');
     } finally {
       setUploading(false);
     }

@@ -374,7 +374,7 @@ function NutrientCompareRow({
           <span className="w-16 text-gray-500 shrink-0">Objetivo</span>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-landing-mango to-landing-tropical"
+              className="h-full rounded-full bg-landing-mango"
               style={{ width: `${expectedWidth}%` }}
             />
           </div>
@@ -386,7 +386,7 @@ function NutrientCompareRow({
           <span className="w-16 text-gray-500 shrink-0">Real</span>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint"
+              className="h-full rounded-full bg-landing-mint"
               style={{ width: `${actualWidth}%` }}
             />
           </div>

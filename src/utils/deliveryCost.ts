@@ -100,6 +100,41 @@ export async function geocodeAddress(address: string, city: string): Promise<{ l
   }
 }
 
+/** Geocode a freeform address string (e.g. full pickup label) */
+export async function geocodeFreeformAddress(query: string): Promise<{ lat: number; lon: number } | null> {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}&limit=1`,
+      { headers: { 'User-Agent': 'PetHub-SaaS/1.0' } },
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.length > 0) {
+      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Reverse geocode coordinates to a short address label */
+export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16`,
+      { headers: { 'User-Agent': 'PetHub-SaaS/1.0' } },
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.display_name?.split(',').slice(0, 3).join(', ') ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Calculate delivery cost based on distance
  * @param distanceKm Distance in kilometers

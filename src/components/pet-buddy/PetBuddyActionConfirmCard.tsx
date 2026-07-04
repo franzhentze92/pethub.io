@@ -21,9 +21,9 @@ export const PetBuddyActionConfirmCard: React.FC<PetBuddyActionConfirmCardProps>
   if (action.status && action.status !== 'pending') return null;
 
   return (
-    <div className="mt-2.5 rounded-xl border border-landing-aqua/25 bg-white overflow-hidden shadow-sm">
-      <div className="px-3 py-2 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 border-b border-landing-aqua/15">
-        <p className="text-xs font-semibold text-landing-aqua-dark">{action.title}</p>
+    <div className="mt-2.5 rounded-xl border border-landing-mango/25 bg-white overflow-hidden shadow-sm">
+      <div className="px-3 py-2 bg-landing-tropical/25 border-b border-landing-tropical/35">
+        <p className="text-xs font-semibold text-landing-mango-dark">{action.title}</p>
       </div>
       <ul className="px-3 py-2 space-y-1.5 text-xs">
         {action.fields.map((field) => (
@@ -63,8 +63,8 @@ export const PetBuddyActionConfirmCard: React.FC<PetBuddyActionConfirmCardProps>
           onClick={onConfirm}
           disabled={loading}
           className={cn(
-            'flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold text-white',
-            'bg-gradient-to-r from-landing-aqua to-landing-mint hover:opacity-90 transition-opacity disabled:opacity-50'
+            'flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold text-gray-900',
+            'bg-landing-mint hover:bg-landing-mint-dark transition-colors disabled:opacity-50'
           )}
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}

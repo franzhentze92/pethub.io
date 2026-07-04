@@ -17,7 +17,7 @@ import {
 import { formatSpeciesLabel } from '@/utils/petLabels';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { landingBtnPrimary, solidIconBgAt } from '@/lib/landingTheme';
 import { cn } from '@/lib/utils';
 
 interface Pet {
@@ -141,8 +141,8 @@ const CareHub: React.FC = () => {
             ) : (
               <div
                 className={cn(
-                  'w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white text-2xl border-4 border-white shadow-lg shrink-0 bg-gradient-to-r',
-                  landingFeatureGradients[0],
+                  'w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-2xl border-4 border-white shadow-lg shrink-0',
+                  solidIconBgAt(0),
                 )}
               >
                 {getPetEmoji(selectedPet.species)}
@@ -165,15 +165,15 @@ const CareHub: React.FC = () => {
           <div className="space-y-3">
             {careActions.map((action) => {
               const Icon = action.icon;
-              const gradient = landingFeatureGradients[action.gradientIndex % landingFeatureGradients.length];
+              const solidBg = solidIconBgAt(action.gradientIndex);
               return (
                 <button
                   key={action.id}
                   type="button"
                   onClick={() => navigate(action.path)}
                   className={cn(
-                    'w-full flex items-center gap-4 p-4 rounded-2xl text-white text-left shadow-md hover:shadow-lg active:scale-[0.99] transition-all duration-200 bg-gradient-to-r min-h-[72px]',
-                    gradient,
+                    'w-full flex items-center gap-4 p-4 rounded-2xl text-left shadow-md hover:shadow-lg active:scale-[0.99] transition-all duration-200 min-h-[72px]',
+                    solidBg,
                   )}
                 >
                   <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0">

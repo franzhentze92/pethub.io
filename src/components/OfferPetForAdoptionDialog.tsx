@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { MobileFormDialog, MobileFormActions } from '@/components/mobile/MobileFormDialog';
 import { MobileSectionCard } from '@/components/mobile/MobileUi';
 import { PetPhotoCarousel } from '@/components/mobile/PetPhotoCarousel';
-import { landingBtnPrimary } from '@/lib/landingTheme';
 import { formatSpeciesLabel } from '@/utils/petLabels';
 import { type PetImageRow } from '@/utils/petImages';
 import { useOfferPetForAdoption } from '@/hooks/useAdoption';
@@ -177,6 +176,7 @@ const OfferPetForAdoptionDialog: React.FC<OfferPetForAdoptionDialogProps> = ({
       title={stepTitle}
       description={stepDescription}
       footer={renderFooter()}
+      accent="mango"
     >
       <div className="flex items-center gap-2 mb-4">
         {STEPS.map((s, i) => (
@@ -184,13 +184,13 @@ const OfferPetForAdoptionDialog: React.FC<OfferPetForAdoptionDialogProps> = ({
             <div
               className={cn(
                 'w-full h-1.5 rounded-full transition-colors',
-                i <= stepIndex ? 'bg-gradient-to-r from-landing-aqua to-landing-mint' : 'bg-gray-200'
+                i <= stepIndex ? 'bg-landing-mango' : 'bg-gray-200'
               )}
             />
             <span
               className={cn(
                 'text-[10px] font-medium',
-                i === stepIndex ? 'text-landing-aqua-dark' : 'text-gray-400'
+                i === stepIndex ? 'text-landing-mango-dark' : 'text-gray-400'
               )}
             >
               {s.label}
@@ -239,15 +239,15 @@ const OfferPetForAdoptionDialog: React.FC<OfferPetForAdoptionDialogProps> = ({
                     aspectClassName="aspect-[16/9]"
                     showCounter
                     fallback={
-                      <div className="w-full h-full bg-gradient-to-br from-landing-aqua/20 to-landing-mint/20 flex items-center justify-center">
-                        <PawPrint className="w-10 h-10 text-landing-aqua-dark" />
+                      <div className="w-full h-full bg-landing-mango/10 flex items-center justify-center">
+                        <PawPrint className="w-10 h-10 text-landing-mango-dark" />
                       </div>
                     }
                   />
                   <div className="p-3 space-y-1">
                     <h4 className="font-bold text-gray-900">{pet.name}</h4>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                      <Badge variant="outline" className="text-xs border-landing-aqua/20 text-landing-aqua-dark">
+                      <Badge variant="outline" className="text-xs border-landing-mango/20 text-landing-mango-dark">
                         {formatSpeciesLabel(pet.species)}
                       </Badge>
                       {pet.breed && <span className="text-xs">{pet.breed}</span>}
@@ -263,7 +263,7 @@ const OfferPetForAdoptionDialog: React.FC<OfferPetForAdoptionDialogProps> = ({
 
       {step === 'details' && selectedPet && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-landing-aqua/5 border border-landing-aqua/15">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-landing-mango/5 border border-landing-mango/15">
             <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
               <PetPhotoCarousel
                 pet={selectedPet}

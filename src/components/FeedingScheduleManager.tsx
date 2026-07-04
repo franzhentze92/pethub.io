@@ -50,7 +50,7 @@ import PageHeader from './PageHeader';
 import { DashboardShell } from './dashboard/DashboardShell';
 import { MobileTabStrip, type MobileTabItem } from './mobile/MobileTabStrip';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary, landingFeatureGradients } from '@/lib/landingTheme';
+import { landingBtnSolidMint, solidIconBgAt } from '@/lib/landingTheme';
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 import {
   NutritionFormSection,
@@ -868,7 +868,7 @@ const FeedingScheduleManager: React.FC = () => {
 
   if (initialLoading) {
     return (
-      <DashboardShell>
+      <DashboardShell variant="plain">
         <PageLoader variant="inline" message="Cargando nutrición…" />
       </DashboardShell>
     );
@@ -876,8 +876,10 @@ const FeedingScheduleManager: React.FC = () => {
 
   return (
     <>
-    <DashboardShell>
+    <DashboardShell variant="plain">
       <PageHeader
+        variant="solid"
+        accent="mint"
         title="Nutrición"
         subtitle="Horarios automáticos, registro manual y análisis nutricional de tus mascotas"
       >
@@ -896,13 +898,15 @@ const FeedingScheduleManager: React.FC = () => {
         tabs={nutritionTabs}
         activeTab={activeTab}
         onChange={setActiveTab}
+        variant="solid"
+        accent="mint"
         rowSizes={[3, 2]}
       />
 
       {activeTab === 'schedules' && (
         <div className="space-y-4">
             {schedules.length === 0 ? (
-              <MobileSectionCard>
+              <MobileSectionCard variant="plain">
                 <div className="text-center py-10 px-4">
                   <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <h3 className="font-semibold text-gray-800 mb-1">No hay horarios configurados</h3>
@@ -910,7 +914,7 @@ const FeedingScheduleManager: React.FC = () => {
                     Crea un horario automático o registra comidas manualmente en las otras pestañas.
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Button className={landingBtnPrimary} onClick={() => setActiveTab('create')}>
+                    <Button className={landingBtnSolidMint} onClick={() => setActiveTab('create')}>
                       <Plus className="w-4 h-4 mr-2" />
                       Crear horario
                     </Button>
@@ -923,12 +927,12 @@ const FeedingScheduleManager: React.FC = () => {
             ) : (
               schedules.map((schedule, index) => {
                 const petName = pets.find((p) => p.id === schedule.pet_id)?.name || 'Desconocida';
-                const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+                const iconBg = solidIconBgAt(index);
                 return (
-                  <MobileSectionCard key={schedule.id} className="p-4">
+                  <MobileSectionCard key={schedule.id} variant="plain" className="p-4">
                     <div className="flex items-start gap-3">
                       <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-white shadow-sm`}
+                        className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm', iconBg)}
                       >
                         {schedule.is_active ? (
                           <Play className="w-5 h-5" />
@@ -996,22 +1000,22 @@ const FeedingScheduleManager: React.FC = () => {
       {activeTab === 'create' && (
         <div className="space-y-4">
           {pets.length === 0 ? (
-            <MobileSectionCard>
+            <MobileSectionCard variant="plain">
               <div className="text-center py-10 px-4">
                 <PawPrint className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p className="font-medium text-gray-800">Primero agrega una mascota</p>
                 <p className="text-sm text-gray-500 mt-1 mb-4">Necesitas una mascota para crear horarios de alimentación.</p>
-                <Button className={landingBtnPrimary} onClick={() => navigate('/pet-creation')}>
+                <Button className={landingBtnSolidMint} onClick={() => navigate('/pet-creation')}>
                   <Plus className="w-4 h-4 mr-2" />
                   Registrar mascota
                 </Button>
               </div>
             </MobileSectionCard>
           ) : (
-          <MobileSectionCard className="overflow-hidden">
-            <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/5">
+          <MobileSectionCard variant="plain" className="overflow-hidden">
+            <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-gray-100 bg-landing-mint/10">
               <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-                <Settings className="w-5 h-5 text-landing-aqua-dark" />
+                <Settings className="w-5 h-5 text-landing-mint-dark" />
                 {editingSchedule ? 'Editar horario' : 'Nuevo horario'}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
@@ -1261,7 +1265,7 @@ const FeedingScheduleManager: React.FC = () => {
                   onClick={saveSchedule}
                   disabled={loading}
                   data-blueprint-guided="create-feeding-schedule"
-                  className={cn('flex-1 min-h-[48px]', landingBtnPrimary)}
+                  className={cn('flex-1 min-h-[48px]', landingBtnSolidMint)}
                 >
                   <Save className="w-4 h-4 mr-2" />
                   {editingSchedule ? 'Actualizar horario' : 'Crear horario'}
@@ -1280,7 +1284,7 @@ const FeedingScheduleManager: React.FC = () => {
 
       {activeTab === 'meals' && (
         <div className="space-y-4">
-          <MobileSectionCard className="overflow-hidden">
+          <MobileSectionCard variant="plain" className="overflow-hidden">
             <div className="px-4 pt-4 pb-3 border-b border-gray-100">
               <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
                 <Utensils className="w-5 h-5 text-landing-aqua-dark" />
@@ -1446,7 +1450,7 @@ const FeedingScheduleManager: React.FC = () => {
                     }
                   }}
                   disabled={loadingMeals || schedules.length === 0}
-                  className={cn('min-h-[44px] flex-1 sm:flex-none', landingBtnPrimary)}
+                  className={cn('min-h-[44px] flex-1 sm:flex-none', landingBtnSolidMint)}
                   title={
                     schedules.length === 0
                       ? 'No hay horarios activos. Crea un horario primero.'
@@ -1528,7 +1532,7 @@ const FeedingScheduleManager: React.FC = () => {
                               <Button
                                 size="sm"
                                 onClick={() => requestCompleteMeal(meal)}
-                                className={cn('min-h-[40px]', landingBtnPrimary)}
+                                className={cn('min-h-[40px]', landingBtnSolidMint)}
                               >
                                 <CheckCircle className="w-4 h-4 mr-1" />
                                 Completar

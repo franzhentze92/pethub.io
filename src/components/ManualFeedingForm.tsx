@@ -3,12 +3,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { formatPetOptionLabel, formatSpeciesLabel } from '@/utils/petLabels';
 import { Input } from './ui/input';
+import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import { MobileSectionCard } from './mobile/MobileUi';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { landingBtnSolidMint } from '@/lib/landingTheme';
 import {
   NutritionFormSection,
   nutritionFieldClass,
@@ -168,7 +169,7 @@ const ManualFeedingForm: React.FC = () => {
   return (
     <>
     <MobileSectionCard className="overflow-hidden">
-      <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-landing-mango/10 to-landing-tropical/10">
+      <div className="px-4 sm:px-5 pt-5 pb-4 border-b border-gray-100 bg-landing-mint/10">
         <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
           <Utensils className="w-5 h-5 text-landing-mango-dark" />
           Registro manual
@@ -296,7 +297,7 @@ const ManualFeedingForm: React.FC = () => {
             <Button
               type="submit"
               disabled={loading}
-              className={cn('flex-1 min-h-[48px]', landingBtnPrimary)}
+              className={cn('flex-1 min-h-[48px]', landingBtnSolidMint)}
             >
               <Save className="w-4 h-4 mr-2" />
               {loading ? 'Registrando...' : 'Registrar alimentación'}

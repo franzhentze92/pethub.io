@@ -16,6 +16,15 @@ import { normalizeVoiceTranscript } from '@/ai/helpers/petNameFuzzy';
 import { buildEditPrompt } from '@/ai/actionConfirmation';
 import type { PetBuddyMessage } from '@/ai/types';
 
+const QUICK_PROMPT_CHIP_STYLES = [
+  'bg-landing-aqua/15 text-landing-aqua-dark border-landing-aqua/25 hover:bg-landing-aqua/25',
+  'bg-landing-mango/15 text-landing-mango-dark border-landing-mango/25 hover:bg-landing-mango/25',
+  'bg-landing-mint/15 text-landing-mint-dark border-landing-mint/25 hover:bg-landing-mint/25',
+  'bg-landing-tropical/30 text-landing-mango-dark border-landing-tropical/40 hover:bg-landing-tropical/40',
+] as const;
+
+const LOADING_DOT_COLORS = ['bg-landing-aqua', 'bg-landing-mango', 'bg-landing-mint'] as const;
+
 const SPEAK_RESPONSES_KEY = 'petBuddySpeakResponses';
 
 const CLIENT_QUICK_PROMPTS = [
@@ -415,7 +424,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
       <div
         className={cn(
           'fixed z-[90] flex flex-col overflow-hidden transition-all duration-300 ease-out',
-          'bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl',
+          'bg-white border border-gray-100 shadow-2xl',
           'rounded-2xl sm:rounded-3xl',
           isOpen
             ? 'opacity-100 scale-100 pointer-events-auto'
@@ -426,10 +435,10 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
           'w-[calc(100vw-2rem)] max-w-[380px] h-[min(70vh,520px)]'
         )}
       >
-        <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-landing-aqua via-landing-mint to-landing-mango text-white shrink-0">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-white/30">
+        <div className="flex items-center gap-3 px-4 py-3 bg-landing-aqua text-white shrink-0">
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white ring-2 ring-white/40">
             <img src={mascot.image} alt={mascot.name} className="h-full w-full object-cover" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-landing-mint border-2 border-white" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm leading-tight">{mascot.name}</p>
@@ -589,11 +598,11 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
           </div>
         ) : (
           sttSupported && (
-            <div className="shrink-0 px-3 py-2 border-b bg-landing-aqua/5 border-landing-aqua/15">
+            <div className="shrink-0 px-3 py-2 border-b bg-landing-tropical/20 border-landing-tropical/35">
               <button
                 type="button"
                 onClick={() => void startConversation()}
-                className="w-full flex items-center justify-center gap-2 text-sm font-medium text-landing-aqua-dark py-2 rounded-xl hover:bg-landing-aqua/10 transition-colors"
+                className="w-full flex items-center justify-center gap-2 text-sm font-medium text-landing-mango-dark py-2 rounded-xl bg-white/70 hover:bg-white transition-colors"
               >
                 <Mic className="w-4 h-4" />
                 Iniciar conversación por voz
@@ -606,7 +615,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
         )}
 
         {(speakResponses && !voiceMode) && ttsSupported && (
-          <div className="shrink-0 px-3 py-2 text-xs border-b bg-purple-50/50 text-purple-800 border-purple-100 flex items-center gap-2">
+          <div className="shrink-0 px-3 py-2 text-xs border-b bg-landing-mint/15 text-landing-mint-dark border-landing-mint/25 flex items-center gap-2">
             <Volume2 className="w-3.5 h-3.5 shrink-0" />
             Las respuestas se leen en voz alta
           </div>
@@ -622,8 +631,8 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
                 className={cn(
                   'max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
                   msg.role === 'user'
-                    ? 'bg-gradient-to-r from-landing-aqua to-landing-mint text-white rounded-br-md'
-                    : 'bg-gray-50 text-gray-700 border border-gray-100 rounded-bl-md'
+                    ? 'bg-landing-mango text-gray-900 rounded-br-md'
+                    : 'bg-white text-gray-700 border border-landing-tropical/25 rounded-bl-md'
                 )}
               >
                 {msg.role === 'assistant' ? renderMarkdownLite(msg.content) : msg.content}
@@ -642,7 +651,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
                   <Link
                     to={msg.actionLink.path}
                     onClick={() => setIsOpen(false)}
-                    className="mt-2 flex items-center gap-1 text-xs font-medium text-landing-aqua-dark hover:underline"
+                    className="mt-2 flex items-center gap-1 text-xs font-medium text-landing-mint-dark hover:underline"
                   >
                     {msg.actionLink.label}
                     <ExternalLink className="w-3 h-3" />
@@ -680,11 +689,11 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3 flex gap-1">
+              <div className="bg-white border border-landing-mint/20 rounded-2xl rounded-bl-md px-4 py-3 flex gap-1">
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
-                    className="w-2 h-2 rounded-full bg-landing-aqua animate-bounce"
+                    className={cn('w-2 h-2 rounded-full animate-bounce', LOADING_DOT_COLORS[i])}
                     style={{ animationDelay: `${i * 0.15}s` }}
                   />
                 ))}
@@ -695,14 +704,17 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
 
         {messages.length === 0 && !isLoading && (
           <div className="px-3 pb-2 flex flex-wrap gap-1.5 shrink-0">
-            {quickPrompts.map((prompt) => (
+            {quickPrompts.map((prompt, index) => (
               <button
                 key={prompt}
                 type="button"
                 onClick={() => {
                   void sendMessage(prompt, (voiceMode || speakResponses) ? { voiceMode: true } : undefined);
                 }}
-                className="text-[11px] px-2.5 py-1 rounded-full bg-landing-aqua/10 text-landing-aqua-dark border border-landing-aqua/20 hover:bg-landing-aqua/20 transition-colors"
+                className={cn(
+                  'text-[11px] px-2.5 py-1 rounded-full border transition-colors',
+                  QUICK_PROMPT_CHIP_STYLES[index % QUICK_PROMPT_CHIP_STYLES.length],
+                )}
               >
                 {prompt}
               </button>
@@ -712,7 +724,7 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
 
         <form
           onSubmit={handleSubmit}
-          className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-gray-100 bg-white/80"
+          className="shrink-0 flex items-center gap-2 px-3 py-3 border-t border-landing-aqua/15 bg-white"
           lang="es"
         >
           <input
@@ -729,12 +741,12 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
             onChange={(e) => setInput(e.target.value)}
             placeholder={inputPlaceholder}
             disabled={isLoading}
-            className="flex-1 min-w-0 rounded-full border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-landing-aqua/40 focus:border-landing-aqua/40 disabled:opacity-60"
+            className="flex-1 min-w-0 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-landing-mango/40 focus:border-landing-mango/40 disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading || isListening}
-            className="shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-landing-aqua to-landing-mint text-white flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition-all disabled:opacity-40"
+            className="shrink-0 w-10 h-10 rounded-full bg-landing-mint text-gray-900 flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition-all disabled:opacity-40"
             aria-label="Enviar"
           >
             <Send className="w-4 h-4" />
@@ -755,8 +767,8 @@ export const PetBuddyWidget: React.FC<{ hideFloatingTrigger?: boolean; centeredP
         )}
       >
         {isOpen ? (
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-landing-aqua via-landing-mint to-landing-mango shadow-lg hover:shadow-xl flex items-center justify-center">
-            <X className="w-5 h-5 text-white" />
+          <div className="w-12 h-12 rounded-full bg-landing-mango text-gray-900 shadow-lg hover:shadow-xl flex items-center justify-center">
+            <X className="w-5 h-5" />
           </div>
         ) : (
           <div className="relative w-full h-full bg-transparent animate-[petBuddyPulse_3s_ease-in-out_infinite]">

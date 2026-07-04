@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { landingBtnPrimary } from '@/lib/landingTheme';
+import { useProviderDashboardTheme } from '@/contexts/ProviderDashboardThemeContext';
 import { useBlueprintGuidedTourOptional } from '@/contexts/BlueprintGuidedTourContext';
 import {
   AvailabilityScheduleEditor,
@@ -66,6 +66,7 @@ export const ProviderAvailabilitySettings: React.FC<ProviderAvailabilitySettings
   saveProviderTimeSlots,
 }) => {
   const guidedTour = useBlueprintGuidedTourOptional();
+  const { btn, ui } = useProviderDashboardTheme();
   const [availability, setAvailability] = useState<ScheduleAvailabilityRow[]>([]);
   const [timeSlots, setTimeSlots] = useState<ScheduleTimeSlotRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,16 +124,16 @@ export const ProviderAvailabilitySettings: React.FC<ProviderAvailabilitySettings
   };
 
   return (
-    <Card className="rounded-2xl bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg">
+    <Card className={cn('rounded-2xl bg-white shadow-lg border', ui.borderLight)}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-landing-aqua-dark">
+        <CardTitle className={cn('flex items-center gap-2', ui.text)}>
           <Calendar className="w-5 h-5" />
           Horario del Negocio
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-xl border border-landing-aqua/20 bg-gradient-to-r from-landing-aqua/10 to-landing-mint/10 p-4">
-          <div className="flex items-start gap-2 text-landing-aqua-dark">
+        <div className={cn('rounded-xl border p-4', ui.border, ui.bgLight)}>
+          <div className={cn('flex items-start gap-2', ui.text)}>
             <Info className="w-5 h-5 shrink-0 mt-0.5" />
             <div className="text-sm space-y-1">
               <p className="font-medium">Configura tu horario una sola vez</p>
@@ -158,12 +159,12 @@ export const ProviderAvailabilitySettings: React.FC<ProviderAvailabilitySettings
           />
         )}
 
-        <div className="flex justify-end pt-2 border-t border-landing-aqua/10">
+        <div className={cn('flex justify-end pt-2 border-t', ui.borderLight)}>
           <Button
             data-blueprint-guided="save-provider-availability"
             onClick={handleSave}
             disabled={!providerId || saving || loading}
-            className={cn(landingBtnPrimary, 'border-0')}
+            className={cn(btn, 'border-0')}
           >
             {saving ? (
               <>

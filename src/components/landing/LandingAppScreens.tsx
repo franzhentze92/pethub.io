@@ -43,24 +43,26 @@ export const MarketplaceLandingScreen: React.FC = () => (
     <PageHeader
       title="Marketplace"
       subtitle="Encuentra servicios y productos para tu mascota"
-      gradient="from-landing-aqua via-landing-mint to-landing-mango"
+      accent="aqua"
+      variant="solid"
     />
     <MobileTabStrip tabs={marketplaceTabs} activeTab="products" onChange={() => {}} />
     <div className="grid grid-cols-4 gap-2">
       {MARKETPLACE_PRODUCT_CATEGORIES.map((category, index) => {
         const active = category.id === 'all';
         const gradient = landingFeatureGradients[index % landingFeatureGradients.length];
+        const gradientText = index % 2 === 0 ? 'text-white' : 'text-gray-900';
         return (
           <div
             key={category.id}
             className={cn(
               'flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 min-h-[44px]',
               active
-                ? `bg-gradient-to-r ${gradient} text-white shadow-md`
+                ? `${gradient} ${gradientText} shadow-md`
                 : 'bg-white/80 backdrop-blur-sm border border-white/60 text-gray-600 shadow-sm',
             )}
           >
-            <category.icon size={18} className={active ? 'text-white' : 'text-landing-aqua-dark'} />
+            <category.icon size={18} className={active ? gradientText : 'text-landing-aqua-dark'} />
             <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">{category.label}</span>
           </div>
         );
@@ -94,7 +96,7 @@ export const PetJourneyLandingScreen: React.FC = () => {
           <div className="flex items-center gap-4">
             <div
               className={cn(
-                'w-14 h-14 rounded-full flex items-center justify-center border-4 border-white shadow-lg shrink-0 bg-gradient-to-r',
+                'w-14 h-14 rounded-full flex items-center justify-center border-4 border-white shadow-lg shrink-0',
                 landingFeatureGradients[0],
               )}
             >
@@ -154,7 +156,8 @@ export const ProviderLandingScreen: React.FC = () => (
     <PageHeader
       title="Dashboard Proveedor"
       subtitle="Configura tu perfil para comenzar"
-      gradient="from-landing-aqua via-landing-mint to-landing-mango"
+      accent="aqua"
+      variant="solid"
     />
     <MobileTabStrip tabs={providerTabs} activeTab="dashboard" onChange={() => {}} />
     <MobileSectionCard className="p-8 text-center">

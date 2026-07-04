@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { landingFeatureGradients } from '@/lib/landingTheme';
+import { plainPageAccentTabActive } from '@/lib/landingTheme';
 
 interface NutritionFormSectionProps {
   title: string;
@@ -56,8 +56,8 @@ export function WeekDayPills({ days, selected, onToggle }: WeekDayPillsProps) {
               className={cn(
                 'min-h-[44px] min-w-[2.75rem] flex-1 max-w-[calc(25%-0.375rem)] rounded-xl text-xs font-semibold transition-all active:scale-95',
                 active
-                  ? `bg-gradient-to-r ${landingFeatureGradients[0]} text-white shadow-sm`
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-landing-aqua/40',
+                  ? plainPageAccentTabActive.mint
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-landing-mint/40 hover:text-landing-mint-dark',
               )}
               aria-pressed={active}
             >

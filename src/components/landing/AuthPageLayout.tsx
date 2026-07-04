@@ -43,7 +43,7 @@ export const AuthPageLayout: React.FC<AuthPageLayoutProps> = ({
       }`}>
         <LandingAmbientBackground variant="hero" />
         <LandingPetDecorations preset="hero" />
-        <div className="absolute inset-0 bg-gradient-to-br from-landing-aqua/95 via-landing-mint/90 to-landing-mango/95" />
+        <div className="absolute inset-0 bg-landing-aqua" />
         <div className="absolute inset-0 bg-black/10" />
 
         <div className="relative z-10 p-5 xl:p-8 flex flex-col h-full min-h-0">
@@ -105,7 +105,7 @@ export const AuthPageLayout: React.FC<AuthPageLayoutProps> = ({
         <LandingPetDecorations preset="section" className="opacity-10 pointer-events-none hidden lg:block" />
 
         {/* Mobile top bar */}
-        <div className="lg:hidden shrink-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-landing-aqua to-landing-mango">
+        <div className="lg:hidden shrink-0 flex items-center justify-between px-4 py-3 bg-landing-aqua">
           <Link to={backTo} className="inline-flex items-center gap-1.5 text-white text-xs">
             <ArrowLeft className="w-3.5 h-3.5" />
             {backLabel}

@@ -17,20 +17,21 @@ export interface FaqCategory {
   label: string;
   icon: LucideIcon;
   gradient: string;
+  colorText: string;
   description: string;
 }
 
 export const faqCategories: FaqCategory[] = [
-  { id: 'all', label: 'Todas', icon: HelpCircle, gradient: 'from-landing-aqua to-landing-mango', description: 'Todas las preguntas' },
-  { id: 'general', label: 'General', icon: PawPrint, gradient: 'from-landing-aqua to-landing-mint', description: 'Qué es PetHub y cómo empezar' },
-  { id: 'cuenta', label: 'Cuenta & Roles', icon: User, gradient: 'from-landing-mint to-landing-aqua', description: 'Registro, perfiles y tipos de usuario' },
-  { id: 'cuidado', label: 'Cuidado & Salud', icon: Stethoscope, gradient: 'from-landing-mango to-landing-tropical', description: 'Mascotas, ejercicio, nutrición y veterinaria' },
-  { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, gradient: 'from-landing-mango to-landing-aqua', description: 'Compras, pagos y órdenes' },
-  { id: 'comunidad', label: 'Comunidad', icon: Heart, gradient: 'from-landing-mango to-landing-tropical', description: 'Adopción, cría y mascotas perdidas' },
-  { id: 'negocios', label: 'Proveedores', icon: Store, gradient: 'from-landing-aqua to-landing-mango', description: 'Vender productos y servicios' },
-  { id: 'refugios', label: 'Refugios', icon: Home, gradient: 'from-landing-mint to-landing-aqua', description: 'Gestión de adopciones' },
-  { id: 'seguridad', label: 'Seguridad', icon: Shield, gradient: 'from-gray-600 to-gray-800', description: 'Privacidad y protección de datos' },
-  { id: 'soporte', label: 'Soporte', icon: MessageCircle, gradient: 'from-landing-aqua to-landing-mango', description: 'Ayuda y contacto' },
+  { id: 'all', label: 'Todas', icon: HelpCircle, gradient: 'bg-landing-aqua', colorText: 'text-white', description: 'Todas las preguntas' },
+  { id: 'general', label: 'General', icon: PawPrint, gradient: 'bg-landing-aqua', colorText: 'text-white', description: 'Qué es PetHub y cómo empezar' },
+  { id: 'cuenta', label: 'Cuenta & Roles', icon: User, gradient: 'bg-landing-mint', colorText: 'text-gray-900', description: 'Registro, perfiles y tipos de usuario' },
+  { id: 'cuidado', label: 'Cuidado & Salud', icon: Stethoscope, gradient: 'bg-landing-mango', colorText: 'text-gray-900', description: 'Mascotas, ejercicio, nutrición y veterinaria' },
+  { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, gradient: 'bg-landing-tropical', colorText: 'text-gray-900', description: 'Compras, pagos y órdenes' },
+  { id: 'comunidad', label: 'Comunidad', icon: Heart, gradient: 'bg-landing-mango', colorText: 'text-gray-900', description: 'Adopción, parejas y mascotas perdidas' },
+  { id: 'negocios', label: 'Proveedores', icon: Store, gradient: 'bg-landing-aqua', colorText: 'text-white', description: 'Vender productos y servicios' },
+  { id: 'refugios', label: 'Refugios', icon: Home, gradient: 'bg-landing-mint', colorText: 'text-gray-900', description: 'Gestión de adopciones' },
+  { id: 'seguridad', label: 'Seguridad', icon: Shield, gradient: 'bg-gray-700', colorText: 'text-white', description: 'Privacidad y protección de datos' },
+  { id: 'soporte', label: 'Soporte', icon: MessageCircle, gradient: 'bg-landing-tropical', colorText: 'text-gray-900', description: 'Ayuda y contacto' },
 ];
 
 export const faqItems: FaqItem[] = [
@@ -40,14 +41,14 @@ export const faqItems: FaqItem[] = [
     category: 'general',
     icon: PawPrint,
     question: '¿Qué es PetHub?',
-    answer: 'PetHub es una plataforma pet-tech latinoamericana que conecta dueños de mascotas, proveedores y refugios en un ecosistema integrado. Permite gestionar la salud, nutrición y actividad de tus mascotas, comprar productos y servicios, adoptar y mucho más — todo desde una experiencia especializada según tu perfil.',
+    answer: 'PetHub es una plataforma pet-tech latinoamericana que conecta clientes de mascotas, proveedores y refugios en un ecosistema integrado. Permite gestionar la salud, nutrición y actividad de tus mascotas, comprar productos y servicios, adoptar y mucho más — todo desde una experiencia especializada según tu perfil.',
   },
   {
     id: 'how-start',
     category: 'general',
     icon: PawPrint,
     question: '¿Cómo empiezo a usar PetHub?',
-    answer: 'Regístrate gratis en pethub.gt, elige tu perfil (dueño de mascota, proveedor o refugio) y completa tu registro. En menos de 2 minutos tendrás acceso a tu panel personalizado. No necesitas tarjeta de crédito para el plan gratuito.',
+    answer: 'Regístrate gratis en pethub.gt, elige tu perfil (cliente de mascota, proveedor o refugio) y completa tu registro. En menos de 2 minutos tendrás acceso a tu panel personalizado. No necesitas tarjeta de crédito para el plan gratuito.',
   },
   {
     id: 'free-plan',
@@ -70,21 +71,21 @@ export const faqItems: FaqItem[] = [
     category: 'cuenta',
     icon: Users,
     question: '¿Qué perfiles de usuario existen?',
-    answer: 'PetHub tiene 3 perfiles públicos: Dueño de mascota (cuidado, compras y adopción), Proveedor (vender productos y servicios) y Refugio/Albergue (gestionar adopciones). Cada perfil accede a una experiencia diferente dentro de la plataforma.',
+    answer: 'PetHub tiene 3 perfiles públicos: Cliente de mascota (cuidado, compras y adopción), Proveedor (vender productos y servicios) y Refugio/Albergue (gestionar adopciones). Cada perfil accede a una experiencia diferente dentro de la plataforma.',
   },
   {
     id: 'register-pet',
     category: 'cuenta',
     icon: User,
     question: '¿Cómo registro a mis mascotas?',
-    answer: 'Desde tu dashboard, ve a "Agregar Mascota" e ingresa nombre, especie, raza, edad, peso y fotos. Puedes registrar microchip, configurar disponibilidad para cría y acceder al Pet Room — la vista individual de cada mascota con todos sus módulos de salud.',
+    answer: 'Desde tu dashboard, ve a "Agregar Mascota" e ingresa nombre, especie, raza, edad, peso y fotos. Puedes registrar microchip, configurar disponibilidad para parejas y acceder al Pet Room — la vista individual de cada mascota con todos sus módulos de salud.',
   },
   {
     id: 'change-role',
     category: 'cuenta',
     icon: User,
     question: '¿Puedo cambiar mi rol después de registrarme?',
-    answer: 'Tu rol principal se define al registrarte. Si necesitas acceso como proveedor o refugio además de dueño, contacta a soporte para evaluar tu caso. Cada rol requiere verificación específica.',
+    answer: 'Tu rol principal se define al registrarte. Si necesitas acceso como proveedor o refugio además de cliente, contacta a soporte para evaluar tu caso. Cada rol requiere verificación específica.',
   },
   {
     id: 'settings',
@@ -166,8 +167,8 @@ export const faqItems: FaqItem[] = [
     id: 'breeding',
     category: 'comunidad',
     icon: Heart,
-    question: '¿Qué es el sistema de cría / parejas?',
-    answer: 'En Parejas puedes buscar mascotas compatibles para reproducción responsable. Crea un perfil de cría, explora matches, chatea con otros dueños y coordina encuentros de forma segura.',
+    question: '¿Qué es el sistema de Parejas?',
+    answer: 'En Parejas puedes buscar mascotas compatibles para emparejamiento responsable. Crea un perfil, explora matches, chatea con otros clientes y coordina encuentros de forma segura.',
   },
   {
     id: 'lost-pets',
@@ -181,7 +182,7 @@ export const faqItems: FaqItem[] = [
     category: 'comunidad',
     icon: Users,
     question: '¿Qué es el Social Hub?',
-    answer: 'Es la red social de PetHub donde dueños descubren mascotas, siguen perfiles, envían mensajes y comparten experiencias con la comunidad pet-friendly.',
+    answer: 'Es la red social de PetHub donde clientes descubren mascotas, siguen perfiles, envían mensajes y comparten experiencias con la comunidad pet-friendly.',
   },
 
   // Proveedores
@@ -250,7 +251,7 @@ export const faqItems: FaqItem[] = [
     category: 'seguridad',
     icon: Shield,
     question: '¿Quién puede ver la información de mis mascotas?',
-    answer: 'Por defecto, solo tú. Puedes compartir historial médico con veterinarios específicos. Los perfiles públicos (adopción, cría) muestran solo la información que tú o el refugio decidan publicar.',
+    answer: 'Por defecto, solo tú. Puedes compartir historial médico con veterinarios específicos. Los perfiles públicos (adopción, parejas) muestran solo la información que tú o el refugio decidan publicar.',
   },
   {
     id: 'delete-account',
