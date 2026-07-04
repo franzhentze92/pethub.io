@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import DeliverySidebar from '@/components/DeliverySidebar';
 import PageLoader from '@/components/PageLoader';
+import { sendOrderStatusEmail } from '@/utils/sendOrderStatusEmail';
 
 interface OrderItem {
   id: string;
@@ -365,6 +366,8 @@ const DeliveryOrdersPage: React.FC<DeliveryOrdersPageProps> = ({ asTab = false }
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       setUpdatingStatus(orderId);
+
+      const previousStatus = orders.find((o) => o.id === orderId)?.status;
       
       console.log('Delivery: Updating order status:', { orderId, newStatus });
       
@@ -428,6 +431,13 @@ const DeliveryOrdersPage: React.FC<DeliveryOrdersPageProps> = ({ asTab = false }
           description: statusDescriptions[newStatus] || 'El estado de la orden ha sido actualizado.',
           duration: 3000,
         }
+      );
+
+      void sendOrderStatusEmail(
+        (name, options) => supabase.functions.invoke(name, options),
+        orderId,
+        newStatus,
+        previousStatus,
       );
     } catch (error: any) {
       console.error('Error updating order status:', error);
@@ -561,7 +571,6 @@ const DeliveryOrdersPage: React.FC<DeliveryOrdersPageProps> = ({ asTab = false }
         <PageHeader 
           title="Órdenes de Entrega"
           subtitle="Gestiona y visualiza todas las órdenes para entrega"
-          gradient="from-blue-600 to-indigo-600"
           showNotifications={false}
         >
           <div className="flex items-center gap-3">

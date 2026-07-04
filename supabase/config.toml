@@ -1,13 +1,72 @@
 # Supabase local / deploy config
 # https://supabase.com/docs/guides/cli/config
+#
+# Rutas de plantillas Auth (quirk del CLI Supabase):
+#   [auth.email.template.*]       → relativas al repo root  → ./supabase/email-templates/...
+#   [auth.email.notification.*]   → relativas a supabase/   → ./email-templates/...
+
+# ─── Auth emails (acciones) ───
 
 [auth.email.template.confirmation]
-subject = "Confirma tu cuenta en PetHub 🐾"
+subject = "Bienvenido a PetHub — confirma tu cuenta 🐾"
 content_path = "./supabase/email-templates/confirm-signup.html"
 
 [auth.email.template.recovery]
 subject = "Restablece tu contraseña de PetHub"
 content_path = "./supabase/email-templates/recovery.html"
+
+[auth.email.template.magic_link]
+subject = "Tu enlace de acceso a PetHub"
+content_path = "./supabase/email-templates/magic-link.html"
+
+[auth.email.template.invite]
+subject = "Te invitaron a unirte a PetHub 🐾"
+content_path = "./supabase/email-templates/invite.html"
+
+[auth.email.template.email_change]
+subject = "Confirma tu nuevo correo en PetHub"
+content_path = "./supabase/email-templates/email-change.html"
+
+[auth.email.template.reauthentication]
+subject = "{{ .Token }} — tu código de verificación PetHub"
+content_path = "./supabase/email-templates/reauthentication.html"
+
+# ─── Notificaciones de seguridad ───
+
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Tu contraseña de PetHub fue actualizada"
+content_path = "./email-templates/password-changed-notification.html"
+
+[auth.email.notification.email_changed]
+enabled = true
+subject = "El correo de tu cuenta PetHub fue actualizado"
+content_path = "./email-templates/email-changed-notification.html"
+
+[auth.email.notification.phone_changed]
+enabled = true
+subject = "El teléfono de tu cuenta PetHub fue actualizado"
+content_path = "./email-templates/phone-changed-notification.html"
+
+[auth.email.notification.identity_linked]
+enabled = true
+subject = "Nuevo método de acceso vinculado a tu cuenta PetHub"
+content_path = "./email-templates/identity-linked-notification.html"
+
+[auth.email.notification.identity_unlinked]
+enabled = true
+subject = "Se eliminó un método de acceso de tu cuenta PetHub"
+content_path = "./email-templates/identity-unlinked-notification.html"
+
+[auth.email.notification.mfa_factor_enrolled]
+enabled = true
+subject = "Verificación en dos pasos activada en PetHub"
+content_path = "./email-templates/mfa-factor-enrolled-notification.html"
+
+[auth.email.notification.mfa_factor_unenrolled]
+enabled = true
+subject = "Verificación en dos pasos desactivada en PetHub"
+content_path = "./email-templates/mfa-factor-unenrolled-notification.html"
 
 [functions.pet-buddy]
 verify_jwt = true
@@ -27,5 +86,14 @@ verify_jwt = true
 [functions.send-order-confirmation]
 verify_jwt = true
 
+[functions.send-order-status-email]
+verify_jwt = true
+
 [functions.send-feeding-reminders]
+verify_jwt = true
+
+[functions.process-subscription-renewals]
+verify_jwt = false
+
+[functions.send-adoption-application-email]
 verify_jwt = true

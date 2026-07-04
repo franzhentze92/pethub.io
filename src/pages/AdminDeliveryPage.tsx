@@ -30,6 +30,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import AdminSidebar from '@/components/AdminSidebar';
+import { sendOrderStatusEmail } from '@/utils/sendOrderStatusEmail';
 
 interface OrderItem {
   id: string;
@@ -338,6 +339,8 @@ const AdminDeliveryPage: React.FC = () => {
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       setUpdatingStatus(orderId);
+
+      const previousStatus = orders.find((o) => o.id === orderId)?.status;
       
       console.log('Admin: Updating order status:', { orderId, newStatus });
       
@@ -398,6 +401,13 @@ const AdminDeliveryPage: React.FC = () => {
       toast.success(statusMessages[newStatus] || 'Estado actualizado', {
         description: statusDescriptions[newStatus] || 'El estado de la orden ha sido actualizado.'
       });
+
+      void sendOrderStatusEmail(
+        (name, options) => supabase.functions.invoke(name, options),
+        orderId,
+        newStatus,
+        previousStatus,
+      );
     } catch (error: any) {
       console.error('Error updating order status:', error);
       toast.error('Error al actualizar estado', {

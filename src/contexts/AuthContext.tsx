@@ -2,12 +2,21 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
+interface SignUpOptions {
+  fullName?: string
+  role?: string
+}
+
 interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string) => Promise<{ user: User | null; session: Session | null } | null>
+  signUp: (
+    email: string,
+    password: string,
+    options?: SignUpOptions,
+  ) => Promise<{ user: User | null; session: Session | null } | null>
   signOut: () => Promise<void>
 }
 
@@ -124,17 +133,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (error) throw error
   }
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, options?: SignUpOptions) => {
     console.log('AuthContext: Attempting sign up with email:', email)
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/login?type=signup`,
-        // Auto-confirm email in development (if enabled in Supabase settings)
-        // Note: This requires Supabase project to have "Enable email confirmations" disabled
-        // Or use the SQL trigger to auto-confirm emails
-      }
+        data: {
+          ...(options?.fullName ? { full_name: options.fullName } : {}),
+          ...(options?.role ? { role: options.role } : {}),
+        },
+      },
     })
     console.log('AuthContext: Sign up result:', { data, error })
     if (error) throw error

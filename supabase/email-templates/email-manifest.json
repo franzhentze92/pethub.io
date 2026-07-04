@@ -1,0 +1,155 @@
+{
+  "auth_templates": [
+    {
+      "id": "confirmation",
+      "subject_file": "confirm-signup-subject.txt",
+      "html_file": "confirm-signup.html",
+      "subject_key": "mailer_subjects_confirmation",
+      "content_key": "mailer_templates_confirmation_content",
+      "used_in_app": "Registro (/register) — signUp + confirmación de email",
+      "priority": "critical"
+    },
+    {
+      "id": "recovery",
+      "subject_file": "recovery-subject.txt",
+      "html_file": "recovery.html",
+      "subject_key": "mailer_subjects_recovery",
+      "content_key": "mailer_templates_recovery_content",
+      "used_in_app": "Olvidé contraseña (/forgot-password) → resetPasswordForEmail",
+      "priority": "critical"
+    },
+    {
+      "id": "magic_link",
+      "subject_file": "magic-link-subject.txt",
+      "html_file": "magic-link.html",
+      "subject_key": "mailer_subjects_magic_link",
+      "content_key": "mailer_templates_magic_link_content",
+      "used_in_app": "No activo aún — útil para login sin contraseña",
+      "priority": "optional"
+    },
+    {
+      "id": "invite",
+      "subject_file": "invite-subject.txt",
+      "html_file": "invite.html",
+      "subject_key": "mailer_subjects_invite",
+      "content_key": "mailer_templates_invite_content",
+      "used_in_app": "Invitación admin a proveedor/refugio (futuro)",
+      "priority": "recommended"
+    },
+    {
+      "id": "email_change",
+      "subject_file": "email-change-subject.txt",
+      "html_file": "email-change.html",
+      "subject_key": "mailer_subjects_email_change",
+      "content_key": "mailer_templates_email_change_content",
+      "used_in_app": "Cambio de correo en Ajustes (cuando se implemente)",
+      "priority": "recommended"
+    },
+    {
+      "id": "reauthentication",
+      "subject_file": "reauthentication-subject.txt",
+      "html_file": "reauthentication.html",
+      "subject_key": "mailer_subjects_reauthentication",
+      "content_key": "mailer_templates_reauthentication_content",
+      "used_in_app": "Acciones sensibles (cambio contraseña seguro, pagos)",
+      "priority": "recommended"
+    }
+  ],
+  "security_notifications": [
+    {
+      "id": "password_changed",
+      "subject_file": "password-changed-subject.txt",
+      "html_file": "password-changed-notification.html",
+      "enabled_key": "mailer_notifications_password_changed_enabled",
+      "subject_key": "mailer_subjects_password_changed_notification",
+      "content_key": "mailer_templates_password_changed_notification_content",
+      "used_in_app": "Tras /reset-password — updateUser password",
+      "priority": "critical"
+    },
+    {
+      "id": "email_changed",
+      "subject_file": "email-changed-subject.txt",
+      "html_file": "email-changed-notification.html",
+      "enabled_key": "mailer_notifications_email_changed_enabled",
+      "subject_key": "mailer_subjects_email_changed_notification",
+      "content_key": "mailer_templates_email_changed_notification_content",
+      "used_in_app": "Tras cambio de correo confirmado",
+      "priority": "recommended"
+    },
+    {
+      "id": "phone_changed",
+      "subject_file": "phone-changed-subject.txt",
+      "html_file": "phone-changed-notification.html",
+      "enabled_key": "mailer_notifications_phone_changed_enabled",
+      "subject_key": "mailer_subjects_phone_changed_notification",
+      "content_key": "mailer_templates_phone_changed_notification_content",
+      "used_in_app": "Teléfono en perfil / auth SMS (futuro)",
+      "priority": "optional"
+    },
+    {
+      "id": "identity_linked",
+      "subject_file": "identity-linked-subject.txt",
+      "html_file": "identity-linked-notification.html",
+      "enabled_key": "mailer_notifications_identity_linked_enabled",
+      "subject_key": "mailer_subjects_identity_linked_notification",
+      "content_key": "mailer_templates_identity_linked_notification_content",
+      "used_in_app": "OAuth Google/Apple (futuro)",
+      "priority": "optional"
+    },
+    {
+      "id": "identity_unlinked",
+      "subject_file": "identity-unlinked-subject.txt",
+      "html_file": "identity-unlinked-notification.html",
+      "enabled_key": "mailer_notifications_identity_unlinked_enabled",
+      "subject_key": "mailer_subjects_identity_unlinked_notification",
+      "content_key": "mailer_templates_identity_unlinked_notification_content",
+      "used_in_app": "Desvincular OAuth",
+      "priority": "optional"
+    },
+    {
+      "id": "mfa_factor_enrolled",
+      "subject_file": "mfa-enrolled-subject.txt",
+      "html_file": "mfa-factor-enrolled-notification.html",
+      "enabled_key": "mailer_notifications_mfa_factor_enrolled_enabled",
+      "subject_key": "mailer_subjects_mfa_factor_enrolled_notification",
+      "content_key": "mailer_templates_mfa_factor_enrolled_notification_content",
+      "used_in_app": "2FA activado",
+      "priority": "optional"
+    },
+    {
+      "id": "mfa_factor_unenrolled",
+      "subject_file": "mfa-unenrolled-subject.txt",
+      "html_file": "mfa-factor-unenrolled-notification.html",
+      "enabled_key": "mailer_notifications_mfa_factor_unenrolled_enabled",
+      "subject_key": "mailer_subjects_mfa_factor_unenrolled_notification",
+      "content_key": "mailer_templates_mfa_factor_unenrolled_notification_content",
+      "used_in_app": "2FA desactivado",
+      "priority": "optional"
+    }
+  ],
+  "transactional_edge_functions": [
+    {
+      "id": "order_confirmation",
+      "function": "send-order-confirmation",
+      "template": "supabase/functions/send-order-confirmation/template.ts",
+      "used_in_app": "Checkout — tras crear orden en Tienda",
+      "priority": "critical",
+      "note": "Resend vía edge function, no Supabase Auth"
+    },
+    {
+      "id": "order_status_update",
+      "function": "send-order-status-email",
+      "template": "supabase/functions/send-order-confirmation/template.ts (buildOrderStatusHtml)",
+      "used_in_app": "Proveedor / Reparto / Admin — al cambiar estado en Mis Órdenes",
+      "triggers": ["processing", "shipped", "in_transit", "delivered", "completed", "cancelled"],
+      "priority": "critical",
+      "note": "Resend vía edge function"
+    }
+  ],
+  "in_app_only_notifications": [
+    { "module": "Nutrición / Recordatorios", "channel": "Push (VAPID)", "email": false },
+    { "module": "Mis Órdenes", "channel": "Campana in-app + email solo al comprar", "email": "parcial" },
+    { "module": "Adopción / Parejas / Chat", "channel": "Campana in-app", "email": false },
+    { "module": "Suscripciones", "channel": "Cron renueva órdenes", "email": "pendiente — no implementado" }
+  ]
+}

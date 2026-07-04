@@ -67,9 +67,14 @@ export const Register: React.FC = () => {
 
     try {
       localStorage.removeItem('user_role');
-      await signUp(formData.email, formData.password);
 
       const userRole = isAdminEmail ? 'admin' : (isDeliveryEmail ? 'delivery' : formData.role);
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+
+      await signUp(formData.email, formData.password, {
+        fullName: fullName || undefined,
+        role: userRole || undefined,
+      });
 
       localStorage.setItem('pending_profile_data', JSON.stringify({
         full_name: `${formData.firstName} ${formData.lastName}`,

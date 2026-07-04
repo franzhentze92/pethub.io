@@ -47,6 +47,7 @@ import OrderItemPetsList from './OrderItemPetsList';
 import { attachPetsToOrderItems, fetchPetsForOrderItems, type OrderItemPet } from '@/utils/orderItemPets';
 import { dispatchNotificationsUpdated } from '@/utils/notificationEvents';
 import { markMarketplaceNotificationsRead } from '@/utils/marketplaceNotifications';
+import { sendOrderStatusEmail } from '@/utils/sendOrderStatusEmail';
 
 const filterPanelClass =
   'rounded-2xl bg-white border border-gray-100 shadow-sm p-4 space-y-4';
@@ -358,6 +359,8 @@ const ProviderOrders: React.FC<ProviderOrdersProps> = ({ accent = 'mango' }) => 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       setUpdatingStatus(orderId);
+
+      const previousStatus = orders.find((o) => o.id === orderId)?.status;
       
       console.log('Updating order status:', { orderId, newStatus });
       
@@ -459,6 +462,13 @@ const ProviderOrders: React.FC<ProviderOrdersProps> = ({ accent = 'mango' }) => 
       });
 
       dispatchNotificationsUpdated();
+
+      void sendOrderStatusEmail(
+        (name, options) => supabase.functions.invoke(name, options),
+        orderId,
+        newStatus,
+        previousStatus,
+      );
 
     } catch (error) {
       console.error('Error updating order status:', error);

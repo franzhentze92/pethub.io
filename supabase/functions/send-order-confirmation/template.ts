@@ -58,9 +58,9 @@ const C = {
   border: '#e2e8f0',
   bg: '#f8fafc',
   bgCard: '#ffffff',
-  headerGradient: 'linear-gradient(135deg, #00F0C8 0%, #38F9A0 100%)',
-  ctaGradient: 'linear-gradient(135deg, #00F0C8 0%, #38F9A0 100%)',
-  cardGradient: 'linear-gradient(180deg, #E6FDF9 0%, #EBFEF5 50%, #ffffff 100%)',
+  headerGradient: '#00F0C8',
+  ctaGradient: '#00F0C8',
+  cardGradient: '#E6FDF9',
   shadow: '0 4px 24px rgba(0, 240, 200, 0.12)',
 };
 
@@ -150,13 +150,595 @@ function orderStatusLabel(status?: string | null): string {
       return 'En proceso';
     case 'shipped':
       return 'En camino';
+    case 'in_transit':
+      return 'En tránsito';
     case 'delivered':
       return 'Entregada';
+    case 'completed':
+      return 'Completada';
     case 'cancelled':
       return 'Cancelada';
     default:
       return status || 'Confirmada';
   }
+}
+
+export interface OrderStatusEmailData {
+  order_number: string;
+  updated_at: string;
+  client_name: string;
+  client_email: string;
+  status: string;
+  previous_status?: string | null;
+  currency: string;
+  grand_total: number;
+  delivery_address?: string | null;
+  delivery_city?: string | null;
+  fulfillment_method?: string | null;
+  items: Pick<OrderEmailItem, 'item_name' | 'quantity' | 'item_type'>[];
+  app_url?: string;
+}
+
+type StatusEmailMeta = {
+  subject: string;
+  headerBg: string;
+  headerSubtitle: string;
+  headerIcon: string;
+  title: string;
+  message: string;
+  statusBadgeBg: string;
+  statusBadgeColor: string;
+  statusBadgeBorder: string;
+};
+
+function statusEmailMeta(status: string): StatusEmailMeta {
+  switch (status) {
+    case 'processing':
+      return {
+        subject: 'Tu orden está en preparación',
+        headerBg: C.mint,
+        headerSubtitle: 'En preparación',
+        headerIcon: '📦',
+        title: 'Estamos preparando tu pedido',
+        message: 'Tu orden ya está en proceso. Te avisaremos cuando salga hacia ti.',
+        statusBadgeBg: C.mintLight,
+        statusBadgeColor: C.mintDark,
+        statusBadgeBorder: 'rgba(56, 249, 160, 0.4)',
+      };
+    case 'shipped':
+    case 'in_transit':
+      return {
+        subject: '¡Tu orden va en camino!',
+        headerBg: C.aqua,
+        headerSubtitle: 'En camino',
+        headerIcon: '🚚',
+        title: '¡Tu pedido va en camino!',
+        message: 'Tu orden ya salió y está en ruta. Pronto la recibirás.',
+        statusBadgeBg: C.aquaLight,
+        statusBadgeColor: C.aquaDark,
+        statusBadgeBorder: 'rgba(0, 240, 200, 0.4)',
+      };
+    case 'delivered':
+    case 'completed':
+      return {
+        subject: '¡Tu orden fue entregada!',
+        headerBg: C.mango,
+        headerSubtitle: 'Entregada',
+        headerIcon: '🎯',
+        title: '¡Pedido entregado!',
+        message: 'Tu orden fue entregada con éxito. Esperamos que a ti y a tu mascota les encante.',
+        statusBadgeBg: C.mangoLight,
+        statusBadgeColor: C.mangoDark,
+        statusBadgeBorder: 'rgba(255, 183, 3, 0.4)',
+      };
+    case 'cancelled':
+      return {
+        subject: 'Tu orden fue cancelada',
+        headerBg: '#64748b',
+        headerSubtitle: 'Cancelada',
+        headerIcon: '✕',
+        title: 'Tu orden fue cancelada',
+        message: 'Esta orden ya no está activa. Si tienes dudas, contáctanos en contacto@pethub.gt.',
+        statusBadgeBg: '#f1f5f9',
+        statusBadgeColor: '#475569',
+        statusBadgeBorder: '#cbd5e1',
+      };
+    default:
+      return {
+        subject: 'Actualización de tu orden',
+        headerBg: C.aqua,
+        headerSubtitle: 'Actualización',
+        headerIcon: '📋',
+        title: 'Tu orden fue actualizada',
+        message: 'Hay una nueva actualización en el estado de tu pedido.',
+        statusBadgeBg: C.aquaLight,
+        statusBadgeColor: C.aquaDark,
+        statusBadgeBorder: 'rgba(0, 240, 200, 0.4)',
+      };
+  }
+}
+
+function renderStatusItemsList(
+  items: OrderStatusEmailData['items'],
+  currency: string,
+): string {
+  if (!items.length) return '';
+  const rows = items
+    .slice(0, 6)
+    .map(
+      (item) =>
+        `<tr><td style="padding:8px 0;font-size:13px;color:${C.textMuted};border-bottom:1px solid ${C.border};">
+          <strong style="color:${C.text};">${escapeHtml(item.item_name)}</strong>
+          <span style="color:${C.textLight};"> · x${item.quantity} · ${itemTypeLabel(item.item_type)}</span>
+        </td></tr>`,
+    )
+    .join('');
+  const more =
+    items.length > 6
+      ? `<tr><td style="padding:8px 0;font-size:12px;color:${C.textLight};">+ ${items.length - 6} artículo(s) más</td></tr>`
+      : '';
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;">${rows}${more}</table>`;
+}
+
+export function buildOrderStatusSubject(data: OrderStatusEmailData): string {
+  const meta = statusEmailMeta(data.status);
+  return `${meta.subject} — ${data.order_number} · PetHub`;
+}
+
+export function buildOrderStatusHtml(data: OrderStatusEmailData): string {
+  const meta = statusEmailMeta(data.status);
+  const appUrl = data.app_url || 'https://pethubgt.com';
+  const ordersUrl = `${appUrl}/client-orders`;
+  const clientName = escapeHtml(data.client_name);
+  const fulfillment = data.fulfillment_method === 'pickup' ? 'Retiro en tienda' : 'Entrega a domicilio';
+  const address =
+    data.delivery_address || data.delivery_city
+      ? [data.delivery_address, data.delivery_city].filter(Boolean).map(escapeHtml).join(', ')
+      : null;
+
+  return `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(meta.title)} — PetHub</title>
+  <style type="text/css">${EMAIL_STYLES}</style>
+</head>
+<body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${C.text};">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-wrapper" style="background:${C.bg};padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:${C.bgCard};border-radius:20px;overflow:hidden;border:1px solid rgba(0,240,200,0.2);box-shadow:${C.shadow};">
+        <tr>
+          <td class="email-header" bgcolor="${meta.headerBg}" style="padding:36px 28px;background:${meta.headerBg};text-align:center;">
+            <div style="font-size:32px;line-height:1;margin-bottom:10px;">${meta.headerIcon}</div>
+            <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">PetHub</div>
+            <div style="font-size:15px;color:rgba(255,255,255,0.95);margin-top:6px;font-weight:500;">${escapeHtml(meta.headerSubtitle)}</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="email-body" style="padding:28px 24px;">
+            <p style="margin:0 0 6px;font-size:17px;color:${C.text};">Hola <strong>${clientName}</strong>,</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:${C.textMuted};">${meta.message}</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.cardGradient};border:1px solid rgba(0,240,200,0.28);border-radius:14px;margin-bottom:20px;">
+              <tr><td style="padding:18px 20px;">
+                <div style="font-size:11px;font-weight:700;color:${C.textLight};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Orden</div>
+                <div style="font-size:17px;font-weight:800;color:${C.aquaDark};font-family:monospace;margin-bottom:12px;">${escapeHtml(data.order_number)}</div>
+                ${badge(orderStatusLabel(data.status), { bg: meta.statusBadgeBg, color: meta.statusBadgeColor, border: meta.statusBadgeBorder })}
+                <div style="margin-top:12px;font-size:13px;color:${C.textMuted};">Total: <strong style="color:${C.text};">${formatMoney(data.currency, data.grand_total)}</strong></div>
+                <div style="margin-top:6px;font-size:12px;color:${C.textLight};">Actualizado: ${formatDateShort(data.updated_at)}</div>
+              </td></tr>
+            </table>
+            ${renderStatusItemsList(data.items, data.currency)}
+            ${
+              address
+                ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="padding:14px 16px;background:${C.bg};border:1px solid ${C.border};border-radius:12px;">
+                <div style="font-size:11px;font-weight:700;color:${C.textLight};text-transform:uppercase;margin-bottom:4px;">${fulfillment}</div>
+                <div style="font-size:13px;color:${C.textMuted};">📍 ${address}</div>
+              </td></tr></table>`
+                : ''
+            }
+            <table role="presentation" cellspacing="0" cellpadding="0" align="center" width="100%">
+              <tr><td align="center" class="cta-cell" style="border-radius:14px;background:${C.aqua};">
+                <a href="${ordersUrl}" style="display:inline-block;padding:16px 32px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">Ver mis órdenes</a>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 24px;background:${C.bg};text-align:center;border-top:1px solid ${C.border};">
+            <p style="margin:0;font-size:11px;color:#94a3b8;">© PetHub · <a href="https://pethubgt.com" style="color:${C.aquaDark};text-decoration:none;">pethubgt.com</a></p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function buildOrderStatusText(data: OrderStatusEmailData): string {
+  const meta = statusEmailMeta(data.status);
+  const lines = [
+    `Hola ${data.client_name},`,
+    '',
+    meta.message,
+    '',
+    `Orden: ${data.order_number}`,
+    `Estado: ${orderStatusLabel(data.status)}`,
+    `Total: ${formatMoney(data.currency, data.grand_total)}`,
+    '',
+    ...data.items.map((i) => `• ${i.item_name} x${i.quantity}`),
+    '',
+    `Ver pedido: ${(data.app_url || 'https://pethubgt.com')}/client-orders`,
+    '',
+    'PetHub',
+  ];
+  return lines.join('\n');
+}
+
+export interface SubscriptionRenewalEmailData {
+  client_name: string;
+  client_email: string;
+  product_name: string;
+  product_size?: string | null;
+  quantity: number;
+  unit_price: number;
+  amount_charged: number;
+  currency: string;
+  interval_type: string;
+  delivery_date: string;
+  next_delivery_date: string;
+  deliveries_count: number;
+  order_number: string;
+  fulfillment_method?: string | null;
+  delivery_address?: string | null;
+  delivery_city?: string | null;
+  payment_status?: string | null;
+  app_url?: string;
+}
+
+function subscriptionIntervalLabel(interval: string): string {
+  switch (interval) {
+    case 'weekly':
+      return 'Cada semana';
+    case 'biweekly':
+      return 'Cada 2 semanas';
+    case 'monthly':
+      return 'Cada mes';
+    case 'bimonthly':
+      return 'Cada 2 meses';
+    case 'quarterly':
+      return 'Cada 3 meses';
+    default:
+      return interval;
+  }
+}
+
+function formatDateOnly(date: string): string {
+  try {
+    return new Date(`${date}T12:00:00`).toLocaleDateString('es-GT', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return date;
+  }
+}
+
+export function buildSubscriptionRenewalSubject(data: SubscriptionRenewalEmailData): string {
+  return `Tu suscripción fue renovada — ${data.product_name} · PetHub`;
+}
+
+export function buildSubscriptionRenewalHtml(data: SubscriptionRenewalEmailData): string {
+  const appUrl = data.app_url || 'https://pethubgt.com';
+  const subscriptionsUrl = `${appUrl}/my-subscriptions`;
+  const clientName = escapeHtml(data.client_name);
+  const productLine = data.product_size
+    ? `${escapeHtml(data.product_name)} (${escapeHtml(data.product_size)})`
+    : escapeHtml(data.product_name);
+  const fulfillment =
+    data.fulfillment_method === 'pickup' ? 'Retiro en tienda' : 'Entrega a domicilio';
+  const address =
+    data.delivery_address || data.delivery_city
+      ? [data.delivery_address, data.delivery_city].filter(Boolean).map(escapeHtml).join(', ')
+      : null;
+  const paymentLabel = paymentStatusLabel(data.payment_status);
+
+  return `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suscripción renovada — PetHub</title>
+  <style type="text/css">${EMAIL_STYLES}</style>
+</head>
+<body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${C.text};">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-wrapper" style="background:${C.bg};padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:${C.bgCard};border-radius:20px;overflow:hidden;border:1px solid rgba(0,240,200,0.2);box-shadow:${C.shadow};">
+        <tr>
+          <td class="email-header" bgcolor="${C.aqua}" style="padding:36px 28px;background:${C.aqua};text-align:center;">
+            <div style="font-size:32px;line-height:1;margin-bottom:10px;">🔄</div>
+            <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">PetHub</div>
+            <div style="font-size:15px;color:rgba(255,255,255,0.95);margin-top:6px;font-weight:500;">Suscripción renovada</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="email-body" style="padding:28px 24px;">
+            <p style="margin:0 0 6px;font-size:17px;color:${C.text};">Hola <strong>${clientName}</strong>,</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:${C.textMuted};">
+              Tu suscripción se renovó automáticamente. Programamos una nueva entrega y registramos la orden correspondiente.
+            </p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.cardGradient};border:1px solid rgba(0,240,200,0.28);border-radius:14px;margin-bottom:20px;">
+              <tr><td style="padding:18px 20px;">
+                <div style="font-size:11px;font-weight:700;color:${C.textLight};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Producto</div>
+                <div style="font-size:17px;font-weight:800;color:${C.aquaDark};margin-bottom:12px;">${productLine}</div>
+                ${badge('Suscripción activa', { bg: C.mintLight, color: C.mintDark, border: 'rgba(56, 249, 160, 0.4)' })}
+                ${badge(subscriptionIntervalLabel(data.interval_type), { bg: C.aquaLight, color: C.aquaDark, border: 'rgba(0, 240, 200, 0.4)' })}
+                <div style="margin-top:14px;font-size:13px;color:${C.textMuted};line-height:1.7;">
+                  <span style="display:block;">Cantidad: <strong style="color:${C.text};">${data.quantity}</strong></span>
+                  <span style="display:block;">Entrega #${data.deliveries_count} · ${formatDateOnly(data.delivery_date)}</span>
+                  <span style="display:block;">Próxima entrega: <strong style="color:${C.text};">${formatDateOnly(data.next_delivery_date)}</strong></span>
+                </div>
+              </td></tr>
+            </table>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.bg};border:1px solid ${C.border};border-radius:14px;margin-bottom:20px;">
+              <tr><td style="padding:18px 20px;">
+                <div style="font-size:11px;font-weight:700;color:${C.textLight};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Orden de renovación</div>
+                <div style="font-size:16px;font-weight:800;color:${C.aquaDark};font-family:monospace;margin-bottom:8px;">${escapeHtml(data.order_number)}</div>
+                <div style="font-size:14px;color:${C.textMuted};">Cargo: <strong style="color:${C.text};">${formatMoney(data.currency, data.amount_charged)}</strong></div>
+                <div style="font-size:13px;color:${C.textLight};margin-top:6px;">Estado de pago: ${paymentLabel}</div>
+              </td></tr>
+            </table>
+            ${
+              address
+                ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="padding:14px 16px;background:${C.bg};border:1px solid ${C.border};border-radius:12px;">
+                <div style="font-size:11px;font-weight:700;color:${C.textLight};text-transform:uppercase;margin-bottom:4px;">${fulfillment}</div>
+                <div style="font-size:13px;color:${C.textMuted};">📍 ${address}</div>
+              </td></tr></table>`
+                : ''
+            }
+            <table role="presentation" cellspacing="0" cellpadding="0" align="center" width="100%">
+              <tr><td align="center" class="cta-cell" style="border-radius:14px;background:${C.aqua};">
+                <a href="${subscriptionsUrl}" style="display:inline-block;padding:16px 32px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">Ver mis suscripciones</a>
+              </td></tr>
+            </table>
+            <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:${C.textLight};text-align:center;">
+              Puedes pausar o cancelar tu suscripción en cualquier momento desde la app PetHub.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 24px;background:${C.bg};text-align:center;border-top:1px solid ${C.border};">
+            <p style="margin:0;font-size:11px;color:#94a3b8;">© PetHub · <a href="https://pethubgt.com" style="color:${C.aquaDark};text-decoration:none;">pethubgt.com</a></p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function buildSubscriptionRenewalText(data: SubscriptionRenewalEmailData): string {
+  const lines = [
+    `Hola ${data.client_name},`,
+    '',
+    'Tu suscripción se renovó automáticamente en PetHub.',
+    '',
+    `Producto: ${data.product_name}${data.product_size ? ` (${data.product_size})` : ''}`,
+    `Frecuencia: ${subscriptionIntervalLabel(data.interval_type)}`,
+    `Cantidad: ${data.quantity}`,
+    `Entrega #${data.deliveries_count}: ${formatDateOnly(data.delivery_date)}`,
+    `Próxima entrega: ${formatDateOnly(data.next_delivery_date)}`,
+    '',
+    `Orden: ${data.order_number}`,
+    `Cargo: ${formatMoney(data.currency, data.amount_charged)}`,
+    `Pago: ${paymentStatusLabel(data.payment_status)}`,
+    '',
+    `Ver suscripciones: ${(data.app_url || 'https://pethubgt.com')}/my-subscriptions`,
+    '',
+    'PetHub',
+  ];
+  return lines.join('\n');
+}
+
+export interface AdoptionApplicationEmailData {
+  applicant_name: string;
+  applicant_email: string;
+  pet_name: string;
+  pet_species?: string | null;
+  pet_breed?: string | null;
+  pet_image_url?: string | null;
+  reviewer_name: string;
+  status: 'approved' | 'rejected';
+  application_message?: string | null;
+  updated_at: string;
+  app_url?: string;
+}
+
+type AdoptionEmailMeta = {
+  subject: string;
+  headerBg: string;
+  headerSubtitle: string;
+  headerIcon: string;
+  title: string;
+  message: string;
+  badgeLabel: string;
+  badgeBg: string;
+  badgeColor: string;
+  badgeBorder: string;
+  ctaLabel: string;
+  ctaPath: string;
+};
+
+function adoptionEmailMeta(status: 'approved' | 'rejected'): AdoptionEmailMeta {
+  if (status === 'approved') {
+    return {
+      subject: '¡Tu solicitud de adopción fue aprobada!',
+      headerBg: C.mint,
+      headerSubtitle: 'Solicitud aprobada',
+      headerIcon: '🎉',
+      title: '¡Buenas noticias!',
+      message:
+        'Tu solicitud de adopción fue aprobada. Ya puedes chatear con el refugio o dueño para coordinar los siguientes pasos.',
+      badgeLabel: 'Aprobada',
+      badgeBg: C.mintLight,
+      badgeColor: C.mintDark,
+      badgeBorder: 'rgba(56, 249, 160, 0.4)',
+      ctaLabel: 'Abrir chat de adopción',
+      ctaPath: '/adopcion',
+    };
+  }
+
+  return {
+    subject: 'Actualización sobre tu solicitud de adopción',
+    headerBg: '#64748b',
+    headerSubtitle: 'Solicitud no aprobada',
+    headerIcon: '💙',
+    title: 'Gracias por tu interés',
+    message:
+      'En esta ocasión tu solicitud no fue aprobada. Puedes seguir explorando otras mascotas en adopción en PetHub.',
+    badgeLabel: 'No aprobada',
+    badgeBg: '#f1f5f9',
+    badgeColor: '#475569',
+    badgeBorder: '#cbd5e1',
+    ctaLabel: 'Ver mis solicitudes',
+    ctaPath: '/adopcion',
+  };
+}
+
+function adoptionSpeciesLabel(species?: string | null): string {
+  switch (species?.toLowerCase()) {
+    case 'dog':
+    case 'perro':
+      return 'Perro';
+    case 'cat':
+    case 'gato':
+      return 'Gato';
+    default:
+      return species || 'Mascota';
+  }
+}
+
+export function buildAdoptionApplicationSubject(data: AdoptionApplicationEmailData): string {
+  const meta = adoptionEmailMeta(data.status);
+  return `${meta.subject} — ${data.pet_name} · PetHub`;
+}
+
+export function buildAdoptionApplicationHtml(data: AdoptionApplicationEmailData): string {
+  const meta = adoptionEmailMeta(data.status);
+  const appUrl = data.app_url || 'https://pethubgt.com';
+  const ctaUrl = `${appUrl}${meta.ctaPath}`;
+  const applicantName = escapeHtml(data.applicant_name);
+  const petName = escapeHtml(data.pet_name);
+  const speciesLine = [adoptionSpeciesLabel(data.pet_species), data.pet_breed]
+    .filter(Boolean)
+    .map((part) => escapeHtml(part as string))
+    .join(' · ');
+
+  const petImage = data.pet_image_url
+    ? `<img src="${escapeHtml(data.pet_image_url)}" alt="" width="72" height="72" style="border-radius:14px;object-fit:cover;display:block;border:1px solid ${C.border};" />`
+    : `<table role="presentation" cellspacing="0" cellpadding="0" width="72" height="72"><tr><td align="center" valign="middle" style="width:72px;height:72px;border-radius:14px;background:${C.aqua};font-size:28px;color:#fff;">🐾</td></tr></table>`;
+
+  const messageBlock = data.application_message?.trim()
+    ? `<div style="margin-top:14px;padding:12px 14px;background:${C.bg};border-radius:10px;font-size:13px;color:${C.textMuted};line-height:1.55;">
+        <strong style="color:${C.text};">Tu mensaje:</strong><br />${escapeHtml(truncate(data.application_message, 240))}
+      </div>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(meta.title)} — PetHub</title>
+  <style type="text/css">${EMAIL_STYLES}</style>
+</head>
+<body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${C.text};">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-wrapper" style="background:${C.bg};padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:${C.bgCard};border-radius:20px;overflow:hidden;border:1px solid rgba(0,240,200,0.2);box-shadow:${C.shadow};">
+        <tr>
+          <td class="email-header" bgcolor="${meta.headerBg}" style="padding:36px 28px;background:${meta.headerBg};text-align:center;">
+            <div style="font-size:32px;line-height:1;margin-bottom:10px;">${meta.headerIcon}</div>
+            <div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">PetHub</div>
+            <div style="font-size:15px;color:rgba(255,255,255,0.95);margin-top:6px;font-weight:500;">${escapeHtml(meta.headerSubtitle)}</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="email-body" style="padding:28px 24px;">
+            <p style="margin:0 0 6px;font-size:17px;color:${C.text};">Hola <strong>${applicantName}</strong>,</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:${C.textMuted};">${meta.message}</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.cardGradient};border:1px solid rgba(0,240,200,0.28);border-radius:14px;margin-bottom:20px;">
+              <tr><td style="padding:18px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td width="84" valign="top" style="padding-right:14px;">${petImage}</td>
+                    <td valign="top">
+                      <div style="font-size:11px;font-weight:700;color:${C.textLight};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Mascota</div>
+                      <div style="font-size:18px;font-weight:800;color:${C.aquaDark};margin-bottom:8px;">${petName}</div>
+                      ${speciesLine ? `<div style="font-size:13px;color:${C.textMuted};margin-bottom:10px;">${speciesLine}</div>` : ''}
+                      ${badge(meta.badgeLabel, { bg: meta.badgeBg, color: meta.badgeColor, border: meta.badgeBorder })}
+                    </td>
+                  </tr>
+                </table>
+                <div style="margin-top:14px;font-size:13px;color:${C.textMuted};">
+                  Revisado por: <strong style="color:${C.text};">${escapeHtml(data.reviewer_name)}</strong>
+                </div>
+                <div style="margin-top:6px;font-size:12px;color:${C.textLight};">Actualizado: ${formatDateShort(data.updated_at)}</div>
+                ${messageBlock}
+              </td></tr>
+            </table>
+            ${
+              data.status === 'approved'
+                ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="padding:14px 16px;background:${C.mintLight};border:1px solid rgba(56,249,160,0.35);border-radius:12px;font-size:13px;line-height:1.6;color:${C.textMuted};">
+                <strong style="color:${C.mintDark};">Siguiente paso:</strong> entra a PetHub → Adopción → Chats para coordinar la entrega con ${escapeHtml(data.reviewer_name)}.
+              </td></tr></table>`
+                : ''
+            }
+            <table role="presentation" cellspacing="0" cellpadding="0" align="center" width="100%">
+              <tr><td align="center" class="cta-cell" style="border-radius:14px;background:${data.status === 'approved' ? C.mint : C.aqua};">
+                <a href="${ctaUrl}" style="display:inline-block;padding:16px 32px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">${meta.ctaLabel}</a>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 24px;background:${C.bg};text-align:center;border-top:1px solid ${C.border};">
+            <p style="margin:0;font-size:11px;color:#94a3b8;">© PetHub · <a href="https://pethubgt.com" style="color:${C.aquaDark};text-decoration:none;">pethubgt.com</a></p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export function buildAdoptionApplicationText(data: AdoptionApplicationEmailData): string {
+  const meta = adoptionEmailMeta(data.status);
+  const lines = [
+    `Hola ${data.applicant_name},`,
+    '',
+    meta.message,
+    '',
+    `Mascota: ${data.pet_name}`,
+    data.pet_breed ? `Raza: ${data.pet_breed}` : '',
+    `Estado: ${meta.badgeLabel}`,
+    `Revisado por: ${data.reviewer_name}`,
+    '',
+    ...(data.application_message?.trim() ? [`Tu mensaje: ${data.application_message.trim()}`, ''] : []),
+    data.status === 'approved'
+      ? 'Siguiente paso: entra a PetHub → Adopción → Chats para coordinar la adopción.'
+      : 'Puedes seguir explorando otras mascotas en adopción.',
+    '',
+    `Abrir PetHub: ${(data.app_url || 'https://pethubgt.com')}${meta.ctaPath}`,
+    '',
+    'PetHub',
+  ].filter(Boolean);
+  return lines.join('\n');
 }
 
 function itemTypeLabel(type: string): string {
@@ -262,7 +844,7 @@ function renderItems(items: OrderEmailItem[], currency: string, fulfillmentMetho
 
       const imageBlock = item.item_image_url
         ? `<img src="${escapeHtml(item.item_image_url)}" alt="" width="64" height="64" style="border-radius:12px;object-fit:cover;display:block;border:1px solid ${C.border};" />`
-        : `<table role="presentation" cellspacing="0" cellpadding="0" width="64" height="64" style="border-radius:12px;background:${C.aqua};"><tr><td align="center" valign="middle" style="font-size:24px;color:#fff;border-radius:12px;background:linear-gradient(135deg, ${C.aqua} 0%, ${C.mint} 100%);">🐾</td></tr></table>`;
+        : `<table role="presentation" cellspacing="0" cellpadding="0" width="64" height="64" style="border-radius:12px;background:${C.aqua};"><tr><td align="center" valign="middle" style="font-size:24px;color:#fff;border-radius:12px;background:${C.aqua};">🐾</td></tr></table>`;
 
       return `
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="item-card" style="margin-bottom:${isLast ? '0' : '12px'};background:${C.bgCard};border:1px solid ${C.border};border-radius:14px;">

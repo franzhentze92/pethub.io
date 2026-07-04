@@ -1,0 +1,1 @@
+Verificación en dos pasos desactivada en PetHub

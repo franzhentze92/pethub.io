@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/supabase'
 import { copyPetImagesToAdoptionPet, getPrimaryPetImageUrl } from '@/utils/petImages'
 import { dispatchNotificationsUpdated } from '@/utils/notificationEvents'
+import { sendAdoptionApplicationEmail } from '@/utils/sendAdoptionApplicationEmail'
 import { resolveSpeciesFilter } from '@/utils/petLabels'
 
 export type Shelter = Database['public']['Tables']['shelters']['Row']
@@ -986,6 +987,16 @@ export const useUpdateAdoptionApplication = () => {
       status: 'approved' | 'rejected'; 
       shelterId?: string;
     }) => {
+      const { data: existing, error: fetchError } = await supabase
+        .from('adoption_applications')
+        .select('status')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const previousStatus = existing?.status ?? null;
+
       const { data, error } = await supabase
         .from('adoption_applications')
         .update({ status })
@@ -994,7 +1005,7 @@ export const useUpdateAdoptionApplication = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return { ...data, previousStatus };
     },
     onMutate: async ({ applicationId, status }) => {
       // Cancel any outgoing refetches
@@ -1022,6 +1033,14 @@ export const useUpdateAdoptionApplication = () => {
           queryClient.setQueryData(queryKey, data);
         });
       }
+    },
+    onSuccess: (data) => {
+      void sendAdoptionApplicationEmail(
+        (name, options) => supabase.functions.invoke(name, options),
+        data.id,
+        data.status,
+        data.previousStatus,
+      );
     },
     onSettled: () => {
       // Always refetch after error or success to ensure we have the latest data
